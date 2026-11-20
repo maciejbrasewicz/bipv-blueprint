@@ -7,7 +7,7 @@
 - [Application commit](https://github.com/maciejbrasewicz/bipv-blueprint/commit/ab373fbde073c21a8013685f68070735f6a67d1e) reached SUCCESS on the existing Railway service. Deployment `4565b132-c2e7-4b7e-bee9-556348296a49`.
 - Named accounts open organization workspaces. An explicit guest claim preserves project identity and revisions, and removes guest access. Project and private Storage access use current membership.
 - Hosted migrations `20261120230537` and `20261120230542` were applied and verified in a rolled-back fixture transaction. The GitHub migration versions match the hosted history.
-- [Quality gates](https://github.com/maciejbrasewicz/bipv-blueprint/actions/runs/44834745731) passed on the promoted SHA. [Production verification](https://github.com/maciejbrasewicz/bipv-blueprint/actions/workflows/production-smoke.yml) uses the pinned target below.
+- [Quality gates](https://github.com/maciejbrasewicz/bipv-blueprint/actions/runs/44834745731) passed on the promoted SHA. [Production verification](https://github.com/maciejbrasewicz/bipv-blueprint/actions/runs/44838435416) confirmed the deployed SHA, guest data isolation, revision writes and all three live editor journeys. Named login and claim UI use a test Auth response in CI. The live browser check covered the public account form and the 2D fallback; the authorization and migration claims were also tested directly on the hosted database.
 
 ## Metric plan and product contracts · 20 November 2026
 
