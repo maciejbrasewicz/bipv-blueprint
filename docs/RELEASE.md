@@ -1,4 +1,13 @@
-# Planar geometry and OBJ release · 20 November 2026
+# Release history
+
+## Metric plan and product contracts · 20 November 2026
+
+- [Application commit](https://github.com/maciejbrasewicz/bipv-blueprint/commit/95841ae57a61d43bdc73937dfe877a8ebe7c39d1) reached SUCCESS on the existing Railway service. Deployment ID `7290da93-7c0e-494e-a2d4-766628349164`.
+- The editor has a metric UV plan per surface, including concave outlines, holes and active variant placement. Obstacle selection persists between 2D and 3D, with numeric editing and undo.
+- [Quality gates](https://github.com/maciejbrasewicz/bipv-blueprint/actions/runs/44826345273) passed on the promoted SHA. The run covers 30 Python tests, three Chromium journeys, the PostgreSQL migration and history checks, the unchanged 20-test roof ZIP, and a Docker run at 250 MB / 0.1 vCPU.
+- [Production verification](https://github.com/maciejbrasewicz/bipv-blueprint/actions/workflows/production-smoke.yml) uses the pinned SHA in [production-target.json](production-target.json). The organization migration is tracked for P04/P05. The runtime uses the existing guest project API and data.
+
+## Planar geometry and OBJ release · 20 November 2026
 
 - [Deployed commit](https://github.com/maciejbrasewicz/bipv-blueprint/commit/a4b6c2f8cf96a2835bf05504c13425b303747c3b) on Railway. Deployment bd5de298-343f-4121-b90e-cd9d80569e10 reached SUCCESS. The production health check matched the promoted SHA.
 - The editor accepts concave roof and facade outlines and interior openings in metric UV. The OBJ export preserves holes and selected module positions. Legacy gable scenes remain readable.
