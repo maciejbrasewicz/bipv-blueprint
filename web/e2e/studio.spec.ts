@@ -26,7 +26,12 @@ test("studio renders, edits, undoes, exports and imports", async ({ page }) => {
     path: "test-results/studio-desktop.png",
     fullPage: true,
   });
-  await page.screenshot({path:"test-results/studio-desktop-review.jpg",type:"jpeg",quality:70,fullPage:true});
+  await page.screenshot({
+    path: "test-results/studio-desktop-review.jpg",
+    type: "jpeg",
+    quality: 70,
+    fullPage: true,
+  });
   const power = await page.locator(".power-number").innerText();
   await page.getByLabel("Szerokość dachu", { exact: true }).fill("10");
   await expect(page.locator(".power-number")).not.toHaveText(power);
