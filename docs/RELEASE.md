@@ -5,7 +5,9 @@
 - Live studio: https://bipv-studio-production.up.railway.app
 - [Exact-commit quality run](https://github.com/maciejbrasewicz/bipv-blueprint/actions/runs/44770026321): **SUCCESS**. 14 backend tests, real Chromium interaction test and Docker smoke at 250 MB / 0.1 CPU passed. Cloud-only case is intentionally skipped in local CI.
 - Container after layout: 45.22 MiB RAM under a 238.4 MiB cap. The first live Railway sample was 0.0464 GB RAM; this is an instantaneous sample, not a monthly bill forecast.
-- [Production verification](https://github.com/maciejbrasewicz/bipv-blueprint/actions/workflows/production-smoke.yml) is triggered by this release-target update. It verifies the health commit, UI save, two guest-workspace isolation, denied cross-read/update/delete, stale revisions and fixture cleanup on the actual hosted service.
+- [Production verification](https://github.com/maciejbrasewicz/bipv-blueprint/actions/runs/44772861615): **SUCCESS**. The live health commit matched the promoted code. API guest isolation and stale revisions passed (4.3 s); the live browser flow, UI save and desktop/mobile checks passed (19.3 s). Both test cases removed their own records.
+- [Current CI infrastructure verification](https://github.com/maciejbrasewicz/bipv-blueprint/actions/runs/44772861635): **SUCCESS** after separating API checks from browser fixtures and using headless-only browser installation. These follow-up changes affect tests/workflows, not the deployed application.
+- The final live Railway sample after cloud tests was **0.0486 GB RAM** with current CPU usage 0. This is an instantaneous sample, not a billing forecast.
 - The evidence/r1 branch stores screenshots and observed statuses; evidence/live/run.json is the live check result, not a planned PASS.
 - Supabase security and performance advisors returned no lints after migrations.
 
