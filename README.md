@@ -1,5 +1,9 @@
 # Registry9 BIPV Studio
 
+**Live:** https://bipv-studio-production.up.railway.app
+
+[Quality gates](https://github.com/maciejbrasewicz/bipv-blueprint/actions/runs/44770026321) · [Production verification](https://github.com/maciejbrasewicz/bipv-blueprint/actions/workflows/production-smoke.yml)
+
 An interactive engineering demonstrator for parametric BIPV roofs. React / TypeScript / Three.js, a Python geometry engine, private guest persistence in Supabase and one sleeping Railway Hobby container.
 
 ## R1
