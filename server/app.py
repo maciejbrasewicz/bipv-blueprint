@@ -214,6 +214,45 @@ async def delete_project(
     )
 
 
+@app.get("/api/projects/{project_id}/revisions")
+async def list_revisions(
+    project_id: UUID, request: Request, x_workspace_key: str | None = Header(default=None)
+):
+    rows = await db(
+        request,
+        "GET",
+        "bipv_project_revisions",
+        x_workspace_key,
+        params={
+            "select": "revision,name,saved_at",
+            "project_id": f"eq.{project_id}",
+            "order": "revision.desc",
+            "limit": "20",
+        },
+    )
+    return {"revisions": rows}
+
+
+@app.get("/api/projects/{project_id}/revisions/{revision}")
+async def read_revision(
+    project_id: UUID, revision: int, request: Request, x_workspace_key: str | None = Header(default=None)
+):
+    rows = await db(
+        request,
+        "GET",
+        "bipv_project_revisions",
+        x_workspace_key,
+        params={
+            "select": "project_id,revision,name,scene,saved_at",
+            "project_id": f"eq.{project_id}",
+            "revision": f"eq.{revision}",
+        },
+    )
+    if not rows:
+        raise HTTPException(404, "Rewizja nie istnieje w tej przestrzeni.")
+    return rows[0]
+
+
 if (DIST / "assets").is_dir():
     app.mount("/assets", StaticFiles(directory=DIST / "assets"), name="assets")
 

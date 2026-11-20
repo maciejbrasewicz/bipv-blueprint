@@ -1,6 +1,6 @@
 # BIPV Studio implementation rules
 
-Read README.md and docs/ARCHITECTURE.md. R1 is a procedural engineering demo, not address reconstruction or validated electrical design.
+Start with docs/HANDOFF.md, README.md and docs/ARCHITECTURE.md. R1 is a procedural engineering demo, not address reconstruction or validated electrical design.
 
 - Python domain/API: server/. Frontend: web/. DDL: tracked supabase/migrations/. API input contract: Scene in server/models.py.
 - Metric ENU is authoritative; render mapping (E,N,U) -> (E,U,-N). Check full module polygons, holes, edge setback and obstacle clearance. Preserve independent geometric oracles.

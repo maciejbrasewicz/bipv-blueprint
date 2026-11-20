@@ -172,6 +172,19 @@ test("live cloud isolates guest workspaces and rejects stale revisions", async (
         })
       ).status(),
     ).toBe(409);
+    const historyPath = "/api/projects/" + id + "/revisions";
+    const history = await request.get(historyPath, { headers: ha });
+    expect(history.status()).toBe(200);
+    const revisions: { revision: number }[] = (await history.json()).revisions;
+    expect(revisions.map((r) => r.revision)).toEqual([2, 1]);
+    const original = await request.get(historyPath + "/1", { headers: ha });
+    expect(original.status()).toBe(200);
+    expect((await original.json()).scene.name).toBe("CI isolation fixture");
+    const foreignHistory = await request.get(historyPath, { headers: hb });
+    expect((await foreignHistory.json()).revisions).toEqual([]);
+    expect(
+      (await request.get(historyPath + "/1", { headers: hb })).status(),
+    ).toBe(404);
   } finally {
     if (id) {
       expect(
