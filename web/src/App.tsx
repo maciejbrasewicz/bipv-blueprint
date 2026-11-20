@@ -967,7 +967,7 @@ export default function App() {
               <div
                 style={{
                   transform:
-                    "rotate(" + (-scene.roof.azimuth_deg + 180) + "deg)",
+                    "rotate(" + scene.roof.azimuth_deg + "deg)",
                 }}
               >
                 <ArrowRight size={25} />
@@ -1279,11 +1279,11 @@ export default function App() {
               "status-dot " + (error ? "red" : computing ? "amber" : "")
             }
           />
-          {error
+          <span data-testid="layout-status">{error
             ? "Błąd obliczenia"
             : computing
               ? "Przeliczanie układu"
-              : "Geometria obliczona"}
+              : "Geometria obliczona"}</span>
           <span className="status-separator" />
           <Save size={12} />
           Kopia lokalna
