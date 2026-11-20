@@ -183,14 +183,3 @@ test("live cloud isolates guest workspaces and rejects stale revisions", async (
     }
   }
 });
-
-test.afterEach(async ({ page }, info) => {
-  if (info.status !== info.expectedStatus)
-    console.log(
-      "PAGE_TEXT",
-      await page
-        .locator("body")
-        .innerText()
-        .catch(() => "unavailable"),
-    );
-});
