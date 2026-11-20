@@ -38,11 +38,13 @@ import {
   Trash2,
   Undo2,
   Upload,
+  UserRound,
   X,
   Zap,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { api, download, workspaceKey } from "./api";
+import AccountDialog from "./AccountDialog";
 import SurfacePlan from "./SurfacePlan";
 import examplePlanes from "./example-planes.json";
 import {
@@ -50,6 +52,7 @@ import {
   type CloudRef,
   type Layout,
   type Obstacle,
+  type Organization,
   type Project,
   type ProjectRevisionSummary,
   type ProjectSummary,
@@ -153,7 +156,45 @@ function readCloudRef(): CloudRef | null {
   }
 }
 export default function App() {
-  const [scene, setScene] = useState<Scene>(readLocal),
+  const [workspace, setWorkspace] = useState<{
+    organization: Organization;
+    project?: Project;
+  } | null>(null);
+  function selectWorkspace(
+    organization: Organization | null,
+    project?: Project,
+  ) {
+    if (project) {
+      try {
+        localStorage.removeItem("bipv.cloudproject.v1");
+        localStorage.removeItem("bipv.scene.v1");
+      } catch {}
+    }
+    setWorkspace(organization ? { organization, project } : null);
+  }
+
+  return (
+    <Studio
+      key={workspace?.organization.id ?? "guest"}
+      organization={workspace?.organization ?? null}
+      initialProject={workspace?.project}
+      onScope={selectWorkspace}
+    />
+  );
+}
+
+function Studio({
+  organization,
+  initialProject,
+  onScope,
+}: {
+  organization: Organization | null;
+  initialProject?: Project;
+  onScope: (organization: Organization | null, project?: Project) => void;
+}) {
+  const [scene, setScene] = useState<Scene>(() =>
+      organization ? (initialProject?.scene ?? INITIAL) : readLocal(),
+    ),
     [history, setHistory] = useState<Scene[]>([]),
     [future, setFuture] = useState<Scene[]>([]);
   const [result, setResult] = useState<Layout | null>(null),
@@ -171,7 +212,26 @@ export default function App() {
     [sunDate, setSunDate] = useState("2026-11-20"),
     [toast, setToast] = useState(""),
     [saving, setSaving] = useState(false),
-    [project, setProject] = useState<CloudRef | null>(readCloudRef);
+    [project, setProject] = useState<CloudRef | null>(() => {
+      if (!organization) return readCloudRef();
+      return initialProject
+        ? {
+            id: initialProject.id,
+            revision: initialProject.revision,
+            input: JSON.stringify(initialProject.scene),
+          }
+        : null;
+    });
+  const [accountOpen, setAccountOpen] = useState(false);
+  const projectKey = () =>
+    organization ? { organizationId: organization.id } : workspaceKey();
+  const dirty = project
+    ? project.input !== JSON.stringify(scene)
+    : JSON.stringify(scene) !== JSON.stringify(INITIAL);
+  const canLeave = () =>
+    !organization ||
+    !dirty ||
+    window.confirm("Porzucić niezapisane zmiany w projekcie organizacji?");
   const [projectModal, setProjectModal] = useState(false),
     [projects, setProjects] = useState<ProjectSummary[]>([]),
     [projectLoading, setProjectLoading] = useState(false),
@@ -214,19 +274,21 @@ export default function App() {
       .catch(() => {});
   }, []);
   useEffect(() => {
+    if (organization) return;
     try {
       localStorage.setItem("bipv.scene.v1", serialized);
     } catch {
       setToast("Pamięć urządzenia jest niedostępna. Wyeksportuj projekt JSON.");
     }
-  }, [serialized]);
+  }, [serialized, organization]);
   useEffect(() => {
+    if (organization) return;
     try {
       if (project)
         localStorage.setItem("bipv.cloudproject.v1", JSON.stringify(project));
       else localStorage.removeItem("bipv.cloudproject.v1");
     } catch {}
-  }, [project]);
+  }, [project, organization]);
   useEffect(() => {
     const controller = new AbortController();
     setComputing(true);
@@ -298,7 +360,7 @@ export default function App() {
         project ? "projects/" + project.id : "projects",
         project ? "PATCH" : "POST",
         { scene, ...(project ? { expected_revision: project.revision } : {}) },
-        workspaceKey(),
+        projectKey(),
       );
       setProject({
         id: p.id,
@@ -332,7 +394,7 @@ export default function App() {
         "projects/" + summary.id + "/revisions",
         "GET",
         undefined,
-        workspaceKey(),
+        projectKey(),
         controller.signal,
       );
       if (!controller.signal.aborted) setRevisionList(revisions);
@@ -360,7 +422,7 @@ export default function App() {
     setProjectLoading(true);
     try {
       const path = "projects/" + summary.id;
-      const key = workspaceKey();
+      const key = projectKey();
       const [latest, snapshot] = await Promise.all([
         api<Project>(path, "GET", undefined, key, controller.signal),
         api<{ scene: Scene }>(
@@ -400,7 +462,7 @@ export default function App() {
         "projects",
         "GET",
         undefined,
-        workspaceKey(),
+        projectKey(),
       );
       setProjects(r.projects);
     } catch (e) {
@@ -416,7 +478,7 @@ export default function App() {
         "projects/" + id,
         "GET",
         undefined,
-        workspaceKey(),
+        projectKey(),
       );
       changed(p.scene);
       setProject({
@@ -435,7 +497,7 @@ export default function App() {
   }
   async function removeProject(id: string) {
     try {
-      await api("projects/" + id, "DELETE", undefined, workspaceKey());
+      await api("projects/" + id, "DELETE", undefined, projectKey());
       setProjects((ps) => ps.filter((p) => p.id !== id));
       if (project?.id === id) setProject(null);
       setToast("Usunięto zapis w chmurze. Kopia lokalna pozostaje.");
@@ -623,9 +685,18 @@ export default function App() {
           />
         </div>
         <span className="version-pill">
-          R1 <span>·</span> DEMO
+          {organization?.name ?? "TRYB GOŚCIA"}
         </span>
         <div className="header-actions">
+          {cloudConfigured && (
+            <IconButton
+              label="Konto i organizacje"
+              disabled={saving || projectLoading}
+              onClick={() => setAccountOpen(true)}
+            >
+              <UserRound size={16} />
+            </IconButton>
+          )}
           <button
             className="button subtle"
             aria-label="Projekty"
@@ -676,7 +747,9 @@ export default function App() {
             className="button primary"
             aria-label="Zapisz projekt"
             onClick={save}
-            disabled={saving || !cloudConfigured}
+            disabled={
+              saving || !cloudConfigured || organization?.role === "viewer"
+            }
           >
             {saving ? (
               <LoaderCircle size={15} className="spin" />
@@ -1519,6 +1592,19 @@ export default function App() {
           </button>
         </div>
       )}
+      {accountOpen && (
+        <AccountDialog
+          active={organization}
+          guestProject={organization ? null : project}
+          guestDirty={dirty}
+          canLeave={canLeave}
+          onScope={(item, moved) => {
+            setAccountOpen(false);
+            onScope(item, moved);
+          }}
+          onClose={() => setAccountOpen(false)}
+        />
+      )}
       {projectModal && (
         <div className="modal-backdrop" onClick={closeProjects}>
           <section
@@ -1530,7 +1616,9 @@ export default function App() {
           >
             <div className="modal-heading">
               <div>
-                <span className="eyebrow">PRZESTRZEŃ GOŚCINNA</span>
+                <span className="eyebrow">
+                  {organization?.name ?? "PRZESTRZEŃ GOŚCINNA"}
+                </span>
                 <h2>
                   {revisionProject ? "Historia projektu" : "Twoje projekty."}
                 </h2>
@@ -1599,9 +1687,9 @@ export default function App() {
             ) : (
               <>
                 <p>
-                  Zapisy są przypisane do losowego klucza tej przeglądarki.
-                  Wyczyszczenie jej pamięci usuwa dostęp do przestrzeni.
-                  Zachowaj eksport JSON.
+                  {organization
+                    ? "Zapisy dostępne dla uczestników tej organizacji."
+                    : "Zapisy są przypisane do klucza tej przeglądarki. Zachowaj eksport JSON."}
                 </p>
                 {projectLoading ? (
                   <div className="empty">
@@ -1630,6 +1718,9 @@ export default function App() {
                       </IconButton>
                       <IconButton
                         label={"Usuń projekt " + p.name}
+                        disabled={
+                          !!organization && organization.role !== "owner"
+                        }
                         onClick={() => {
                           if (
                             window.confirm(

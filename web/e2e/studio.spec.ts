@@ -320,3 +320,77 @@ test("studio renders a metric plan with shared selection and editable coordinate
   await expect(chimney).toHaveAttribute("aria-pressed", "true");
   await page.screenshot({ path: "test-results/studio-plan-mobile.png" });
 });
+
+test("account opens a claimed project without writing its organization scene to guest storage", async ({
+  page,
+}) => {
+  const org = "26110000-0000-4000-8000-000000000010";
+  const projectId = "26110000-0000-4000-8000-000000000011";
+  let signedIn = false;
+  let claimInput: unknown;
+  let cloudScene: object;
+  await page.route("**/api/health", (route) =>
+    route.fulfill({ json: { cloud_configured: true } }),
+  );
+  await page.route("**/api/account/organizations", (route) =>
+    route.fulfill(
+      signedIn
+        ? {
+            json: {
+              organizations: [{ id: org, name: "Biuro BIPV", role: "owner" }],
+            },
+          }
+        : { status: 401, json: { detail: "Zaloguj się ponownie." } },
+    ),
+  );
+  await page.route("**/api/account/sign-in", (route) => {
+    signedIn = true;
+    return route.fulfill({ status: 204 });
+  });
+  await page.route("**/api/projects", (route) => {
+    cloudScene = route.request().postDataJSON().scene;
+    return route.fulfill({ status: 201, json: { id: projectId, revision: 1 } });
+  });
+  await page.route("**/api/account/claim", (route) => {
+    claimInput = route.request().postDataJSON();
+    expect(route.request().headers()["x-workspace-key"]).toMatch(
+      /^[a-f0-9]{64}$/,
+    );
+    return route.fulfill({ json: { id: projectId } });
+  });
+  await page.route("**/api/projects/" + projectId, (route) => {
+    expect(route.request().headers()["x-organization-id"]).toBe(org);
+    expect(route.request().headers()["x-workspace-key"]).toBeUndefined();
+    return route.fulfill({
+      json: { id: projectId, revision: 1, scene: cloudScene },
+    });
+  });
+
+  await page.goto("/");
+  const name = page.getByRole("textbox", { name: "Nazwa projektu" });
+  await name.fill("Projekt do przeniesienia");
+  await page.getByRole("button", { name: "Zapisz projekt" }).click();
+  await expect(page.getByRole("status")).toContainText("rewizja 1");
+  await page.getByRole("button", { name: "Konto i organizacje" }).click();
+  await page.getByLabel("E-mail", { exact: true }).fill("studio@example.test");
+  await page.getByLabel("Hasło", { exact: true }).fill("fake-password");
+  await page.getByRole("button", { name: "Zaloguj się" }).click();
+  await page.getByLabel("Organizacja docelowa").selectOption(org);
+  page.once("dialog", (dialog) => dialog.accept());
+  await page
+    .getByRole("button", { name: "Przenieś otwarty projekt gościa" })
+    .click();
+  await expect(page.locator(".version-pill")).toHaveText("Biuro BIPV");
+  await expect(name).toHaveValue("Projekt do przeniesienia");
+  expect(claimInput).toEqual({
+    organization_id: org,
+    project_id: projectId,
+    expected_revision: 1,
+  });
+  expect(
+    await page.evaluate(() => localStorage.getItem("bipv.scene.v1")),
+  ).toBeNull();
+  expect(
+    await page.evaluate(() => localStorage.getItem("bipv.cloudproject.v1")),
+  ).toBeNull();
+});

@@ -11,6 +11,7 @@ FILES = (
     "pyproject.toml",
     "server/__init__.py",
     "server/app.py",
+    "server/cloud.py",
     "server/geometry.py",
     "server/model_export.py",
     "server/models.py",

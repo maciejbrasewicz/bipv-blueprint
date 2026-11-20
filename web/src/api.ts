@@ -9,30 +9,46 @@ function describeValidation(detail: unknown): string {
   return "Parametry sceny nie spełniają kontraktu.";
 }
 
+export type ProjectScope = string | { organizationId: string };
+
+export class ApiError extends Error {
+  constructor(
+    message: string,
+    readonly status: number,
+  ) {
+    super(message);
+  }
+}
+
 export async function api<T>(
   path: string,
   method = "GET",
   body?: unknown,
-  key?: string,
+  scope?: ProjectScope,
   signal?: AbortSignal,
 ): Promise<T> {
   const response = await fetch("/api/" + path, {
     method,
     headers: {
       "Content-Type": "application/json",
-      ...(key ? { "X-Workspace-Key": key } : {}),
+      ...(typeof scope === "string"
+        ? { "X-Workspace-Key": scope }
+        : scope
+          ? { "X-Organization-Id": scope.organizationId }
+          : {}),
     },
     body: body === undefined ? undefined : JSON.stringify(body),
     signal,
   });
   if (!response.ok) {
     const json = await response.json().catch(() => null);
-    throw new Error(
+    throw new ApiError(
       typeof json?.detail === "string"
         ? json.detail
         : response.status === 422
           ? describeValidation(json?.detail)
           : "Błąd połączenia (" + response.status + ").",
+      response.status,
     );
   }
   return response.status === 204 ? (undefined as T) : response.json();
