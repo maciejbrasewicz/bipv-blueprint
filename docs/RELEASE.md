@@ -1,3 +1,12 @@
+# Project history release · 20 November 2026
+
+- Live application: https://bipv-studio-production.up.railway.app
+- Deployed commit: [634078c](https://github.com/maciejbrasewicz/bipv-blueprint/commit/634078cd23f0e50c8b8a65048768d3615bfedd03). Railway deployment 37d556cf-0455-4056-8de6-a4787bc0fc49 reached SUCCESS. The public health endpoint returned the same SHA.
+- [Quality gates](https://github.com/maciejbrasewicz/bipv-blueprint/actions/runs/44789712715) passed, including Python and browser checks and the resource-limited Docker smoke.
+- [Production verification](https://github.com/maciejbrasewicz/bipv-blueprint/actions/runs/44790703784) passed. The API test checked guest isolation for both current and historical records and rejected stale writes. The Chromium test saved a project, changed it, loaded revision 1, verified that the cloud head was still revision 2, saved the restored scene as revision 3 and removed its fixture.
+- Supabase applied migration 20261120163403. The backfill left no project without a snapshot of its head. An isolated rollback-only fixture confirmed the 20-revision limit after 23 saves and cascade cleanup. Security advisors returned no lints.
+- Operational limits remain one sleeping Railway service at 250 MB / 0.1 vCPU and Supabase Free. Projects that existed at migration time start their history at the saved head. Production controls and next tasks are documented in [HANDOFF.md](HANDOFF.md).
+
 # R1 release
 
 - Deployed code: [08bff592c6f72f5137a14ae6684a475c583033fa](https://github.com/maciejbrasewicz/bipv-blueprint/commit/08bff592c6f72f5137a14ae6684a475c583033fa).
