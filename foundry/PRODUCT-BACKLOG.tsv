@@ -1,0 +1,61 @@
+id	tier	week	kind	role	depends_on	deliverable	acceptance
+P01	40	1	build	Data/API	-	Scene v2, Catalog v1, Job v1, schemat organizacji i szkic migracji expand	Payload Scene v1 przechodzi round trip; wersjonowane przykłady JSON; plan zachowania istniejących rewizji
+P02	40	1	build	Domain data	-	Zamrożone przypadki dachu i fasady, fixture i manifest źródeł, lista danych od producenta	Fixtures mają skalę, otwory, wartości oczekiwane i niezależne obliczenia; status licencji każdego źródła
+P03	40	1	build	Studio UX	-	Interaktywny układ Studio w istniejącej scenie, mapa/rzut/3D/inspektor/warianty	Scenariusz zaznaczenia błędu i przełączenia widoku działa klawiaturą i wskaźnikiem na laptopie
+P04	40	1	build	Data/API	P01	Członkostwa, polityki RLS, role API i izolacja Storage	Dwa tenanty i odebranie dostępu zweryfikowane na PostgreSQL/Supabase; uprawnienia działają dla roli API
+P05	40	1	build	Data/API	P04	Powiązanie gościa i istniejących rewizji z kontem i organizacją	Powtórzone lub współbieżne przejęcie nie powiela projektu; istniejący projekt da się otworzyć
+P06	40	1	build	Platform	P01	CI dla kontraktów, migracji, fixture i formatu artefaktów	Macierz jobów ma wyniki zależne od SHA; wprowadzony lokalnie błąd schematu powoduje czerwony check
+P07	40	1	build	Studio UX	P01,P03	Adapter Scene v1/v2, selekcja i inspektor statusu	Korekta otworu i cofnięcie działają w rzucie i 3D; czytelny stan sceny nieprzeliczonej
+P08	40	1	control	Release QA	P02,P05,P06,P07	Bramka fundamentów i zgodności	Raport izolacji, regresji, licencji i listy braków ze sprawdzanym SHA; wydanie dostępne dalej po usunięciu blokerów
+P09	40	2	build	GIS/CV	P08	Rejestr źródeł, adapter geokodowania i potwierdzenie budynku	Kilka trafień wymaga wyboru; wyjątki pokrycia, licencji, retencji i limitów działają w fixture
+P10	40	2	build	Platform	P08	Trwały stan zadania, kolejka, lease, rejestr prób i kosztu	Redelivery, retry i anulowanie bez podwójnego zapisu; wyniki z dawnej rewizji nie awansują
+P11	40	2	build	GIS/CV	P09	Pobranie geodanych, crop, CRS, kontrola skali i dwuetapowa ręczna korekta	Georeferencjonowany raster, ręczny fallback i błąd w metrach na niezależnych punktach kontrolnych
+P12	40	2	build	Studio UX	P07,P11	Mapa z zaznaczeniem budynku, pomiar 2D i edycja kalibracji	Zmiana źródła nie przesuwa wierzchołków w układzie lokalnym bez decyzji użytkownika
+P13	40	2	build	Geometry	P02,P11	Płaszczyzna dachu/fasady, otwory, przeszkody i GLB	OBJ nadal działa; GLB ma sprawdzone osie, wymiary i identyfikatory płaszczyzn
+P14	40	2	build	GIS/CV	P10,P11	CPU baseline konturu i propozycje pomiaru z rejestrem pochodzenia	Maska jest kandydatem do korekty; IoU, błąd granicy i czas wyliczone na zamrożonym replay
+P15	40	2	build	Data/API	P04,P07,P09	Prywatne zgłoszenie instalacji, zdjęcia i rzut z walidacją	Plik oczekuje na walidację; MIME, limity, usunięcie i audyt uprawnień mają scenariusze testowe
+P16	40	2	control	Domain QA	P12,P13,P14,P15	Bramka adres → model	Odtworzenie dachu i fasady; raport skali, czasu, źródła, braków i przypadku utraty pokrycia
+P17	40	3	build	Domain data	P02,P08	Katalog wersjonowany, rzeczywiste reguły pokrycia i wewnętrzny wzór mikropanelu	Jednostki, SKU, tolerancje, wybór i walidacja dozwolonych modyfikacji wzoru, źródła i jawne braki; katalog testowy oddzielony od produkcyjnego
+P18	40	3	build	Geometry	P13,P17	Generowanie pozycji, walidator układu i skrajne przypadki	Niezależna kontrola pełnego obrysu modułu, marginesów, otworów, obrotu i klas cięcia
+P19	40	3	build	Geometry	P18	Porównanie szybkiego wariantu i bounded solver dla dwóch celów	Status czasu i wykonalności; limit kandydatów; 2 warianty z tym samym wejściem i jednoznacznymi miarami
+P20	40	3	build	Materials	P17,P18	Przedmiar modułów, mocowań i profili oraz wzory cięcia	Suma z tolerancją, odpadem i rzazem sprawdzana niezależnie; odnośniki między SKU i obiektami sceny
+P21	40	3	build	Electrical	P17,P18	Graf tras, wiązki, połączenia i twarde reguły elektryczne	Ręcznie rozpisany przypadek oraz błędne Voc, MPPT, prąd i niedostępny odcinek blokują zatwierdzenie
+P22	40	3	build	Studio UX	P12,P19,P20,P21	Porównanie dwóch wariantów i nawigacja BOM ↔ scena	Wynik pokazuje moc, ilości, źródło oraz blokady; kliknięcie pozycji podświetla właściwą połać lub trasę
+P23	40	3	build	Platform	P10,P19,P20,P21	Połączone Layout/BOM/ElectricalRun i manifesty z sumą kontrolną	Cache po hashu wyników, wersje silników i katalogów; ciężkie zależności pomiaru i modele poza obrazem web
+P24	40	3	control	Domain QA	P16,P22,P23	Bramka spójności projektu i materiałów	Testy przypadku z błędną pozycją i złym połączeniem; weryfikacja reguł przez projektanta na realnym SKU jako osobny warunek wydania
+P25	40	4	build	Energy	P13,P17,P23	Adapter pogody i wynik POA/DC/AC dla dachu i fasady	Przypięte wejścia; jawne straty, czas i jednostki; zgodność z niezależnym przykładem
+P26	40	4	build	Energy	P13,P25	Pierwszy model cienia z geometrii i wrażliwość uzysku	Próby z cieniem i bez, mapa zależna od czasu, udział składowej rozproszonej i jego ograniczenia
+P27	40	4	build	Offers	P17,P23	Cennik oraz przedmiar kosztu dla zatwierdzonej rewizji	PLN i aktywna wersja cennika; granice, wartości źródłowe, status brakujących cen
+P28	40	4	build	Offers	P25,P27	Snapshot oferty, PDF/CSV/GLB i blokady publikacji	Dwa odtworzenia dają ten sam wynik biznesowy; korekta projektu nie nadpisuje wystawionej wersji
+P29	40	4	build	Audits	P04,P15,P28	Portal oferty klienta, wniosek zamówienia, cofany link i rezerwacja	Żądanie zamówienia związane z ważną ofertą; link ograniczony zakresem i czasem; dwa równoległe kliknięcia nie rezerwują tego samego terminu
+P30	40	4	build	Studio UX	P22,P26,P28,P29	Warstwa finalizacji, rezerwacja i porównanie po audycie	Ścieżka wysyłki testowej i rewizji z audytu; błędy, ładowanie, tab order i mały ekran mają test
+P31	40	4	control	Release QA	P24,P29,P30	Bramka organizacja → oferta → pomiar	CI przechodzi podstawowe historie, zgodność przebiegu z rzeczywistą drogą użytkownika, poprawki blokad w PR
+P32	40	4	control	Domain QA	P24,P26,P28	Walidacja próbki dachu i fasady z ekspertem	Dane rzeczywiste albo status BLOCKED; warianty, BOM, napięcia, straty i wycena z podpisanym wynikiem
+P33	40	5	build	AI/Pipeline	P23,P26,P28	Przepływ narzędziowy porównania i redakcji oferty	Stub i provider adapter; liczby pochodzą z API; koszt, tenant, limit narzędzi, draft i akceptacja
+P34	40	5	build	GIS/CV	P14,P16	Runner badania 10 adresów i partii 20	Seed, rozdzielone ścieżki satelitarna i operacyjna, pomiar cold/warm i czasy per adres
+P35	40	5	build	Platform	P10,P31	Limity zasobów i kosztu, alerting i przywracanie jobów	Test wyczerpania limitu i awarii zewnętrznego dostawcy; pojedynczy tenant nie zatyka kolejki
+P36	40	5	control	Release QA	P31,P32,P34,P35	Niezależna powtórka procedur i benchmarków	Wyniki dla każdego adresu, jawne FAIL/BLOCKED, czasy operatora i klasy błędów
+P37	40	6	build	Platform	P31,P35	Funkcje na tenant, deploy w istniejącym Railway, kopia i restore	Test obciążenia profilu, odwracalność migracji, restore na izolowanej kopii i porównanie SHA
+P38	40	6	build	Ops/UX	P30,P35	Logi biznesowe workflow, podgląd artefaktów i wskazówki dla operatora	Cofnięcie linku, ponowienie joba i diagnostyka jednego projektu z odpowiednimi uprawnieniami
+P39	40	6	control	Product/Pilot	P32,P36,P37,P38	Obsługa trzech zgłoszeń i zamknięcie blokerów pilotażu	Porównanie z istniejącą pracą instalatora, tabela rozbieżności i czas operatora; status zależny od danych
+P40	40	6	control	Release QA	P33,P36,P37,P39	Decyzja o wydaniu i rejestr pozostałego ryzyka	Dowody na konkretnym SHA; zablokowane funkcje za flagami lub stop wydania, bez otwartych błędów krytycznych
+P41	60	5	build	GIS/CV	P14,P16	SAM 2.1 z punktem lub bbox na zgodnych danych	Raport held-out z kosztem i czasem edycji względem CPU; jawna decyzja o włączeniu
+P42	60	5	build	GIS/CV	P41	Eksport i profilowanie lekkiej inferencji ONNX	Wyniki jakości porównywalne z bazą, profil CPU/RAM i możliwość powrotu
+P43	60	5	build	GIS/CV	P11,P16	Drugi adapter obrazu lub wysokości	Polskie pokrycie, terminy licencji, porównywalne oznaczenia i brak retencji zabronionych kafli
+P44	60	5	build	Geometry	P16,P18	Przypadki geometrii BIPV: kalenica, kosz, moduł przy krawędzi	Przypadki graniczne z tolerancją w metrach i podświetleniem źródła naruszenia
+P45	60	5	build	Geometry	P19,P34	Profile solvera i większe sceny	Limit RAM i czasu, weryfikacja wykonalności, rozkład jakości i propozycja limitu sceny
+P46	60	5	build	Electrical	P21,P32	Drugi dozwolony typ połączeń z regułami z kart	Oracle moc/napięcie/prąd i blokada obwodu poza zakresem
+P47	60	5	build	Materials	P20,P32	Zaawansowane cięcia i odpad wielopołaciowy	Bilans dostępnych długości, kąty i powtórne użycie tylko gdy reguły katalogu pozwalają
+P48	60	5	build	Energy	P26,P32	Rozszerzony benchmark PVsyst/PySAM z wrażliwością	Miesięczny błąd i roczny rozdział strat, zamrożone wejście i wynik eksperta
+P49	60	5	build	Domain data	P17,P32	Historyczne wyceny, walidacja i reguła porównawcza	Sprawdzona zgoda, grupowy podział train/test, metryka przypadków zerowych, baseline reguł
+P50	60	5	control	Domain QA	P42,P45,P48,P49	Niezależna decyzja o jakości ML i kalkulacji	Pomiar przewagi, błędów selekcji i kosztu bez ponownego strojenia testu
+P51	60	6	build	AI/Pipeline	P33,P35	Adapter modeli Foundry, schematy i rejestr metryk	Dozwolony project i model, timeout i test wyczerpania własnego limitu kosztu
+P52	60	6	build	AI/Pipeline	P33,P51	Ewaluacja narzędzi, cytatów i zmian rewizji	Zestaw awarii, niezaufane dane, wersja robocza, nieprawdziwa wartość i próba przekroczenia uprawnień
+P53	60	6	build	Studio UX	P30,P38	Większy dostępny panel porównania rewizji i mapy jakości	Warianty i rewizje rozróżnialne kolorami i tekstem, wydruk i obsługa klawiatury
+P54	60	6	build	Offers	P28,P39	Profesjonalna oferta PL, opcje finansowania i walidacja założeń	Scenariusz cen/produkcji, przedziały efektywności i sumy z zamrożonego snapshotu
+P55	60	6	build	Geometry	P13,P45	DXF i test round trip z niezależnym viewerem	Metry, warstwy i geometria potwierdzone po ponownym imporcie
+P56	60	6	build	Audits	P29,P39	Obsługa zmiany terminu i dowody z pomiaru	Transakcyjne przeniesienie slotu i rewizja z nowymi źródłami bez zmiany starej oferty
+P57	60	6	build	Platform	P35,P37	Wąski worker operacyjny i retencja artefaktów	Job po uśpieniu i restarcie; limit kosztu; lifecycle i rzeczywista kopia z danymi testowymi
+P58	60	6	build	Product/Pilot	P38,P39	Porównanie z narzędziami rynku na tym samym projekcie	Czas czynny, wynik, koszt, operator, braki danych i opublikowana metoda
+P59	60	6	control	Release QA	P50,P52,P53,P55,P56,P57	Powtórka prywatności, UX, kolejek i benchmarku	Raport niezależny od zmian wdrażającego; opublikowane koszty i limity z testu
+P60	60	6	control	Product/Pilot	P40,P54,P58,P59	Wydanie rozszerzone do kolejnych organizacji	Sprawdzona zgodność, dostępność danych, koszty i właściciel odtworzenia; pilotaż za flagą jeśli potrzebny

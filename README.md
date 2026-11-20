@@ -4,11 +4,13 @@
 
 [Quality gates](https://github.com/maciejbrasewicz/bipv-blueprint/actions/runs/44816156045) · [Production verification](https://github.com/maciejbrasewicz/bipv-blueprint/actions/runs/44816619487)
 
-An interactive engineering demonstrator for parametric BIPV roofs. React / TypeScript / Three.js, a Python geometry engine, private guest persistence in Supabase and one sleeping Railway Hobby container.
+BIPV design software for installers and planners. The current release includes roof and facade geometry, an interactive 3D editor, layout variants, exports and private revision history. See the roadmap for the address-to-offer workflow.
 
 ## Start here
 
-[Engineering handoff and implementation roadmap](docs/HANDOFF.md) · [Agent assignments](foundry/START_HERE.md)
+[Product roadmap](docs/PRODUCT-ROADMAP.md) · [Product UX](docs/PRODUCT-UX.md) · [Foundry execution](foundry/PRODUCT-EXECUTION.md)
+
+[Engineering handoff](docs/HANDOFF.md) · [Release evidence](docs/RELEASE.md)
 
 [Electrotile requirements and delivery plan](docs/ELECTROTILE-DELIVERY.md) · [Runnable roof tests](docs/ROOF-TEST-PACK.md) · [Download the test archive](https://github.com/maciejbrasewicz/bipv-blueprint/actions/runs/44816156045/artifacts/14670086147)
 

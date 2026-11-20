@@ -1,6 +1,6 @@
 # Project handoff
 
-Start with [release evidence](RELEASE.md), [architecture](ARCHITECTURE.md) and [Foundry assignments](../foundry/START_HERE.md). The canonical production target is [production-target.json](production-target.json). Main can contain newer commits than Railway. Compare the pinned SHA against GET /api/health before making claims about a live feature.
+Use the [product roadmap](PRODUCT-ROADMAP.md) and [Foundry execution guide](../foundry/PRODUCT-EXECUTION.md) for new work. See [release evidence](RELEASE.md) and [architecture](ARCHITECTURE.md) for the existing implementation. The canonical production target is [production-target.json](production-target.json). Main can contain newer commits than Railway. Compare the pinned SHA against GET /api/health before making claims about a live feature.
 
 ## Code and contracts
 

@@ -1,6 +1,6 @@
 # Foundry handoff
 
-Portable role/task briefs for the next iterations. This directory is not a native Foundry import and does not mean any Foundry agent has run. The platform/provider is intentionally unspecified.
+Use the [product execution guide](PRODUCT-EXECUTION.md) and [P01–P60 backlog](PRODUCT-BACKLOG.tsv) for new work. The earlier briefs below document the repository baseline. This directory is not a native Foundry import and does not mean any Foundry agent has run. The platform/provider is intentionally unspecified.
 
 Read ../AGENTS.md and ../docs/ARCHITECTURE.md. Use one owner and one branch/worktree per task. A handoff contains exact commit SHA, changed files, commands actually run, observed results, limitations and API/schema/deployment impact. Independent review inspects the author's exact SHA. Never fabricate a model trace or PASS.
 
