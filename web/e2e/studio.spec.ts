@@ -394,3 +394,35 @@ test("account opens a claimed project without writing its organization scene to 
     await page.evaluate(() => localStorage.getItem("bipv.cloudproject.v1")),
   ).toBeNull();
 });
+
+test("studio keeps the 2D workspace and account available when WebGL fails", async ({
+  page,
+}) => {
+  await page.addInitScript(() => {
+    const getContext = HTMLCanvasElement.prototype.getContext;
+    HTMLCanvasElement.prototype.getContext = function (context, ...args) {
+      if (context.includes("webgl")) return null;
+      return Reflect.apply(getContext, this, [context, ...args]);
+    } as typeof getContext;
+  });
+  await page.route("**/api/health", (route) =>
+    route.fulfill({ json: { cloud_configured: true } }),
+  );
+  await page.route("**/api/account/organizations", (route) =>
+    route.fulfill({ status: 401, json: { detail: "Zaloguj się ponownie." } }),
+  );
+  await page.goto("/");
+  await expect(
+    page.getByRole("region", { name: "Rzut powierzchni" }),
+  ).toBeVisible({ timeout: 30000 });
+  await expect(
+    page.getByRole("button", { name: "Widok perspektywiczny" }),
+  ).toBeDisabled();
+  await page
+    .getByRole("button", { name: "Konto i organizacje", exact: true })
+    .click();
+  await expect(
+    page.getByRole("dialog", { name: "Konto i organizacje", exact: true }),
+  ).toBeVisible();
+  await expect(page.getByLabel("E-mail", { exact: true })).toBeVisible();
+});

@@ -1,4 +1,5 @@
 import {
+  Component,
   lazy,
   Suspense,
   useCallback,
@@ -71,6 +72,25 @@ const modes: [string, string, LucideIcon][] = [
   ["materials", "Materiały", LayoutGrid],
   ["quality", "Kontrola", ShieldCheck],
 ];
+class ViewportBoundary extends Component<
+  { children: ReactNode; onUnavailable: () => void },
+  { failed: boolean }
+> {
+  state = { failed: false };
+
+  static getDerivedStateFromError() {
+    return { failed: true };
+  }
+
+  componentDidCatch() {
+    this.props.onUnavailable();
+  }
+
+  render() {
+    return this.state.failed ? null : this.props.children;
+  }
+}
+
 function Field(p: {
   label: string;
   value: number;
@@ -207,6 +227,7 @@ function Studio({
     [selected, setSelected] = useState<string | null>(null),
     [view, setView] = useState("orbit"),
     [planSurface, setPlanSurface] = useState<string | null>(null),
+    [webglUnavailable, setWebglUnavailable] = useState(false),
     [grid, setGrid] = useState(true);
   const [sunHour, setSunHour] = useState(12),
     [sunDate, setSunDate] = useState("2026-11-20"),
@@ -1073,6 +1094,7 @@ function Studio({
                 <button
                   key={id}
                   aria-label={title}
+                  disabled={id === "sun" && webglUnavailable}
                   className={mode === id ? "active" : ""}
                   onClick={() => {
                     setMode(id);
@@ -1103,15 +1125,17 @@ function Studio({
               </span>
               <h1>{headline}</h1>
               <p>
-                {mode === "sun"
-                  ? "Kierunek słońca i cień · Szczecin · CET"
-                  : mode === "variants"
-                    ? "Deterministyczne przeszukiwanie siatki modułów"
-                    : mode === "quality"
-                      ? "Metry, wersja silnika i dane wejściowe"
-                      : scene.custom_surfaces
-                        ? "Dach i fasada · obrysy w metrach"
-                        : "Dach dwuspadowy · model edytowalny"}
+                {webglUnavailable
+                  ? "Podgląd 3D niedostępny · rzut i edycja są aktywne"
+                  : mode === "sun"
+                    ? "Kierunek słońca i cień · Szczecin · CET"
+                    : mode === "variants"
+                      ? "Deterministyczne przeszukiwanie siatki modułów"
+                      : mode === "quality"
+                        ? "Metry, wersja silnika i dane wejściowe"
+                        : scene.custom_surfaces
+                          ? "Dach i fasada · obrysy w metrach"
+                          : "Dach dwuspadowy · model edytowalny"}
               </p>
             </div>
             <div className="view-controls">
@@ -1128,6 +1152,7 @@ function Studio({
               <IconButton
                 label="Widok perspektywiczny"
                 active={view === "orbit"}
+                disabled={webglUnavailable}
                 onClick={() => setView("orbit")}
               >
                 <Box size={17} />
@@ -1135,6 +1160,7 @@ function Studio({
               <IconButton
                 label="Widok z góry"
                 active={view === "top"}
+                disabled={webglUnavailable}
                 onClick={() => setView("top")}
               >
                 <Square size={17} />
@@ -1142,6 +1168,7 @@ function Studio({
               <IconButton
                 label="Widok od frontu"
                 active={view === "front"}
+                disabled={webglUnavailable}
                 onClick={() => setView("front")}
               >
                 <Maximize size={17} />
@@ -1186,36 +1213,44 @@ function Studio({
                 showGrid={grid}
               />
             ) : result ? (
-              <Suspense
-                fallback={
-                  <div className="canvas-loading">
-                    <LoaderCircle className="spin" />
-                    Ładowanie silnika 3D
-                  </div>
-                }
+              <ViewportBoundary
+                onUnavailable={() => {
+                  setWebglUnavailable(true);
+                  setView("plan");
+                  if (mode === "sun") setMode("project");
+                }}
               >
-                <SceneView
-                  scene={JSON.parse(resultInput || serialized)}
-                  result={result}
-                  variant={variant}
-                  selected={selected}
-                  onSelect={setSelected}
-                  onPanel={(p) =>
-                    setToast(
-                      p.id +
-                        " · " +
-                        result.product.power_wp +
-                        " Wp · " +
-                        surfaceTitle(p.surface_id),
-                    )
+                <Suspense
+                  fallback={
+                    <div className="canvas-loading">
+                      <LoaderCircle className="spin" />
+                      Ładowanie silnika 3D
+                    </div>
                   }
-                  view={view}
-                  showGrid={grid}
-                  sunHour={sunHour}
-                  sunDate={sunDate}
-                  sunMode={mode === "sun"}
-                />
-              </Suspense>
+                >
+                  <SceneView
+                    scene={JSON.parse(resultInput || serialized)}
+                    result={result}
+                    variant={variant}
+                    selected={selected}
+                    onSelect={setSelected}
+                    onPanel={(p) =>
+                      setToast(
+                        p.id +
+                          " · " +
+                          result.product.power_wp +
+                          " Wp · " +
+                          surfaceTitle(p.surface_id),
+                      )
+                    }
+                    view={view}
+                    showGrid={grid}
+                    sunHour={sunHour}
+                    sunDate={sunDate}
+                    sunMode={mode === "sun"}
+                  />
+                </Suspense>
+              </ViewportBoundary>
             ) : (
               <div className="canvas-loading">
                 <LoaderCircle className="spin" />
