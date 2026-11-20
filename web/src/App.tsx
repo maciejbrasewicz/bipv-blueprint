@@ -20,6 +20,7 @@ import {
   FileJson,
   FolderOpen,
   Grid2X2,
+  History,
   Layers3,
   LayoutGrid,
   LoaderCircle,
@@ -48,6 +49,7 @@ import {
   type Layout,
   type Obstacle,
   type Project,
+  type ProjectRevisionSummary,
   type ProjectSummary,
   type Scene,
 } from "./types";
@@ -176,6 +178,14 @@ export default function App() {
     [help, setHelp] = useState(false),
     [confirmReset, setConfirmReset] = useState(false),
     [mobilePanel, setMobilePanel] = useState("");
+  const [revisionProject, setRevisionProject] = useState<ProjectSummary | null>(
+    null,
+  );
+  const [revisionList, setRevisionList] = useState<ProjectRevisionSummary[]>(
+    [],
+  );
+  const [revisionError, setRevisionError] = useState("");
+  const revisionRequest = useRef<AbortController | null>(null);
   const file = useRef<HTMLInputElement>(null),
     sceneRef = useRef(scene);
   sceneRef.current = scene;
@@ -264,7 +274,7 @@ export default function App() {
       }
       if (e.key === "Escape") {
         setSelected(null);
-        setProjectModal(false);
+        closeProjects();
         setExportMenu(false);
         setHelp(false);
         setMobilePanel("");
@@ -294,6 +304,86 @@ export default function App() {
       setSaving(false);
     }
   }
+  function closeProjects() {
+    revisionRequest.current?.abort();
+    setProjectModal(false);
+    setRevisionProject(null);
+    setProjectLoading(false);
+  }
+
+  async function openRevisions(summary: ProjectSummary) {
+    revisionRequest.current?.abort();
+    const controller = new AbortController();
+    revisionRequest.current = controller;
+    setRevisionProject(summary);
+    setRevisionList([]);
+    setRevisionError("");
+    setProjectLoading(true);
+    try {
+      const { revisions } = await api<{ revisions: ProjectRevisionSummary[] }>(
+        "projects/" + summary.id + "/revisions",
+        "GET",
+        undefined,
+        workspaceKey(),
+        controller.signal,
+      );
+      if (!controller.signal.aborted) setRevisionList(revisions);
+    } catch (e) {
+      if (!controller.signal.aborted) setRevisionError((e as Error).message);
+    } finally {
+      if (!controller.signal.aborted) setProjectLoading(false);
+    }
+  }
+
+  async function loadRevision(summary: ProjectSummary, revision: number) {
+    const hasLocalChanges = project
+      ? project.input !== serialized
+      : serialized !== JSON.stringify(INITIAL);
+    if (
+      hasLocalChanges &&
+      !window.confirm("Zastąpić bieżące zmiany lokalne wybraną rewizją?")
+    )
+      return;
+
+    revisionRequest.current?.abort();
+    const controller = new AbortController();
+    revisionRequest.current = controller;
+    setRevisionError("");
+    setProjectLoading(true);
+    try {
+      const path = "projects/" + summary.id;
+      const key = workspaceKey();
+      const [latest, snapshot] = await Promise.all([
+        api<Project>(path, "GET", undefined, key, controller.signal),
+        api<{ scene: Scene }>(
+          path + "/revisions/" + revision,
+          "GET",
+          undefined,
+          key,
+          controller.signal,
+        ),
+      ]);
+      if (controller.signal.aborted) return;
+      changed(snapshot.scene);
+      setProject({
+        id: latest.id,
+        revision: latest.revision,
+        input: JSON.stringify(latest.scene),
+      });
+      setSelected(null);
+      closeProjects();
+      setToast(
+        "Wczytano rewizję " +
+          revision +
+          ". Zapisz projekt, aby utworzyć kolejną rewizję.",
+      );
+    } catch (e) {
+      if (!controller.signal.aborted) setRevisionError((e as Error).message);
+    } finally {
+      if (!controller.signal.aborted) setProjectLoading(false);
+    }
+  }
+
   async function openProjects() {
     setProjectModal(true);
     setProjectLoading(true);
@@ -1320,7 +1410,7 @@ export default function App() {
         </div>
       )}
       {projectModal && (
-        <div className="modal-backdrop" onClick={() => setProjectModal(false)}>
+        <div className="modal-backdrop" onClick={closeProjects}>
           <section
             className="modal"
             role="dialog"
@@ -1331,83 +1421,149 @@ export default function App() {
             <div className="modal-heading">
               <div>
                 <span className="eyebrow">PRZESTRZEŃ GOŚCINNA</span>
-                <h2>Twoje projekty.</h2>
+                <h2>
+                  {revisionProject ? "Historia projektu" : "Twoje projekty."}
+                </h2>
               </div>
-              <IconButton
-                label="Zamknij projekty"
-                onClick={() => setProjectModal(false)}
-              >
+              <IconButton label="Zamknij projekty" onClick={closeProjects}>
                 <X size={19} />
               </IconButton>
             </div>
-            <p>
-              Zapisy są przypisane do losowego klucza tej przeglądarki.
-              Wyczyszczenie jej pamięci usuwa dostęp do przestrzeni. Zachowaj
-              eksport JSON.
-            </p>
-            {projectLoading ? (
-              <div className="empty">
-                <LoaderCircle className="spin" />
-                Ładowanie projektów…
-              </div>
-            ) : projects.length ? (
-              projects.map((p) => (
-                <div className="project-list-row" key={p.id}>
-                  <button onClick={() => openProject(p.id)}>
-                    <Box size={20} />
-                    <span>
-                      <strong>{p.name}</strong>
-                      <small>
-                        Rewizja {p.revision} ·{" "}
-                        {new Date(p.updated_at).toLocaleString("pl-PL")}
-                      </small>
-                    </span>
-                    <ArrowRight size={16} />
-                  </button>
-                  <IconButton
-                    label={"Usuń projekt " + p.name}
+            {revisionProject ? (
+              <>
+                <p>{revisionProject.name} · do 20 ostatnich zapisów</p>
+                {projectLoading ? (
+                  <div className="empty">
+                    <LoaderCircle className="spin" />
+                    Ładowanie historii…
+                  </div>
+                ) : revisionError ? (
+                  <p role="alert">{revisionError}</p>
+                ) : revisionList.length ? (
+                  revisionList.map((item) => (
+                    <div className="project-list-row" key={item.revision}>
+                      <button
+                        type="button"
+                        aria-label={"Wczytaj rewizję " + item.revision}
+                        onClick={() =>
+                          loadRevision(revisionProject, item.revision)
+                        }
+                      >
+                        <History size={16} />
+                        <span>
+                          <strong>
+                            Rewizja {item.revision} · {item.name}
+                          </strong>
+                          <small>
+                            {new Date(item.saved_at).toLocaleString("pl-PL")}
+                          </small>
+                        </span>
+                        <ArrowRight size={16} />
+                      </button>
+                    </div>
+                  ))
+                ) : (
+                  <p>Ten projekt nie ma dostępnych rewizji.</p>
+                )}
+                <div className="modal-actions">
+                  {revisionError && (
+                    <button
+                      className="button"
+                      onClick={() => openRevisions(revisionProject)}
+                    >
+                      Spróbuj ponownie
+                    </button>
+                  )}
+                  <button
+                    className="button"
                     onClick={() => {
-                      if (
-                        window.confirm(
-                          "Usunąć zapis „" + p.name + "” z Supabase?",
-                        )
-                      )
-                        void removeProject(p.id);
+                      revisionRequest.current?.abort();
+                      setRevisionProject(null);
+                      setProjectLoading(false);
                     }}
                   >
-                    <Trash2 size={15} />
-                  </IconButton>
+                    <ArrowLeft size={14} /> Wróć do projektów
+                  </button>
                 </div>
-              ))
+              </>
             ) : (
-              <div className="empty">
-                <FolderOpen size={30} />
-                <h3>Przestrzeń czeka na pierwszy projekt.</h3>
-                <p>Użyj przycisku „Zapisz projekt” w studiu.</p>
-              </div>
+              <>
+                <p>
+                  Zapisy są przypisane do losowego klucza tej przeglądarki.
+                  Wyczyszczenie jej pamięci usuwa dostęp do przestrzeni.
+                  Zachowaj eksport JSON.
+                </p>
+                {projectLoading ? (
+                  <div className="empty">
+                    <LoaderCircle className="spin" />
+                    Ładowanie projektów…
+                  </div>
+                ) : projects.length ? (
+                  projects.map((p) => (
+                    <div className="project-list-row" key={p.id}>
+                      <button onClick={() => openProject(p.id)}>
+                        <Box size={20} />
+                        <span>
+                          <strong>{p.name}</strong>
+                          <small>
+                            Rewizja {p.revision} ·{" "}
+                            {new Date(p.updated_at).toLocaleString("pl-PL")}
+                          </small>
+                        </span>
+                        <ArrowRight size={16} />
+                      </button>
+                      <IconButton
+                        label={"Historia projektu " + p.name}
+                        onClick={() => openRevisions(p)}
+                      >
+                        <History size={15} />
+                      </IconButton>
+                      <IconButton
+                        label={"Usuń projekt " + p.name}
+                        onClick={() => {
+                          if (
+                            window.confirm(
+                              "Usunąć zapis „" + p.name + "” z Supabase?",
+                            )
+                          )
+                            void removeProject(p.id);
+                        }}
+                      >
+                        <Trash2 size={15} />
+                      </IconButton>
+                    </div>
+                  ))
+                ) : (
+                  <div className="empty">
+                    <FolderOpen size={30} />
+                    <h3>Przestrzeń czeka na pierwszy projekt.</h3>
+                    <p>Użyj przycisku „Zapisz projekt” w studiu.</p>
+                  </div>
+                )}
+                <div className="modal-actions">
+                  <button
+                    className="button"
+                    onClick={() => {
+                      file.current?.click();
+                      setProjectModal(false);
+                    }}
+                  >
+                    <Upload size={14} />
+                    Importuj scenę
+                  </button>
+                  <button
+                    className="button primary"
+                    onClick={() => {
+                      setProjectModal(false);
+                      setConfirmReset(true);
+                    }}
+                  >
+                    <Plus size={14} />
+                    Nowy projekt
+                  </button>
+                </div>
+              </>
             )}
-            <div className="modal-actions">
-              <button
-                className="button"
-                onClick={() => {
-                  file.current?.click();
-                  setProjectModal(false);
-                }}
-              >
-                <Upload size={14} />
-                Importuj scenę
-              </button>
-              <button
-                className="button primary"
-                onClick={() => {
-                  setProjectModal(false);
-                  setConfirmReset(true);
-                }}
-              >
-                <Plus size={14} />
-                Nowy projekt
-              </button>
-            </div>
           </section>
         </div>
       )}

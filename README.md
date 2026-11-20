@@ -6,8 +6,13 @@
 
 An interactive engineering demonstrator for parametric BIPV roofs. React / TypeScript / Three.js, a Python geometry engine, private guest persistence in Supabase and one sleeping Railway Hobby container.
 
-## R1
+## Start here
 
+[Engineering handoff and implementation roadmap](docs/HANDOFF.md) · [Agent assignments](foundry/START_HERE.md)
+
+## Implemented
+
+- Saved project history with up to 20 revisions. Load any retained revision into the editor and save it as a new revision.
 - Editable gable roof: width, projected depth, pitch, eaves height, azimuth; one or both surfaces.
 - Add/edit/remove chimneys and skylights; undo/redo; perspective, top and front views.
 - Two module orientations, sixteen grid phases each, full-polygon containment and obstacle/edge setbacks.

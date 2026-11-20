@@ -128,3 +128,9 @@ export const INITIAL: Scene = {
   clearance_m: 0.2,
   surfaces: ["south"],
 };
+
+export type ProjectRevisionSummary = {
+  revision: number;
+  name: string;
+  saved_at: string;
+};

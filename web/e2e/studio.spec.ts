@@ -87,10 +87,47 @@ test("studio renders, edits, undoes, exports and imports", async ({ page }) => {
     const ref = await page.evaluate(() =>
       JSON.parse(localStorage.getItem("bipv.cloudproject.v1")!),
     );
-    const removed = await page.request.delete("/api/projects/" + ref.id, {
-      headers: { "x-workspace-key": key },
-    });
-    expect(removed.status()).toBe(204);
+    try {
+      const name = page.getByRole("textbox", { name: "Nazwa projektu" });
+      const originalName = await name.inputValue();
+      await name.fill("CI · zmieniona scena");
+      const save = page.getByRole("button", {
+        name: "Zapisz projekt",
+        exact: true,
+      });
+      await save.click();
+      await expect(page.getByRole("status")).toContainText("rewizja 2");
+      await page.getByRole("button", { name: "Projekty", exact: true }).click();
+      await page
+        .getByRole("button", { name: "Historia projektu CI · zmieniona scena" })
+        .click();
+      await page
+        .getByRole("button", { name: "Wczytaj rewizję 1", exact: true })
+        .click();
+      await expect(name).toHaveValue(originalName);
+      await expect(page.getByRole("status")).toContainText(
+        "Wczytano rewizję 1",
+      );
+      const unchanged = await page.request.get("/api/projects/" + ref.id, {
+        headers: { "x-workspace-key": key },
+      });
+      expect((await unchanged.json()).revision).toBe(2);
+      await save.click();
+      await expect(page.getByRole("status")).toContainText("rewizja 3");
+      const restored = await page.request.get(
+        "/api/projects/" + ref.id + "/revisions/3",
+        {
+          headers: { "x-workspace-key": key },
+        },
+      );
+      expect(restored.status()).toBe(200);
+      expect((await restored.json()).scene.name).toBe(originalName);
+    } finally {
+      const removed = await page.request.delete("/api/projects/" + ref.id, {
+        headers: { "x-workspace-key": key },
+      });
+      expect(removed.status()).toBe(204);
+    }
   }
   await page.setViewportSize({ width: 390, height: 844 });
   await page.getByRole("button", { name: "Projekt", exact: true }).click();
