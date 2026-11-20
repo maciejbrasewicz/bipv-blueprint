@@ -1,0 +1,77 @@
+name: Production verification
+on:
+  push:
+    branches: [main]
+    paths: ['docs/production-target.json']
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: production-verification
+  cancel-in-progress: false
+env:
+  BASE_URL: https://bipv-studio-production.up.railway.app
+  LIVE_CLOUD: '1'
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - uses: actions/setup-node@v7.1.0
+        with:
+          node-version: '24'
+      - name: Verify the deployed commit and cloud configuration
+        run: |
+          python - <<'PY'
+          import json,os,pathlib,re,time,urllib.request
+          target=json.loads(pathlib.Path("docs/production-target.json").read_text())
+          expected=target["commit"]
+          assert re.fullmatch("[a-f0-9]{40}",expected)
+          for attempt in range(8):
+              try:
+                  health=json.load(urllib.request.urlopen(os.environ["BASE_URL"]+"/api/health",timeout=20))
+                  break
+              except Exception:
+                  if attempt==7:
+                      raise
+                  time.sleep(3)
+          assert health["commit"]==expected,(health["commit"],expected)
+          assert health["cloud_configured"] is True
+          assert health["status"]=="ok"
+          print(json.dumps({"live_commit":expected,"cloud_configured":True,"status":"ok"}))
+          PY
+      - run: npm ci --prefix web --no-audit --no-fund
+      - run: npx playwright install --with-deps chromium
+        working-directory: web
+      - run: npm run test:e2e
+        working-directory: web
+      - uses: actions/upload-artifact@v7.0.2
+        if: always()
+        with:
+          name: live-browser-evidence
+          path: web/test-results/
+          retention-days: 7
+      - name: Record live visual and cloud evidence
+        if: always()
+        env:
+          JOB_STATUS: ${{ job.status }}
+        run: |
+          if [ -f web/test-results/studio-desktop-review.jpg ]; then
+            python -c "import base64,pathlib; s=base64.b64encode(pathlib.Path('web/test-results/studio-desktop-review.jpg').read_bytes()).decode(); [print('LIVE_VISUAL_CHUNK_'+str(i//4000).zfill(4)+':'+s[i:i+4000]) for i in range(0,len(s),4000)]"
+          fi
+          if [ -f web/test-results/studio-mobile-review.jpg ]; then
+            python -c "import base64,pathlib; s=base64.b64encode(pathlib.Path('web/test-results/studio-mobile-review.jpg').read_bytes()).decode(); [print('MOBILE_VISUAL_CHUNK_'+str(i//4000).zfill(4)+':'+s[i:i+4000]) for i in range(0,len(s),4000)]"
+          fi
+          git fetch origin evidence/r1
+          git worktree add /tmp/bipv-live-evidence origin/evidence/r1
+          mkdir -p /tmp/bipv-live-evidence/evidence/live
+          find web/test-results -type f \( -name '*.png' -o -name '*.jpg' -o -name 'error-context.md' \) -exec cp {} /tmp/bipv-live-evidence/evidence/live/ \; || true
+          python -c "import json,os,pathlib; target=json.loads(pathlib.Path('docs/production-target.json').read_text()); pathlib.Path('/tmp/bipv-live-evidence/evidence/live/run.json').write_text(json.dumps({'deployed_commit':target['commit'],'status':os.environ['JOB_STATUS'],'run_id':os.environ['GITHUB_RUN_ID']},indent=2))"
+          git -C /tmp/bipv-live-evidence config user.name "github-actions[bot]"
+          git -C /tmp/bipv-live-evidence config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git -C /tmp/bipv-live-evidence add evidence/live
+          git -C /tmp/bipv-live-evidence diff --cached --quiet || git -C /tmp/bipv-live-evidence commit -m "Record deployed R1 verification"
+          git -C /tmp/bipv-live-evidence push origin HEAD:evidence/r1

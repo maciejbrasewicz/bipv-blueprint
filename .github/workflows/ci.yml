@@ -2,6 +2,7 @@ name: Quality gates
 on:
   push:
     branches: [main]
+    paths-ignore: ["docs/**", "foundry/**", "README.md", "AGENTS.md"]
   pull_request:
   workflow_dispatch:
 permissions:
@@ -21,46 +22,17 @@ jobs:
         with:
           python-version: '3.12'
       - uses: astral-sh/setup-uv@v10.4.0
+        with:
+          version: '0.13.9'
       - uses: actions/setup-node@v7.1.0
         with:
           node-version: '24'
-      - name: Bootstrap locks once
-        shell: bash
-        run: |
-          if [ ! -f uv.lock ] || [ ! -f web/package-lock.json ]; then
-            uv lock
-            uv sync --dev
-            uv run ruff format server
-            uv run ruff check server --fix
-            npm install --prefix web --no-audit --no-fund
-            npm run format --prefix web
-            uv export --frozen --no-dev --no-hashes --format requirements-txt --output-file requirements.txt > /dev/null
-            mkdir -p contracts
-            uv run python -c "import json,pathlib; from server.models import Scene; pathlib.Path('contracts/scene.schema.json').write_text(json.dumps(Scene.model_json_schema(),indent=2,ensure_ascii=False)+'\n')"
-            git config user.name "github-actions[bot]"
-            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-            git add uv.lock requirements.txt contracts/scene.schema.json server web/src web/e2e web/*.ts web/*.json
-            git commit -m "Lock and format the initial R1 toolchain"
-            git push origin HEAD:main
-          fi
-          echo "TESTED_COMMIT=$(git rev-parse HEAD)"
       - run: uv sync --frozen --dev
       - run: uv run ruff check server
       - run: uv run ruff format --check server
       - run: uv run pytest -q
       - run: uv export --frozen --no-dev --no-hashes --format requirements-txt --output-file requirements.txt > /dev/null && git diff --exit-code requirements.txt
       - run: npm ci --prefix web --no-audit --no-fund
-      - name: Canonicalize recovered source formatting
-        run: |
-          npm run format --prefix web
-          git diff -- web/e2e/studio.spec.ts
-          if ! git diff --quiet -- web; then
-            git config user.name "github-actions[bot]"
-            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-            git add web/src web/e2e web/*.ts web/*.json
-            git commit -m "Normalize recovered browser test formatting"
-            git push origin HEAD:main
-          fi
       - run: npm run format:check --prefix web
       - run: npm run build --prefix web
       - run: npx playwright install --with-deps chromium
@@ -101,6 +73,9 @@ jobs:
         run: |
           if [ -f web/test-results/studio-desktop-review.jpg ]; then
             python -c "import base64,pathlib; s=base64.b64encode(pathlib.Path('web/test-results/studio-desktop-review.jpg').read_bytes()).decode(); [print('VISUAL_CHUNK_'+str(i//4000).zfill(4)+':'+s[i:i+4000]) for i in range(0,len(s),4000)]"
+          fi
+          if [ -f web/test-results/studio-mobile-review.jpg ]; then
+            python -c "import base64,pathlib; s=base64.b64encode(pathlib.Path('web/test-results/studio-mobile-review.jpg').read_bytes()).decode(); [print('MOBILE_VISUAL_CHUNK_'+str(i//4000).zfill(4)+':'+s[i:i+4000]) for i in range(0,len(s),4000)]"
           fi
           git fetch origin evidence/r1
           git worktree add /tmp/bipv-evidence origin/evidence/r1

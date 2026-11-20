@@ -98,6 +98,12 @@ test("studio renders, edits, undoes, exports and imports", async ({ page }) => {
     path: "test-results/studio-mobile.png",
     fullPage: true,
   });
+  await page.screenshot({
+    path: "test-results/studio-mobile-review.jpg",
+    type: "jpeg",
+    quality: 75,
+    fullPage: true,
+  });
   await page
     .getByRole("button", { name: "Wyniki projektu", exact: true })
     .click();
