@@ -2,6 +2,8 @@
 
 ## Named organization workspaces
 
+- [Current application commit](https://github.com/maciejbrasewicz/bipv-blueprint/commit/c71487533be70a86b857fcfd2786ca0b979eabec) reached SUCCESS on the existing Railway service. Deployment `584c666e-ad45-4fbc-b268-2ebd11a0ab8b`. The viewport switches to the metric 2D plan when WebGL cannot initialize. The public account dialog was verified in that mode. [Quality gates](https://github.com/maciejbrasewicz/bipv-blueprint/actions/runs/44838012814) include a simulated WebGL failure and the account-transfer browser flow with a test Auth response.
+
 - [Application commit](https://github.com/maciejbrasewicz/bipv-blueprint/commit/ab373fbde073c21a8013685f68070735f6a67d1e) reached SUCCESS on the existing Railway service. Deployment `4565b132-c2e7-4b7e-bee9-556348296a49`.
 - Named accounts open organization workspaces. An explicit guest claim preserves project identity and revisions, and removes guest access. Project and private Storage access use current membership.
 - Hosted migrations `20261120230537` and `20261120230542` were applied and verified in a rolled-back fixture transaction. The GitHub migration versions match the hosted history.
