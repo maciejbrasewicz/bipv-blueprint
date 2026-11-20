@@ -1,6 +1,6 @@
 import { Suspense, useEffect, useLayoutEffect, useMemo, useRef } from "react";
 import { Canvas, useThree } from "@react-three/fiber";
-import { OrbitControls, Grid, Line, Html } from "@react-three/drei";
+import { OrbitControls, Grid, Line } from "@react-three/drei";
 import * as THREE from "three";
 import SunCalc from "suncalc";
 import type {
@@ -67,6 +67,43 @@ function RoofSurface({
     </group>
   );
 }
+function SurfaceDimension({ surface }: { surface: Surface }) {
+  const text = surface.width_m.toFixed(1) + " m";
+  const texture = useMemo(() => {
+    const canvas = document.createElement("canvas");
+    canvas.width = 160;
+    canvas.height = 60;
+    const context = canvas.getContext("2d");
+    if (context) {
+      context.fillStyle = "#edf2e9";
+      context.fillRect(0, 0, 160, 60);
+      context.strokeStyle = "#729186";
+      context.lineWidth = 4;
+      context.strokeRect(2, 2, 156, 56);
+      context.fillStyle = "#304544";
+      context.font = "bold 29px sans-serif";
+      context.textAlign = "center";
+      context.textBaseline = "middle";
+      context.fillText(text, 80, 31);
+    }
+    const map = new THREE.CanvasTexture(canvas);
+    map.colorSpace = THREE.SRGBColorSpace;
+    return map;
+  }, [text]);
+  useEffect(() => () => texture.dispose(), [texture]);
+
+  const left = Math.min(...surface.boundary_uv_m.map(([u]) => u));
+  const bottom = Math.min(...surface.boundary_uv_m.map(([, v]) => v));
+  return (
+    <sprite
+      position={uv(surface, left + surface.width_m / 2, bottom - 0.38, 0.04)}
+      scale={[1.65, 0.62, 1]}
+    >
+      <spriteMaterial map={texture} toneMapped={false} />
+    </sprite>
+  );
+}
+
 function Cells({
   placements,
   surfaces,
@@ -467,21 +504,7 @@ function World(p: ViewProps) {
       {showGrid &&
         result.surfaces
           .filter((s) => scene.surfaces.includes(s.id))
-          .map((s) => (
-            <Html
-              key={s.id}
-              position={uv(
-                s,
-                s.boundary_uv_m[0][0],
-                s.boundary_uv_m[0][1],
-                0.02,
-              )}
-              center
-              distanceFactor={24}
-            >
-              <div className="measure-tag">{s.width_m.toFixed(1)} m</div>
-            </Html>
-          ))}
+          .map((s) => <SurfaceDimension key={s.id} surface={s} />)}
       <CameraRig
         view={view}
         roof={scene.roof}
