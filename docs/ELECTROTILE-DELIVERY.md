@@ -1,6 +1,6 @@
 # Electrotile ET/2025/7 — zakres i plan wdrożenia
 
-Źródła: Zapytanie ET/2025/7 z 6 listopada 2026, s. 1–4, oraz załącznik 2, sekcje A–E, s. 1–13. Poniższe progi i termin odzwierciedlają wersje dokumentów dostarczone do projektu.
+Źródła: [ogłoszenie 297365 w Bazie Konkurencyjności](https://bazakonkurencyjnosci.funduszeeuropejskie.gov.pl/ogloszenia/297365), Zapytanie ET/2025/7 z 6 listopada 2026, s. 1–4, oraz załącznik 2, sekcje A–E, s. 1–13. Poniższe progi i termin odzwierciedlają wersje dokumentów dostarczone do projektu.
 
 Zapytanie dotyczy testów funkcjonalnych i niefunkcjonalnych trzech modułów oraz poprawiania błędów. Harmonogram to 14 dni od podpisania umowy. Dokument wskazuje 7 grudnia 2026 jako termin składania ofert, ocenę według ceny netto i lokalną paczkę ZIP z instrukcją jako próbkę potwierdzającą zdolność do wykonania prac. BIPV Studio jest własnym demonstratorem i źródłem próbki testowej. Testy systemu zamawiającego wymagają dostępu do jego modułów i danych.
 

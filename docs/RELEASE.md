@@ -1,3 +1,12 @@
+# Planar geometry and OBJ release · 20 November 2026
+
+- [Deployed commit](https://github.com/maciejbrasewicz/bipv-blueprint/commit/a4b6c2f8cf96a2835bf05504c13425b303747c3b) on Railway. Deployment bd5de298-343f-4121-b90e-cd9d80569e10 reached SUCCESS. The production health check matched the promoted SHA.
+- The editor accepts concave roof and facade outlines and interior openings in metric UV. The OBJ export preserves holes and selected module positions. Legacy gable scenes remain readable.
+- [Quality gates](https://github.com/maciejbrasewicz/bipv-blueprint/actions/runs/44816156045) passed for the promoted commit: 20 Python tests, both Chromium studio journeys and the Docker smoke at 250 MB / 0.1 vCPU. The Docker smoke sampled 45.39 MiB after the layout call.
+- [Roof test archive](https://github.com/maciejbrasewicz/bipv-blueprint/actions/runs/44816156045/artifacts/14670086147) was generated from the promoted commit. CI extracted it and independently reran all 20 tests from its contents.
+- [Production verification](https://github.com/maciejbrasewicz/bipv-blueprint/actions/runs/44816619487) passed for live cloud isolation, revision history and browser import/render/OBJ. A separate live API check saved the imported example to Supabase, read it back from revision 1, verified the same layout input hash and removed the test project.
+- The release retains the existing plans and limits. The benchmark status and next integrations are in [the Electrotile delivery matrix](ELECTROTILE-DELIVERY.md).
+
 # Project history release · 20 November 2026
 
 - Live application: https://bipv-studio-production.up.railway.app

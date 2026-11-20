@@ -2,7 +2,7 @@
 
 **Live:** https://bipv-studio-production.up.railway.app
 
-[Quality gates](https://github.com/maciejbrasewicz/bipv-blueprint/actions/runs/44789712715) · [Production verification](https://github.com/maciejbrasewicz/bipv-blueprint/actions/runs/44790703784)
+[Quality gates](https://github.com/maciejbrasewicz/bipv-blueprint/actions/runs/44816156045) · [Production verification](https://github.com/maciejbrasewicz/bipv-blueprint/actions/runs/44816619487)
 
 An interactive engineering demonstrator for parametric BIPV roofs. React / TypeScript / Three.js, a Python geometry engine, private guest persistence in Supabase and one sleeping Railway Hobby container.
 
@@ -10,7 +10,7 @@ An interactive engineering demonstrator for parametric BIPV roofs. React / TypeS
 
 [Engineering handoff and implementation roadmap](docs/HANDOFF.md) · [Agent assignments](foundry/START_HERE.md)
 
-[Electrotile requirements and delivery plan](docs/ELECTROTILE-DELIVERY.md) · [Runnable roof tests](docs/ROOF-TEST-PACK.md)
+[Electrotile requirements and delivery plan](docs/ELECTROTILE-DELIVERY.md) · [Runnable roof tests](docs/ROOF-TEST-PACK.md) · [Download the test archive](https://github.com/maciejbrasewicz/bipv-blueprint/actions/runs/44816156045/artifacts/14670086147)
 
 ## Implemented
 
