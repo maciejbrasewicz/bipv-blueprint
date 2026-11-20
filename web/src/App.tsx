@@ -487,7 +487,11 @@ export default function App() {
           R1 <span>·</span> DEMO
         </span>
         <div className="header-actions">
-          <button className="button subtle" aria-label="Projekty" onClick={openProjects}>
+          <button
+            className="button subtle"
+            aria-label="Projekty"
+            onClick={openProjects}
+          >
             <FolderOpen size={15} />
             <span>Projekty</span>
           </button>
