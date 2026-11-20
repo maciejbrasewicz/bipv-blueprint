@@ -487,12 +487,13 @@ export default function App() {
           R1 <span>·</span> DEMO
         </span>
         <div className="header-actions">
-          <button className="button subtle" onClick={openProjects}>
+          <button className="button subtle" aria-label="Projekty" onClick={openProjects}>
             <FolderOpen size={15} />
             <span>Projekty</span>
           </button>
           <button
             className="button export-button"
+            aria-label="Eksport"
             onClick={() => setExportMenu(!exportMenu)}
             aria-expanded={exportMenu}
           >
@@ -523,6 +524,7 @@ export default function App() {
           )}
           <button
             className="button primary"
+            aria-label="Zapisz projekt"
             onClick={save}
             disabled={saving || !cloudConfigured}
           >
@@ -826,6 +828,7 @@ export default function App() {
               {modes.map(([id, title, Icon]) => (
                 <button
                   key={id}
+                  aria-label={title}
                   className={mode === id ? "active" : ""}
                   onClick={() => {
                     setMode(id);
@@ -1032,7 +1035,7 @@ export default function App() {
                         {v.id === "landscape"
                           ? "Układ poziomy"
                           : "Układ pionowy"}
-                        {i === 0 && <small>WIĘCEJ MODUŁÓW</small>}
+                        {i === 0 && <small>NAJWIĘCEJ MODUŁÓW</small>}
                       </b>
                       <em>
                         {num(v.power_kwp, 2)} kWp<span>·</span>

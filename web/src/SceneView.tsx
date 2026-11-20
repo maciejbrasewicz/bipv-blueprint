@@ -273,34 +273,29 @@ function House({ scene }: { scene: Scene }) {
     </group>
   );
 }
-function CameraRig({ view }: { view: string }) {
-  const { camera, invalidate } = useThree(),
-    controls = useRef<any>(null);
+function CameraRig({ view, roof }: { view: string; roof: Scene["roof"] }) {
+  const { camera, invalidate, size } = useThree();
+  const controls = useRef<any>(null);
+  const width = roof.width_m;
+  const depth = roof.depth_m;
+  const height = roof.eaves_m + Math.tan(roof.pitch_deg * Math.PI / 180) * depth / 2;
+  const centerY = height / 2;
   useEffect(() => {
-    const p: [number, number, number] =
-      view === "top"
-        ? [0, 36, 0.01]
-        : view === "front"
-          ? [0, 8, 26]
-          : [20, 17, 22];
-    camera.position.set(...p);
-    camera.lookAt(0, 3, 0);
-    controls.current?.target.set(0, 3, 0);
-    controls.current?.update();
+    const aspect = size.width / Math.max(1, size.height);
+    const radius = Math.sqrt(width * width + depth * depth + height * height) / 2;
+    const fov = camera instanceof THREE.PerspectiveCamera ? camera.fov : 38;
+    const distance = Math.max(20, radius * 1.12 / (Math.sin(fov * Math.PI / 360) * Math.min(1, aspect)));
+    const direction = new THREE.Vector3(...(view === "top" ? [0, 1, 0.001] : view === "front" ? [0, 0.2, 1] : [20, 14, 22]) as [number, number, number]).normalize();
+    camera.position.copy(direction.multiplyScalar(distance).add(new THREE.Vector3(0, centerY, 0)));
+    camera.lookAt(0, centerY, 0);
+    if (controls.current) {
+      controls.current.target.set(0, centerY, 0);
+      controls.current.maxDistance = Math.max(65, distance * 2);
+      controls.current.update();
+    }
     invalidate();
-  }, [camera, view, invalidate]);
-  return (
-    <OrbitControls
-      ref={controls}
-      makeDefault
-      target={[0, 3, 0]}
-      minDistance={7}
-      maxDistance={65}
-      maxPolarAngle={Math.PI / 2 - 0.015}
-      enableDamping
-      dampingFactor={0.1}
-    />
-  );
+  }, [camera, view, invalidate, size.width, size.height, width, depth, height, centerY]);
+  return <OrbitControls ref={controls} makeDefault target={[0, centerY, 0]} minDistance={7} maxPolarAngle={Math.PI / 2 - 0.015} enableDamping dampingFactor={0.1} />;
 }
 export type ViewProps = {
   scene: Scene;
@@ -431,7 +426,7 @@ function World(p: ViewProps) {
               <div className="measure-tag">{s.width_m.toFixed(1)} m</div>
             </Html>
           ))}
-      <CameraRig view={view} />
+      <CameraRig view={view} roof={scene.roof} />
     </>
   );
 }
