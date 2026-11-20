@@ -1,4 +1,5 @@
 """Metric ENU geometry. Renderer maps (E,N,U) to (E,U,-N)."""
+
 import hashlib
 import json
 import math
@@ -13,12 +14,36 @@ from .models import Scene
 
 ENGINE_VERSION = "grid-search/0.1.0"
 CATALOG = [
-    {"id": "slate-75", "name": "Slate 75", "width_m": 1.2, "height_m": 0.4, "power_wp": 75,
-     "finish": "Grafit satynowy", "family": "Panel dachowy", "is_manufacturer_data": False},
-    {"id": "tile-32", "name": "Tile 32", "width_m": 0.6, "height_m": 0.4, "power_wp": 32,
-     "finish": "Czerń mineralna", "family": "Dachówka solarna", "is_manufacturer_data": False},
-    {"id": "panel-120", "name": "Linear 120", "width_m": 1.2, "height_m": 0.6, "power_wp": 120,
-     "finish": "Czerń szklana", "family": "Moduł wielkoformatowy", "is_manufacturer_data": False},
+    {
+        "id": "slate-75",
+        "name": "Slate 75",
+        "width_m": 1.2,
+        "height_m": 0.4,
+        "power_wp": 75,
+        "finish": "Grafit satynowy",
+        "family": "Panel dachowy",
+        "is_manufacturer_data": False,
+    },
+    {
+        "id": "tile-32",
+        "name": "Tile 32",
+        "width_m": 0.6,
+        "height_m": 0.4,
+        "power_wp": 32,
+        "finish": "Czerń mineralna",
+        "family": "Dachówka solarna",
+        "is_manufacturer_data": False,
+    },
+    {
+        "id": "panel-120",
+        "name": "Linear 120",
+        "width_m": 1.2,
+        "height_m": 0.6,
+        "power_wp": 120,
+        "finish": "Czerń szklana",
+        "family": "Moduł wielkoformatowy",
+        "is_manufacturer_data": False,
+    },
 ]
 
 
@@ -36,19 +61,26 @@ def surfaces(scene: Scene) -> list[dict]:
     ca, sa = math.cos(angle), math.sin(angle)
 
     def rotate(p):
-        return [round(ca*p[0] + sa*p[1], 10), round(-sa*p[0] + ca*p[1], 10), p[2]]
+        return [round(ca * p[0] + sa * p[1], 10), round(-sa * p[0] + ca * p[1], 10), p[2]]
 
     result = []
     for side, origin, u, v, n in [
-        ("south", [-r.width_m/2, -r.depth_m/2, r.eaves_m], [1, 0, 0], [0, c, s], [0, -s, c]),
-        ("north", [r.width_m/2, r.depth_m/2, r.eaves_m], [-1, 0, 0], [0, -c, s], [0, s, c]),
+        ("south", [-r.width_m / 2, -r.depth_m / 2, r.eaves_m], [1, 0, 0], [0, c, s], [0, -s, c]),
+        ("north", [r.width_m / 2, r.depth_m / 2, r.eaves_m], [-1, 0, 0], [0, -c, s], [0, s, c]),
     ]:
-        result.append({
-            "id": side, "origin": rotate(origin), "u": rotate(u), "v": rotate(v),
-            "normal": rotate(n), "width_m": r.width_m, "height_m": slope,
-            "boundary_uv_m": [[0, 0], [r.width_m, 0], [r.width_m, slope], [0, slope]],
-            "azimuth_deg": (r.azimuth_deg + (180 if side == "north" else 0)) % 360,
-        })
+        result.append(
+            {
+                "id": side,
+                "origin": rotate(origin),
+                "u": rotate(u),
+                "v": rotate(v),
+                "normal": rotate(n),
+                "width_m": r.width_m,
+                "height_m": slope,
+                "boundary_uv_m": [[0, 0], [r.width_m, 0], [r.width_m, slope], [0, slope]],
+                "azimuth_deg": (r.azimuth_deg + (180 if side == "north" else 0)) % 360,
+            }
+        )
     return result
 
 
@@ -57,7 +89,8 @@ def usable_polygon(scene: Scene, surface: dict):
     inner = roof.buffer(-scene.setback_m, join_style=2)
     obstacles = [
         box(o.u, o.v, o.u + o.width_m, o.v + o.depth_m).buffer(scene.clearance_m, join_style=2)
-        for o in scene.obstacles if o.surface_id == surface["id"]
+        for o in scene.obstacles
+        if o.surface_id == surface["id"]
     ]
     return inner.difference(unary_union(obstacles)) if obstacles else inner
 
@@ -78,10 +111,15 @@ def layout_surface(scene: Scene, surface: dict, width: float, height: float) -> 
                 x = min_x + fx * step_x
                 while x + width <= max_x + 1e-9:
                     if prepared.covers(box(x, y, x + width, y + height)):
-                        current.append({
-                            "surface_id": surface["id"], "u": round(x, 7), "v": round(y, 7),
-                            "width_m": width, "height_m": height,
-                        })
+                        current.append(
+                            {
+                                "surface_id": surface["id"],
+                                "u": round(x, 7),
+                                "v": round(y, 7),
+                                "width_m": width,
+                                "height_m": height,
+                            }
+                        )
                     x += step_x
                 y += step_y
             if len(current) > len(best):
@@ -112,16 +150,21 @@ def _compute_cached(serialized_scene: str) -> dict:
             placements.extend(items)
             usable_area += area
         for i, p in enumerate(placements):
-            p["id"] = f"{orientation}-{i+1:04}"
+            p["id"] = f"{orientation}-{i + 1:04}"
         count = len(placements)
         active_area = count * width * height
-        variants.append({
-            "id": orientation, "module_count": count, "power_kwp": count * product["power_wp"] / 1000,
-            "active_area_m2": round(active_area, 3), "roof_area_m2": round(roof_area, 3),
-            "usable_area_m2": round(usable_area, 3),
-            "coverage_pct": round(100 * active_area / roof_area, 1) if roof_area else 0,
-            "placements": placements,
-        })
+        variants.append(
+            {
+                "id": orientation,
+                "module_count": count,
+                "power_kwp": count * product["power_wp"] / 1000,
+                "active_area_m2": round(active_area, 3),
+                "roof_area_m2": round(roof_area, 3),
+                "usable_area_m2": round(usable_area, 3),
+                "coverage_pct": round(100 * active_area / roof_area, 1) if roof_area else 0,
+                "placements": placements,
+            }
+        )
     variants.sort(key=lambda v: (-v["module_count"], v["id"]))
     warnings = [
         "Scena parametryczna; bez pomiaru ani rekonstrukcji adresu.",
@@ -130,16 +173,21 @@ def _compute_cached(serialized_scene: str) -> dict:
     ]
     for o in scene.obstacles:
         s = next(s for s in resolved if s["id"] == o.surface_id)
-        if not box(0, 0, s["width_m"], s["height_m"]).covers(
-            box(o.u, o.v, o.u + o.width_m, o.v + o.depth_m)
-        ):
+        if not box(0, 0, s["width_m"], s["height_m"]).covers(box(o.u, o.v, o.u + o.width_m, o.v + o.depth_m)):
             warnings.append(f"Przeszkoda {o.id} wykracza poza połać; użyto części przecinającej dach.")
     return {
-        "schema_version": "1.0.0", "source_hash": source_hash(scene), "engine_version": ENGINE_VERSION,
+        "schema_version": "1.0.0",
+        "source_hash": source_hash(scene),
+        "engine_version": ENGINE_VERSION,
         "coordinate_frame": {
-            "units": "m", "axes": ["east", "north", "up"],
-            "render_mapping": "(E,N,U) -> (E,U,-N)", "source": "procedural",
+            "units": "m",
+            "axes": ["east", "north", "up"],
+            "render_mapping": "(E,N,U) -> (E,U,-N)",
+            "source": "procedural",
         },
-        "surfaces": resolved, "product": product, "variants": variants,
-        "duration_ms": round((perf_counter()-start)*1000, 2), "warnings": warnings,
+        "surfaces": resolved,
+        "product": product,
+        "variants": variants,
+        "duration_ms": round((perf_counter() - start) * 1000, 2),
+        "warnings": warnings,
     }

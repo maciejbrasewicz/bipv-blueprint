@@ -78,7 +78,10 @@ async def bounded_requests(request: Request, call_next):
 @app.get("/api/health")
 def health():
     return {
-        "status": "ok", "version": "0.1.0", "engine": ENGINE_VERSION, "cloud_configured": CLOUD,
+        "status": "ok",
+        "version": "0.1.0",
+        "engine": ENGINE_VERSION,
+        "cloud_configured": CLOUD,
         "commit": os.getenv("RAILWAY_GIT_COMMIT_SHA", "local"),
     }
 
@@ -100,7 +103,9 @@ def workspace_headers(key: str | None):
     if not key or not re.fullmatch(r"[a-f0-9]{64}", key):
         raise HTTPException(401, "Brak poprawnego klucza przestrzeni gościnnej.")
     return {
-        "apikey": SUPABASE_KEY, "x-workspace-key": key, "Content-Type": "application/json",
+        "apikey": SUPABASE_KEY,
+        "x-workspace-key": key,
+        "Content-Type": "application/json",
         "Prefer": "return=representation",
     }
 
@@ -114,7 +119,9 @@ async def db(request: Request, method: str, path: str, key: str | None, **kwargs
     except httpx.HTTPError as exc:
         raise HTTPException(503, "Supabase chwilowo niedostępny. Kopia lokalna jest zachowana.") from exc
     if response.status_code >= 400:
-        detail = response.json() if response.headers.get("content-type", "").startswith("application/json") else {}
+        detail = (
+            response.json() if response.headers.get("content-type", "").startswith("application/json") else {}
+        )
         if detail.get("code") == "23514":
             raise HTTPException(409, "Przekroczono limit przestrzeni lub kontrakt rewizji projektu.")
         status = 409 if response.status_code == 409 else 503
@@ -128,7 +135,10 @@ PROJECT_FIELDS = "id,name,scene,revision,created_at,updated_at"
 @app.get("/api/projects")
 async def projects(request: Request, x_workspace_key: str | None = Header(default=None)):
     rows = await db(
-        request, "GET", "bipv_projects", x_workspace_key,
+        request,
+        "GET",
+        "bipv_projects",
+        x_workspace_key,
         params={"select": "id,name,revision,updated_at", "order": "updated_at.desc", "limit": "10"},
     )
     return {"projects": rows}
@@ -137,7 +147,10 @@ async def projects(request: Request, x_workspace_key: str | None = Header(defaul
 @app.get("/api/projects/{project_id}")
 async def get_project(project_id: UUID, request: Request, x_workspace_key: str | None = Header(default=None)):
     rows = await db(
-        request, "GET", "bipv_projects", x_workspace_key,
+        request,
+        "GET",
+        "bipv_projects",
+        x_workspace_key,
         params={"select": PROJECT_FIELDS, "id": f"eq.{project_id}"},
     )
     if not rows:
@@ -152,7 +165,11 @@ async def create_project(
     if body.expected_revision is not None:
         raise HTTPException(422, "Nowy projekt nie ma poprzedniej rewizji.")
     rows = await db(
-        request, "POST", "bipv_projects", x_workspace_key, params={"select": PROJECT_FIELDS},
+        request,
+        "POST",
+        "bipv_projects",
+        x_workspace_key,
+        params={"select": PROJECT_FIELDS},
         json={"id": str(uuid4()), "name": body.scene.name, "scene": body.scene.model_dump()},
     )
     return rows[0]
@@ -160,15 +177,28 @@ async def create_project(
 
 @app.patch("/api/projects/{project_id}")
 async def update_project(
-    project_id: UUID, body: SaveProject, request: Request,
+    project_id: UUID,
+    body: SaveProject,
+    request: Request,
     x_workspace_key: str | None = Header(default=None),
 ):
     if body.expected_revision is None:
         raise HTTPException(428, "Wymagana poprzednia rewizja projektu.")
     rows = await db(
-        request, "PATCH", "bipv_projects", x_workspace_key,
-        params={"select": PROJECT_FIELDS, "id": f"eq.{project_id}", "revision": f"eq.{body.expected_revision}"},
-        json={"name": body.scene.name, "scene": body.scene.model_dump(), "revision": body.expected_revision + 1},
+        request,
+        "PATCH",
+        "bipv_projects",
+        x_workspace_key,
+        params={
+            "select": PROJECT_FIELDS,
+            "id": f"eq.{project_id}",
+            "revision": f"eq.{body.expected_revision}",
+        },
+        json={
+            "name": body.scene.name,
+            "scene": body.scene.model_dump(),
+            "revision": body.expected_revision + 1,
+        },
     )
     if not rows:
         raise HTTPException(409, "Projekt zmienił się w innej karcie. Otwórz aktualną wersję.")
