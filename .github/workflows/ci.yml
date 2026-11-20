@@ -1,0 +1,98 @@
+name: Quality gates
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 18
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: astral-sh/setup-uv@v6
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Bootstrap locks once
+        shell: bash
+        run: |
+          if [ ! -f uv.lock ] || [ ! -f web/package-lock.json ]; then
+            uv lock
+            uv sync --dev
+            uv run ruff check server --fix
+            uv run ruff format server
+            npm install --prefix web --package-lock-only --no-audit --no-fund
+            uv export --frozen --no-dev --no-hashes --format requirements-txt --output-file requirements.txt > /dev/null
+            mkdir -p contracts
+            uv run python -c "import json,pathlib; from server.models import Scene; pathlib.Path('contracts/scene.schema.json').write_text(json.dumps(Scene.model_json_schema(),indent=2,ensure_ascii=False)+'\n')"
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add uv.lock web/package-lock.json requirements.txt contracts/scene.schema.json server
+            git commit -m "Lock and format the initial R1 toolchain"
+            git push origin HEAD:main
+          fi
+          echo "TESTED_COMMIT=$(git rev-parse HEAD)"
+      - run: uv sync --frozen --dev
+      - run: uv run ruff check server
+      - run: uv run ruff format --check server
+      - run: uv run pytest -q
+      - run: uv export --frozen --no-dev --no-hashes --format requirements-txt --output-file requirements.txt > /dev/null && git diff --exit-code requirements.txt
+      - run: npm ci --prefix web --no-audit --no-fund
+      - run: npm run build --prefix web
+      - run: npx playwright install --with-deps chromium
+        working-directory: web
+      - run: npm run test:e2e
+        working-directory: web
+      - name: Verify the Docker runtime at the production resource limits
+        run: |
+          docker build -t bipv-studio-ci .
+          cid=$(docker run -d --memory=250m --cpus=0.1 -p 127.0.0.1:8081:8080 bipv-studio-ci)
+          trap 'docker rm -f "$cid"' EXIT
+          python - <<'PY'
+          import json,time,urllib.request
+          for i in range(90):
+              try:
+                  health=json.load(urllib.request.urlopen("http://127.0.0.1:8081/api/health",timeout=3))
+                  break
+              except Exception:
+                  time.sleep(1)
+          else:
+              raise RuntimeError("Container did not become healthy at 250 MB / 0.1 CPU")
+          req=urllib.request.Request("http://127.0.0.1:8081/api/layout",data=b"{}",headers={"Content-Type":"application/json"})
+          result=json.load(urllib.request.urlopen(req,timeout=60))
+          assert result["variants"][0]["module_count"] > 0
+          print({"health":health["status"],"modules":result["variants"][0]["module_count"]})
+          PY
+          docker stats --no-stream --format '{{.CPUPerc}} {{.MemUsage}}' "$cid"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: studio-browser-evidence
+          path: web/test-results/
+          retention-days: 7
+      - name: Publish visual review evidence
+        if: always() && github.ref == 'refs/heads/main'
+        env:
+          JOB_STATUS: ${{ job.status }}
+        run: |
+          git fetch origin evidence/r1
+          git worktree add /tmp/bipv-evidence origin/evidence/r1
+          mkdir -p /tmp/bipv-evidence/evidence
+          find web/test-results -maxdepth 1 -name '*.png' -exec cp {} /tmp/bipv-evidence/evidence/ \; || true
+          python -c "import json,os,pathlib,subprocess; pathlib.Path('/tmp/bipv-evidence/evidence/run.json').write_text(json.dumps({'tested_commit':subprocess.check_output(['git','rev-parse','HEAD']).decode().strip(),'status':os.environ['JOB_STATUS'],'run_id':os.environ['GITHUB_RUN_ID']},indent=2))"
+          git -C /tmp/bipv-evidence config user.name "github-actions[bot]"
+          git -C /tmp/bipv-evidence config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git -C /tmp/bipv-evidence add evidence
+          git -C /tmp/bipv-evidence diff --cached --quiet || git -C /tmp/bipv-evidence commit -m "Record R1 browser evidence"
+          git -C /tmp/bipv-evidence push origin HEAD:evidence/r1
