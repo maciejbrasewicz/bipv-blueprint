@@ -12,7 +12,7 @@ from shapely.prepared import prep
 
 from .models import Scene
 
-ENGINE_VERSION = "grid-search/0.2.0"
+ENGINE_VERSION = "grid-search/0.2.1"
 CATALOG = [
     {
         "id": "slate-75",
@@ -139,15 +139,13 @@ def layout_surface(scene: Scene, surface: dict, width: float, height: float) -> 
             while y + height <= max_y + 1e-9:
                 x = min_x + fx * step_x
                 while x + width <= max_x + 1e-9:
-                    placement_x, placement_y = round(x, 7), round(y, 7)
-                    if prepared.covers(
-                        box(placement_x, placement_y, placement_x + width, placement_y + height)
-                    ):
+                    # Rounding here can move a valid edge candidate outside the setback.
+                    if prepared.covers(box(x, y, x + width, y + height)):
                         current.append(
                             {
                                 "surface_id": surface["id"],
-                                "u": placement_x,
-                                "v": placement_y,
+                                "u": x,
+                                "v": y,
                                 "width_m": width,
                                 "height_m": height,
                             }

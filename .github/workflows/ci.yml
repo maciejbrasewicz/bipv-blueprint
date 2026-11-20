@@ -85,10 +85,20 @@ jobs:
           docker stats --no-stream --format '{{.CPUPerc}} {{.MemUsage}}' "$cid"
       - name: Verify the runnable roof-test archive
         run: |
-          python scripts/package_roof_tests.py dist/BIPV-Roof-Tests.zip --source-sha "$GITHUB_SHA"
+          mkdir -p dist
+          evidence="$PWD/dist"
+          archive="$evidence/BIPV-Roof-Tests.zip"
+          python scripts/package_roof_tests.py "$archive" --source-sha "$GITHUB_SHA"
           unpacked="$(mktemp -d)"
-          unzip -q dist/BIPV-Roof-Tests.zip -d "$unpacked"
-          uv run --project "$unpacked" --directory "$unpacked" --frozen pytest -q
+          trap 'rm -rf "$unpacked"' EXIT
+          unzip -q "$archive" -d "$unpacked"
+          (
+            cd "$unpacked"
+            uv sync --frozen --dev
+            uv run --frozen pytest -q --junitxml "$evidence/roof-test-results.xml"
+            uv run --frozen python -m scripts.benchmark_roof_tests --output "$evidence/roof-benchmark.json"
+          )
+          python scripts/package_roof_tests.py "$archive" --source-sha "$GITHUB_SHA" --evidence-dir "$evidence"
       - uses: actions/upload-artifact@v7.0.2
         with:
           name: bipv-roof-tests
