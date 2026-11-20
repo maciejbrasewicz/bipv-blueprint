@@ -1,0 +1,143 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$defs": {
+    "CatalogProduct": {
+      "additionalProperties": false,
+      "properties": {
+        "sku": {
+          "pattern": "^[a-zA-Z0-9_-]{1,64}$",
+          "title": "Sku",
+          "type": "string"
+        },
+        "name": {
+          "maxLength": 160,
+          "minLength": 1,
+          "title": "Name",
+          "type": "string"
+        },
+        "kind": {
+          "enum": [
+            "active",
+            "inactive"
+          ],
+          "title": "Kind",
+          "type": "string"
+        },
+        "external": {
+          "$ref": "#/$defs/Footprint"
+        },
+        "coverage": {
+          "$ref": "#/$defs/Footprint"
+        },
+        "orientations": {
+          "items": {
+            "enum": [
+              "landscape",
+              "portrait"
+            ],
+            "type": "string"
+          },
+          "maxItems": 2,
+          "minItems": 1,
+          "title": "Orientations",
+          "type": "array"
+        },
+        "power_wp": {
+          "maximum": 10000,
+          "minimum": 0,
+          "title": "Power Wp",
+          "type": "number"
+        },
+        "source_refs": {
+          "items": {
+            "maxLength": 160,
+            "minLength": 1,
+            "type": "string"
+          },
+          "maxItems": 12,
+          "title": "Source Refs",
+          "type": "array"
+        }
+      },
+      "required": [
+        "sku",
+        "name",
+        "kind",
+        "external",
+        "coverage",
+        "orientations",
+        "power_wp"
+      ],
+      "title": "CatalogProduct",
+      "type": "object"
+    },
+    "Footprint": {
+      "additionalProperties": false,
+      "properties": {
+        "width_m": {
+          "exclusiveMinimum": 0,
+          "maximum": 40,
+          "title": "Width M",
+          "type": "number"
+        },
+        "height_m": {
+          "exclusiveMinimum": 0,
+          "maximum": 40,
+          "title": "Height M",
+          "type": "number"
+        }
+      },
+      "required": [
+        "width_m",
+        "height_m"
+      ],
+      "title": "Footprint",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {
+      "const": "1.0.0",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "catalog_id": {
+      "pattern": "^[a-zA-Z0-9_-]{1,64}$",
+      "title": "Catalog Id",
+      "type": "string"
+    },
+    "release": {
+      "pattern": "^[a-zA-Z0-9_-]{1,64}$",
+      "title": "Release",
+      "type": "string"
+    },
+    "status": {
+      "enum": [
+        "fixture",
+        "draft",
+        "verified"
+      ],
+      "title": "Status",
+      "type": "string"
+    },
+    "products": {
+      "items": {
+        "$ref": "#/$defs/CatalogProduct"
+      },
+      "maxItems": 500,
+      "minItems": 1,
+      "title": "Products",
+      "type": "array"
+    }
+  },
+  "required": [
+    "schema_version",
+    "catalog_id",
+    "release",
+    "status",
+    "products"
+  ],
+  "title": "CatalogV1",
+  "type": "object"
+}

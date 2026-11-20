@@ -1,0 +1,26 @@
+{
+  "schema_version": "1.0.0",
+  "catalog_id": "synthetic",
+  "release": "fixture-1",
+  "status": "fixture",
+  "products": [
+    {
+      "sku": "FIXTURE-A",
+      "name": "Aktywny panel testowy",
+      "kind": "active",
+      "external": {"width_m": 1.2, "height_m": 0.4},
+      "coverage": {"width_m": 1.16, "height_m": 0.38},
+      "orientations": ["landscape", "portrait"],
+      "power_wp": 75
+    },
+    {
+      "sku": "FIXTURE-I",
+      "name": "Bierny panel testowy",
+      "kind": "inactive",
+      "external": {"width_m": 1.2, "height_m": 0.4},
+      "coverage": {"width_m": 1.16, "height_m": 0.38},
+      "orientations": ["landscape"],
+      "power_wp": 0
+    }
+  ]
+}

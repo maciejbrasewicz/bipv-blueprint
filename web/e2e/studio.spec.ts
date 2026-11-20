@@ -272,3 +272,51 @@ test("studio renders imported roof and facade and exports a 3D model", async ({
   });
   expect(errors).toEqual([]);
 });
+
+test("studio renders a metric plan with shared selection and editable coordinates", async ({
+  page,
+}) => {
+  await page.goto("/");
+  await expect(
+    page.getByText("Geometria obliczona", { exact: true }),
+  ).toBeVisible({ timeout: 30000 });
+  await page.getByRole("button", { name: "Rzut 2D", exact: true }).click();
+
+  const plan = page.getByRole("region", { name: "Rzut powierzchni" });
+  await expect(plan.getByLabel("Powierzchnia")).toHaveValue("south");
+  const chimney = plan.getByRole("button", { name: "Komin 1 w rzucie" });
+  await chimney.focus();
+  await chimney.press("Enter");
+  await expect(chimney).toHaveAttribute("aria-pressed", "true");
+
+  const u = page.getByLabel("Pozycja U", { exact: true });
+  await expect(u).toHaveValue("3.8");
+  await u.fill("4.5");
+  await expect(chimney).toHaveAttribute("x", "4.5");
+  await page.getByRole("button", { name: "Cofnij", exact: true }).click();
+  await expect(chimney).toHaveAttribute("x", "3.8");
+
+  await page
+    .getByRole("button", { name: "Widok perspektywiczny", exact: true })
+    .click();
+  await expect(page.locator("canvas")).toBeVisible();
+  await expect(u).toHaveValue("3.8");
+  await page.getByRole("button", { name: "Warianty", exact: true }).click();
+  await page.getByRole("button", { name: "Rzut 2D", exact: true }).click();
+  await expect(chimney).toHaveAttribute("aria-pressed", "true");
+  await page.getByRole("button", { name: /Układ pionowy/ }).click();
+  await expect(
+    page.getByRole("button", { name: /Układ pionowy/ }),
+  ).toHaveAttribute("aria-pressed", "true");
+  await expect(plan.locator(".plan-panels rect").first()).toBeVisible();
+  await page.screenshot({ path: "test-results/studio-plan-desktop.png" });
+
+  await plan.getByLabel("Powierzchnia").selectOption("north");
+  await expect(plan.getByLabel("Geometria 2D · Połać tylna")).toBeVisible();
+  await expect(chimney).toHaveCount(0);
+  await page.setViewportSize({ width: 390, height: 844 });
+  await plan.getByLabel("Powierzchnia").selectOption("south");
+  await plan.getByRole("button", { name: "Komin 1 w rzucie" }).click();
+  await expect(chimney).toHaveAttribute("aria-pressed", "true");
+  await page.screenshot({ path: "test-results/studio-plan-mobile.png" });
+});

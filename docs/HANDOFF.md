@@ -2,6 +2,13 @@
 
 Use the [product roadmap](PRODUCT-ROADMAP.md) and [Foundry execution guide](../foundry/PRODUCT-EXECUTION.md) for new work. See [release evidence](RELEASE.md) and [architecture](ARCHITECTURE.md) for the existing implementation. The canonical production target is [production-target.json](production-target.json). Main can contain newer commits than Railway. Compare the pinned SHA against GET /api/health before making claims about a live feature.
 
+## First product implementation
+
+- **P01** adds versioned Pydantic contracts and generated JSON Schema under `contracts/`. Scene v2 embeds Scene v1 in `geometry`, with an optional WGS84 reference origin and per-surface evidence. Call the existing layout and export with `v2.geometry`. Persisted guest scenes, revision history and the current API remain Scene v1. Measured evidence needs a source ID; a verified catalog needs source references. Job v1 is a validation contract for P10.
+- Regenerate the schema snapshots with `uv run python -m scripts.sync_product_contracts`. Tests compare snapshots and exercise invalid evidence, catalog dimensions and job results. The ET roof test archive includes a fixed subset of files.
+- The organizations migration creates private RLS-enforced tables for organizations and members. It expands the schema while keeping current guest data and grants unchanged. P04/P05 own named auth, grants and claims. Keep the new migration in the release bundle until those packages are ready for the hosted database. CI exercises guest history before and after the migration in a disposable PostgreSQL database.
+- **P02** adds synthetic local ENU and UV fixtures for a sloped roof with a recess, opening and obstacle, and a facade with a window. The fixture manifest records area calculations, normals and exclusion rectangles. Real building measurements, imagery rights, source catalog and historical quotes are pending.
+
 ## Code and contracts
 
 | Concern | Entry point | Invariant |

@@ -1,0 +1,23 @@
+{
+  "revision": "product-fixtures-1",
+  "origin": "synthetic geometry authored in this repository",
+  "license_status": "repository-internal test assets; no imagery, manufacturer data, addresses or third-party files",
+  "relative_paths": ["roof.json", "facade.json", "catalog.json", "job.json"],
+  "units": "metres in local ENU and planar UV",
+  "cases": [
+    {
+      "scene": "roof.json",
+      "expected_area_m2": 35,
+      "area_derivation": "(8 × 5) − (2 × 2) − (1 × 1)",
+      "expected_normal_enu": [0, -0.6, 0.8],
+      "forbidden_uv_rectangles": [[6, 3, 8, 5], [2, 2, 3, 3], [4.3, 0.8, 5.4, 2]]
+    },
+    {
+      "scene": "facade.json",
+      "expected_area_m2": 22,
+      "area_derivation": "(6 × 4) − (2 × 1)",
+      "expected_normal_enu": [0, -1, 0],
+      "forbidden_uv_rectangles": [[2, 1.5, 4, 2.5]]
+    }
+  ]
+}

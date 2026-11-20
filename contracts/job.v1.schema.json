@@ -1,0 +1,141 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$defs": {
+    "JobArtifact": {
+      "additionalProperties": false,
+      "properties": {
+        "artifact_id": {
+          "format": "uuid",
+          "title": "Artifact Id",
+          "type": "string"
+        },
+        "sha256": {
+          "pattern": "^[a-f0-9]{64}$",
+          "title": "Sha256",
+          "type": "string"
+        }
+      },
+      "required": [
+        "artifact_id",
+        "sha256"
+      ],
+      "title": "JobArtifact",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {
+      "const": "1.0.0",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "job_id": {
+      "format": "uuid",
+      "title": "Job Id",
+      "type": "string"
+    },
+    "organization_id": {
+      "format": "uuid",
+      "title": "Organization Id",
+      "type": "string"
+    },
+    "project_id": {
+      "format": "uuid",
+      "title": "Project Id",
+      "type": "string"
+    },
+    "scene_revision": {
+      "minimum": 1,
+      "title": "Scene Revision",
+      "type": "integer"
+    },
+    "kind": {
+      "enum": [
+        "imagery",
+        "geometry",
+        "layout",
+        "energy",
+        "offer",
+        "batch"
+      ],
+      "title": "Kind",
+      "type": "string"
+    },
+    "input_sha256": {
+      "pattern": "^[a-f0-9]{64}$",
+      "title": "Input Sha256",
+      "type": "string"
+    },
+    "engine_version": {
+      "maxLength": 64,
+      "minLength": 1,
+      "title": "Engine Version",
+      "type": "string"
+    },
+    "state": {
+      "enum": [
+        "queued",
+        "running",
+        "succeeded",
+        "failed",
+        "canceled"
+      ],
+      "title": "State",
+      "type": "string"
+    },
+    "attempt": {
+      "maximum": 20,
+      "minimum": 0,
+      "title": "Attempt",
+      "type": "integer"
+    },
+    "created_at": {
+      "format": "date-time",
+      "title": "Created At",
+      "type": "string"
+    },
+    "updated_at": {
+      "format": "date-time",
+      "title": "Updated At",
+      "type": "string"
+    },
+    "artifacts": {
+      "items": {
+        "$ref": "#/$defs/JobArtifact"
+      },
+      "maxItems": 20,
+      "title": "Artifacts",
+      "type": "array"
+    },
+    "error_code": {
+      "anyOf": [
+        {
+          "pattern": "^[a-zA-Z0-9_-]{1,64}$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Error Code"
+    }
+  },
+  "required": [
+    "schema_version",
+    "job_id",
+    "organization_id",
+    "project_id",
+    "scene_revision",
+    "kind",
+    "input_sha256",
+    "engine_version",
+    "state",
+    "attempt",
+    "created_at",
+    "updated_at"
+  ],
+  "title": "JobV1",
+  "type": "object"
+}

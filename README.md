@@ -16,6 +16,8 @@ BIPV design software for installers and planners. The current release includes r
 
 ## Implemented
 
+- Metric 2D plan for each roof or facade surface with openings, module placement and obstacle selection shared with the 3D editor.
+
 - Saved project history with up to 20 revisions. Load any retained revision into the editor and save it as a new revision.
 - Concave roof and facade import with holes, and 3D OBJ export with the selected BIPV layout.
 - Editable gable roof: width, projected depth, pitch, eaves height, azimuth; one or both surfaces.

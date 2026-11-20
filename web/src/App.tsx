@@ -43,6 +43,7 @@ import {
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { api, download, workspaceKey } from "./api";
+import SurfacePlan from "./SurfacePlan";
 import examplePlanes from "./example-planes.json";
 import {
   INITIAL,
@@ -115,6 +116,7 @@ function IconButton(p: {
       className={"icon-button " + (p.active ? "active" : "")}
       title={p.label}
       aria-label={p.label}
+      aria-pressed={p.active}
       onClick={p.onClick}
       disabled={p.disabled}
     >
@@ -163,6 +165,7 @@ export default function App() {
     [variantId, setVariantId] = useState(""),
     [selected, setSelected] = useState<string | null>(null),
     [view, setView] = useState("orbit"),
+    [planSurface, setPlanSurface] = useState<string | null>(null),
     [grid, setGrid] = useState(true);
   const [sunHour, setSunHour] = useState(12),
     [sunDate, setSunDate] = useState("2026-11-20"),
@@ -770,6 +773,7 @@ export default function App() {
             {scene.obstacles.map((o, i) => (
               <button
                 key={o.id}
+                aria-pressed={selected === o.id}
                 className={
                   "object-row obstacle-row " +
                   (selected === o.id ? "selected" : "")
@@ -999,7 +1003,7 @@ export default function App() {
                   className={mode === id ? "active" : ""}
                   onClick={() => {
                     setMode(id);
-                    setSelected(null);
+                    if (id === "sun" && view === "plan") setView("orbit");
                   }}
                 >
                   <Icon size={15} />
@@ -1022,7 +1026,7 @@ export default function App() {
             <div className="canvas-label">
               <span className="live-label">
                 <span />
-                PODGLĄD 3D
+                {view === "plan" ? "RZUT 2D" : "PODGLĄD 3D"}
               </span>
               <h1>{headline}</h1>
               <p>
@@ -1038,6 +1042,16 @@ export default function App() {
               </p>
             </div>
             <div className="view-controls">
+              <IconButton
+                label="Rzut 2D"
+                active={view === "plan"}
+                onClick={() => {
+                  setView("plan");
+                  if (mode === "sun") setMode("project");
+                }}
+              >
+                <LayoutGrid size={17} />
+              </IconButton>
               <IconButton
                 label="Widok perspektywiczny"
                 active={view === "orbit"}
@@ -1082,7 +1096,23 @@ export default function App() {
                 <Redo2 size={17} />
               </IconButton>
             </div>
-            {result ? (
+            {result && view === "plan" ? (
+              <SurfacePlan
+                surfaces={result.surfaces}
+                surfaceId={
+                  obstacle?.surface_id ?? planSurface ?? scene.surfaces[0]
+                }
+                onSurface={(surfaceId) => {
+                  setPlanSurface(surfaceId);
+                  if (obstacle?.surface_id !== surfaceId) setSelected(null);
+                }}
+                obstacles={scene.obstacles}
+                variant={stale ? undefined : variant}
+                selected={selected}
+                onSelect={setSelected}
+                showGrid={grid}
+              />
+            ) : result ? (
               <Suspense
                 fallback={
                   <div className="canvas-loading">
@@ -1134,26 +1164,30 @@ export default function App() {
                 Przeliczanie geometrii…
               </div>
             )}
-            <div className="compass">
-              <span>N</span>
-              <div
-                style={{
-                  transform: "rotate(" + scene.roof.azimuth_deg + "deg)",
-                }}
-              >
-                <ArrowRight size={25} />
-              </div>
-              <small>ENU</small>
-            </div>
-            <div className="canvas-hint">
-              <Move3D size={14} />
-              Obrót: przeciągnij<span>·</span>Zoom: kółko<span>·</span>Kliknij
-              obiekt
-            </div>
-            <div className="scale">
-              <span />
-              <small>Scena w metrach</small>
-            </div>
+            {view !== "plan" && (
+              <>
+                <div className="compass">
+                  <span>N</span>
+                  <div
+                    style={{
+                      transform: "rotate(" + scene.roof.azimuth_deg + "deg)",
+                    }}
+                  >
+                    <ArrowRight size={25} />
+                  </div>
+                  <small>ENU</small>
+                </div>
+                <div className="canvas-hint">
+                  <Move3D size={14} />
+                  Obrót: przeciągnij<span>·</span>Zoom: kółko<span>·</span>
+                  Kliknij obiekt
+                </div>
+                <div className="scale">
+                  <span />
+                  <small>Scena w metrach</small>
+                </div>
+              </>
+            )}
             {mode === "sun" ? (
               <div className="sun-timeline">
                 <div>
@@ -1194,6 +1228,7 @@ export default function App() {
                   <button
                     key={v.id}
                     className={variant?.id === v.id ? "active" : ""}
+                    aria-pressed={variant?.id === v.id}
                     onClick={() => setVariantId(v.id)}
                   >
                     <span className="variant-thumb">
