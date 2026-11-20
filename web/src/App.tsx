@@ -43,6 +43,7 @@ import {
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { api, download, workspaceKey } from "./api";
+import examplePlanes from "./example-planes.json";
 import {
   INITIAL,
   type CloudRef,
@@ -59,8 +60,6 @@ const num = (v: number, d = 1) =>
     minimumFractionDigits: d,
     maximumFractionDigits: d,
   });
-const surfaceTitle = (id: string) =>
-  id === "south" ? "Połać frontowa" : "Połać tylna";
 const modes: [string, string, LucideIcon][] = [
   ["project", "Projekt", MousePointer2],
   ["sun", "Słońce", Sun],
@@ -194,6 +193,12 @@ export default function App() {
   const variant =
       result?.variants.find((v) => v.id === variantId) ?? result?.variants[0],
     obstacle = scene.obstacles.find((o) => o.id === selected);
+  const surfaceChoices = scene.custom_surfaces ?? [
+    { id: "south", name: "Połać frontowa" },
+    { id: "north", name: "Połać tylna" },
+  ];
+  const surfaceTitle = (id: string) =>
+    surfaceChoices.find((s) => s.id === id)?.name ?? id;
   const changed = useCallback((next: Scene) => {
     setHistory((h) => [...h.slice(-39), sceneRef.current]);
     setFuture([]);
@@ -447,12 +452,22 @@ export default function App() {
       return;
     }
     const id = kind + "-" + crypto.randomUUID().slice(0, 8);
+    const surfaceId = scene.surfaces[0];
+    const exterior = scene.custom_surfaces?.find(
+      (s) => s.id === surfaceId,
+    )?.boundary_uv_m;
+    const u = exterior
+      ? Math.min(...exterior.map((point) => point[0])) + 0.6
+      : scene.roof.width_m / 2 - 0.5;
+    const v = exterior
+      ? Math.min(...exterior.map((point) => point[1])) + 0.6
+      : 1;
     const o: Obstacle = {
       id,
       kind,
-      surface_id: scene.surfaces[0],
-      u: Math.max(0, scene.roof.width_m / 2 - 0.5),
-      v: 1,
+      surface_id: surfaceId,
+      u,
+      v,
       width_m: 0.8,
       depth_m: 1,
       height_m: kind === "chimney" ? 1.1 : 0.12,
@@ -501,11 +516,11 @@ export default function App() {
         "geometria",
       ],
       [
-        "Powierzchnia dachu",
+        "Powierzchnia objęta układem",
         "",
         String(variant.roof_area_m2),
         "m2",
-        "scena parametryczna",
+        scene.custom_surfaces ? "import geometrii" : "scena parametryczna",
       ],
       [
         "Moc STC",
@@ -527,13 +542,44 @@ export default function App() {
     );
     setExportMenu(false);
   };
+  async function exportObj() {
+    if (!variant || stale) return;
+    setExportMenu(false);
+    try {
+      const response = await fetch("/api/model.obj", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ scene, variant: variant.id }),
+      });
+      if (!response.ok)
+        throw new Error("Eksport OBJ nie powiódł się. Spróbuj ponownie.");
+      download("bipv-model.obj", await response.text(), "text/plain");
+    } catch (e) {
+      setToast((e as Error).message);
+    }
+  }
+
+  function loadExample() {
+    if (
+      scene !== INITIAL &&
+      serialized !== JSON.stringify(INITIAL) &&
+      project?.input !== serialized &&
+      !window.confirm("Zastąpić bieżący szkic przykładem?")
+    )
+      return;
+    setExportMenu(false);
+    void importJson(
+      new File([JSON.stringify(examplePlanes)], "example-planes.json"),
+    );
+  }
+
   async function importJson(f: File) {
     try {
       if (f.size > 65000) throw new Error("Plik sceny przekracza 65 KB.");
       const j = JSON.parse(await f.text()),
         next = j.scene ?? j;
-      await api<Layout>("layout", "POST", next);
-      changed(next);
+      const validated = await api<Scene>("scene/validate", "POST", next);
+      changed(validated);
       setProject(null);
       setSelected(null);
       setToast("Zaimportowano i zweryfikowano scenę.");
@@ -601,6 +647,10 @@ export default function App() {
                 <FileJson size={16} />
                 Projekt JSON
               </button>
+              <button onClick={exportObj} disabled={stale || !variant}>
+                <Box size={16} />
+                Model 3D OBJ
+              </button>
               <button onClick={exportMaterials} disabled={stale || !variant}>
                 <LayoutGrid size={16} />
                 Zestawienie CSV
@@ -613,6 +663,9 @@ export default function App() {
               >
                 <Upload size={16} />
                 Importuj scenę JSON
+              </button>
+              <button onClick={loadExample}>
+                Wczytaj przykład dachu i fasady
               </button>
             </div>
           )}
@@ -645,7 +698,9 @@ export default function App() {
         >
           <div className="panel-top">
             <span>OBIEKTY PROJEKTU</span>
-            <span className="mini-badge">{scene.obstacles.length + 3}</span>
+            <span className="mini-badge">
+              {scene.obstacles.length + surfaceChoices.length + 1}
+            </span>
           </div>
           <button
             className={
@@ -655,12 +710,19 @@ export default function App() {
           >
             <Box size={17} />
             <span>
-              Budynek mieszkalny<small>Model parametryczny</small>
+              {scene.custom_surfaces
+                ? "Powierzchnie projektu"
+                : "Budynek mieszkalny"}
+              <small>
+                {scene.custom_surfaces
+                  ? "Geometria z importu"
+                  : "Model parametryczny"}
+              </small>
             </span>
             <ChevronDown size={13} />
           </button>
           <div className="object-children">
-            {(["south", "north"] as const).map((id) => (
+            {surfaceChoices.map(({ id, name }) => (
               <label
                 key={id}
                 className={
@@ -673,7 +735,7 @@ export default function App() {
                   checked={scene.surfaces.includes(id)}
                   onChange={(e) => {
                     if (!e.target.checked && scene.surfaces.length === 1) {
-                      setToast("Wybierz co najmniej jedną połać.");
+                      setToast("Wybierz co najmniej jedną powierzchnię.");
                       return;
                     }
                     patch({
@@ -683,13 +745,15 @@ export default function App() {
                     });
                   }}
                 />
-                {surfaceTitle(id)}
-                <small>
-                  {id === "south"
-                    ? scene.roof.azimuth_deg
-                    : (scene.roof.azimuth_deg + 180) % 360}
-                  °
-                </small>
+                {name}
+                {!scene.custom_surfaces && (
+                  <small>
+                    {id === "south"
+                      ? scene.roof.azimuth_deg
+                      : (scene.roof.azimuth_deg + 180) % 360}
+                    °
+                  </small>
+                )}
               </label>
             ))}
           </div>
@@ -751,15 +815,15 @@ export default function App() {
                 <Field
                   label="Pozycja U"
                   value={obstacle.u}
-                  min={0}
-                  max={30}
+                  min={-40}
+                  max={40}
                   onChange={(u) => updateObstacle({ u })}
                 />
                 <Field
                   label="Pozycja V"
                   value={obstacle.v}
-                  min={0}
-                  max={24}
+                  min={-40}
+                  max={40}
                   onChange={(v) => updateObstacle({ v })}
                 />
                 <Field
@@ -786,17 +850,20 @@ export default function App() {
                 />
               </div>
               <label className="select-field">
-                Przypisanie do połaci
+                Przypisanie do powierzchni
                 <select
                   value={obstacle.surface_id}
                   onChange={(e) =>
                     updateObstacle({
-                      surface_id: e.target.value as "south" | "north",
+                      surface_id: e.target.value,
                     })
                   }
                 >
-                  <option value="south">Połać frontowa</option>
-                  <option value="north">Połać tylna</option>
+                  {surfaceChoices.map(({ id, name }) => (
+                    <option key={id} value={id}>
+                      {name}
+                    </option>
+                  ))}
                 </select>
               </label>
               <button
@@ -816,6 +883,11 @@ export default function App() {
                 Geometria budynku
               </button>
             </>
+          ) : scene.custom_surfaces ? (
+            <p className="info-note">
+              Obrysy i otwory pochodzą z pliku sceny. Zmień geometrię przez
+              import JSON.
+            </p>
           ) : (
             <>
               <div className="field-grid">
@@ -903,7 +975,8 @@ export default function App() {
           </div>
           <div className="left-footer">
             <span className="status-dot" />
-            Scena parametryczna<span className="mono">m / ENU</span>
+            {scene.custom_surfaces ? "Scena z importu" : "Scena parametryczna"}
+            <span className="mono">m / ENU</span>
           </div>
         </aside>
         <main className="main-view">
@@ -959,7 +1032,9 @@ export default function App() {
                     ? "Deterministyczne przeszukiwanie siatki modułów"
                     : mode === "quality"
                       ? "Metry, wersja silnika i dane wejściowe"
-                      : "Dach dwuspadowy · model edytowalny"}
+                      : scene.custom_surfaces
+                        ? "Dach i fasada · obrysy w metrach"
+                        : "Dach dwuspadowy · model edytowalny"}
               </p>
             </div>
             <div className="view-controls">
@@ -1174,11 +1249,7 @@ export default function App() {
               <span>kWp</span>
             </div>
             <div className="power-bottom">
-              <span>
-                {scene.surfaces.length === 1
-                  ? "Jedna połać aktywna"
-                  : "Dwie połacie aktywne"}
-              </span>
+              <span>{scene.surfaces.length} · wybrane powierzchnie</span>
               <b>{stale ? "Aktualizacja…" : "Obliczono"}</b>
             </div>
           </div>
@@ -1191,7 +1262,7 @@ export default function App() {
               </strong>
             </div>
             <div>
-              <span>Pokrycie połaci</span>
+              <span>Pokrycie powierzchni</span>
               <strong>
                 {variant ? num(variant.coverage_pct) : "—"}
                 <small>%</small>
@@ -1205,7 +1276,7 @@ export default function App() {
               </strong>
             </div>
             <div>
-              <span>Powierzchnia połaci</span>
+              <span>Powierzchnia projektu</span>
               <strong>
                 {variant ? num(variant.roof_area_m2) : "—"}
                 <small>m²</small>
@@ -1259,7 +1330,11 @@ export default function App() {
                 <dt>Układ współrzędnych</dt>
                 <dd>ENU → (E, U, −N)</dd>
                 <dt>Źródło geometrii</dt>
-                <dd>Scena parametryczna</dd>
+                <dd>
+                  {scene.custom_surfaces
+                    ? "Powierzchnie z importu"
+                    : "Scena parametryczna"}
+                </dd>
                 <dt>Czas pierwszego obliczenia</dt>
                 <dd>{result?.duration_ms ?? "—"} ms</dd>
                 <dt>Hash wejścia</dt>
@@ -1387,7 +1462,7 @@ export default function App() {
           Kopia lokalna
         </div>
         <div className="status-middle">
-          {result?.engine_version ?? "grid-search/0.1.0"}
+          {result?.engine_version ?? "—"}
           <span>·</span>
           {result?.source_hash.slice(0, 10) ?? "oczekiwanie"}
         </div>

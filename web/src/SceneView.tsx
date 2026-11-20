@@ -1,6 +1,6 @@
 import { Suspense, useEffect, useLayoutEffect, useMemo, useRef } from "react";
 import { Canvas, useThree } from "@react-three/fiber";
-import { OrbitControls, Grid, Line, Html } from "@react-three/drei";
+import { OrbitControls, Grid, Line } from "@react-three/drei";
 import * as THREE from "three";
 import SunCalc from "suncalc";
 import type {
@@ -20,12 +20,6 @@ function uv(s: Surface, u: number, v: number, offset = 0) {
     .addScaledVector(rp(s.v), v)
     .addScaledVector(rp(s.normal), offset);
 }
-function quad(points: THREE.Vector3[]) {
-  const g = new THREE.BufferGeometry().setFromPoints(points);
-  g.setIndex([0, 1, 2, 0, 2, 3]);
-  g.computeVertexNormals();
-  return g;
-}
 function RoofSurface({
   s,
   active,
@@ -35,18 +29,22 @@ function RoofSurface({
   active: boolean;
   wire: boolean;
 }) {
-  const geometry = useMemo(
+  const rings = useMemo(
     () =>
-      quad(
-        [
-          [0, 0],
-          [s.width_m, 0],
-          [s.width_m, s.height_m],
-          [0, s.height_m],
-        ].map(([u, v]) => uv(s, u, v)),
+      [s.boundary_uv_m, ...(s.holes_uv_m ?? [])].map((ring) =>
+        ring.map(([u, v]) => new THREE.Vector2(u, v)),
       ),
     [s],
   );
+  const geometry = useMemo(() => {
+    const [outline, ...holes] = rings.map((ring) => [...ring]);
+    const triangles = THREE.ShapeUtils.triangulateShape(outline, holes);
+    const points = [outline, ...holes].flat().map(({ x, y }) => uv(s, x, y));
+    const mesh = new THREE.BufferGeometry().setFromPoints(points);
+    mesh.setIndex(triangles.flat());
+    mesh.computeVertexNormals();
+    return mesh;
+  }, [s, rings]);
   useEffect(() => () => geometry.dispose(), [geometry]);
   return (
     <group>
@@ -57,22 +55,55 @@ function RoofSurface({
           side={THREE.DoubleSide}
         />
       </mesh>
-      {wire && (
-        <Line
-          points={[
-            [0, 0],
-            [s.width_m, 0],
-            [s.width_m, s.height_m],
-            [0, s.height_m],
-            [0, 0],
-          ].map(([u, v]) => uv(s, u, v, 0.015))}
-          color="#b8dac2"
-          lineWidth={1}
-        />
-      )}
+      {wire &&
+        rings.map((ring, i) => (
+          <Line
+            key={i}
+            points={[...ring, ring[0]].map(({ x, y }) => uv(s, x, y, 0.015))}
+            color="#b8dac2"
+            lineWidth={1}
+          />
+        ))}
     </group>
   );
 }
+function SurfaceDimension({ surface }: { surface: Surface }) {
+  const text = surface.width_m.toFixed(1) + " m";
+  const texture = useMemo(() => {
+    const canvas = document.createElement("canvas");
+    canvas.width = 160;
+    canvas.height = 60;
+    const context = canvas.getContext("2d");
+    if (context) {
+      context.fillStyle = "#edf2e9";
+      context.fillRect(0, 0, 160, 60);
+      context.strokeStyle = "#729186";
+      context.lineWidth = 4;
+      context.strokeRect(2, 2, 156, 56);
+      context.fillStyle = "#304544";
+      context.font = "bold 29px sans-serif";
+      context.textAlign = "center";
+      context.textBaseline = "middle";
+      context.fillText(text, 80, 31);
+    }
+    const map = new THREE.CanvasTexture(canvas);
+    map.colorSpace = THREE.SRGBColorSpace;
+    return map;
+  }, [text]);
+  useEffect(() => () => texture.dispose(), [texture]);
+
+  const left = Math.min(...surface.boundary_uv_m.map(([u]) => u));
+  const bottom = Math.min(...surface.boundary_uv_m.map(([, v]) => v));
+  return (
+    <sprite
+      position={uv(surface, left + surface.width_m / 2, bottom - 0.38, 0.04)}
+      scale={[1.65, 0.62, 1]}
+    >
+      <spriteMaterial map={texture} toneMapped={false} />
+    </sprite>
+  );
+}
+
 function Cells({
   placements,
   surfaces,
@@ -273,14 +304,34 @@ function House({ scene }: { scene: Scene }) {
     </group>
   );
 }
-function CameraRig({ view, roof }: { view: string; roof: Scene["roof"] }) {
+function CameraRig({
+  view,
+  roof,
+  planes,
+}: {
+  view: string;
+  roof: Scene["roof"];
+  planes?: Surface[];
+}) {
   const { camera, invalidate, size } = useThree();
   const controls = useRef<any>(null);
-  const width = roof.width_m;
-  const depth = roof.depth_m;
-  const height =
-    roof.eaves_m + (Math.tan((roof.pitch_deg * Math.PI) / 180) * depth) / 2;
-  const centerY = height / 2;
+  const [width, height, depth, centerX, centerY, centerZ] = useMemo(() => {
+    if (!planes) {
+      const peak =
+        roof.eaves_m +
+        (Math.tan((roof.pitch_deg * Math.PI) / 180) * roof.depth_m) / 2;
+      return [roof.width_m, peak, roof.depth_m, 0, peak / 2, 0];
+    }
+    const bounds = new THREE.Box3().setFromPoints(
+      planes.flatMap((plane) =>
+        plane.boundary_uv_m.map(([u, v]) => uv(plane, u, v)),
+      ),
+    );
+    return [
+      ...bounds.getSize(new THREE.Vector3()).toArray(),
+      ...bounds.getCenter(new THREE.Vector3()).toArray(),
+    ];
+  }, [planes, roof]);
   useEffect(() => {
     const aspect = size.width / Math.max(1, size.height);
     const radius =
@@ -298,11 +349,13 @@ function CameraRig({ view, roof }: { view: string; roof: Scene["roof"] }) {
           : [20, 14, 22]) as [number, number, number]),
     ).normalize();
     camera.position.copy(
-      direction.multiplyScalar(distance).add(new THREE.Vector3(0, centerY, 0)),
+      direction
+        .multiplyScalar(distance)
+        .add(new THREE.Vector3(centerX, centerY, centerZ)),
     );
-    camera.lookAt(0, centerY, 0);
+    camera.lookAt(centerX, centerY, centerZ);
     if (controls.current) {
-      controls.current.target.set(0, centerY, 0);
+      controls.current.target.set(centerX, centerY, centerZ);
       controls.current.maxDistance = Math.max(65, distance * 2);
       controls.current.update();
     }
@@ -316,13 +369,15 @@ function CameraRig({ view, roof }: { view: string; roof: Scene["roof"] }) {
     width,
     depth,
     height,
+    centerX,
     centerY,
+    centerZ,
   ]);
   return (
     <OrbitControls
       ref={controls}
       makeDefault
-      target={[0, centerY, 0]}
+      target={[centerX, centerY, centerZ]}
       minDistance={7}
       maxPolarAngle={Math.PI / 2 - 0.015}
       enableDamping
@@ -421,7 +476,7 @@ function World(p: ViewProps) {
           infiniteGrid
         />
       )}
-      <House scene={scene} />
+      {!scene.custom_surfaces && <House scene={scene} />}
       {result.surfaces.map((s) => (
         <RoofSurface
           key={s.id}
@@ -449,17 +504,12 @@ function World(p: ViewProps) {
       {showGrid &&
         result.surfaces
           .filter((s) => scene.surfaces.includes(s.id))
-          .map((s) => (
-            <Html
-              key={s.id}
-              position={uv(s, s.width_m / 2, -0.55, 0.02)}
-              center
-              distanceFactor={24}
-            >
-              <div className="measure-tag">{s.width_m.toFixed(1)} m</div>
-            </Html>
-          ))}
-      <CameraRig view={view} roof={scene.roof} />
+          .map((s) => <SurfaceDimension key={s.id} surface={s} />)}
+      <CameraRig
+        view={view}
+        roof={scene.roof}
+        planes={scene.custom_surfaces ? result.surfaces : undefined}
+      />
     </>
   );
 }
@@ -469,7 +519,7 @@ export default function SceneView(props: ViewProps) {
       frameloop="demand"
       shadows
       dpr={[1, 1.6]}
-      camera={{ position: [20, 17, 22], fov: 38, near: 0.1, far: 200 }}
+      camera={{ position: [20, 17, 22], fov: 38, near: 0.1, far: 550 }}
       gl={{ antialias: true, powerPreference: "low-power" }}
       onCreated={({ gl }) => {
         gl.toneMapping = THREE.ACESFilmicToneMapping;

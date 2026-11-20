@@ -1,3 +1,14 @@
+function describeValidation(detail: unknown): string {
+  if (Array.isArray(detail) && detail.length) {
+    const issue = detail[0];
+    if (issue?.type === "value_error" && typeof issue.msg === "string")
+      return issue.msg.replace(/^Value error, /, "");
+    if (Array.isArray(issue?.loc))
+      return "Sprawdź wartość pola: " + issue.loc.slice(1).join(".");
+  }
+  return "Parametry sceny nie spełniają kontraktu.";
+}
+
 export async function api<T>(
   path: string,
   method = "GET",
@@ -20,7 +31,7 @@ export async function api<T>(
       typeof json?.detail === "string"
         ? json.detail
         : response.status === 422
-          ? "Parametry nie spełniają kontraktu sceny (maks. 250 m² wybranych połaci)."
+          ? describeValidation(json?.detail)
           : "Błąd połączenia (" + response.status + ").",
     );
   }

@@ -10,9 +10,12 @@ An interactive engineering demonstrator for parametric BIPV roofs. React / TypeS
 
 [Engineering handoff and implementation roadmap](docs/HANDOFF.md) · [Agent assignments](foundry/START_HERE.md)
 
+[Electrotile requirements and delivery plan](docs/ELECTROTILE-DELIVERY.md) · [Runnable roof tests](docs/ROOF-TEST-PACK.md)
+
 ## Implemented
 
 - Saved project history with up to 20 revisions. Load any retained revision into the editor and save it as a new revision.
+- Concave roof and facade import with holes, and 3D OBJ export with the selected BIPV layout.
 - Editable gable roof: width, projected depth, pitch, eaves height, azimuth; one or both surfaces.
 - Add/edit/remove chimneys and skylights; undo/redo; perspective, top and front views.
 - Two module orientations, sixteen grid phases each, full-polygon containment and obstacle/edge setbacks.

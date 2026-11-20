@@ -233,3 +233,42 @@ test("live cloud isolates guest workspaces and rejects stale revisions", async (
     }
   }
 });
+
+test("studio renders imported roof and facade and exports a 3D model", async ({
+  page,
+}) => {
+  const errors: string[] = [];
+  page.on("pageerror", (error) => errors.push(error.message));
+  await page.goto("/");
+  await expect(page.getByTestId("layout-status")).toHaveText(
+    "Geometria obliczona",
+  );
+  await page.getByRole("button", { name: "Eksport", exact: true }).click();
+  await page
+    .getByRole("button", { name: "Wczytaj przykład dachu i fasady" })
+    .click();
+  await expect(
+    page.getByRole("textbox", { name: "Nazwa projektu" }),
+  ).toHaveValue(/dach L i fasada/);
+  await expect(
+    page.getByRole("checkbox", { name: "Fasada południowa" }),
+  ).toBeChecked();
+  await expect(page.getByTestId("layout-status")).toHaveText(
+    "Geometria obliczona",
+  );
+  await expect(page.locator("canvas")).toBeVisible();
+  await page.getByRole("button", { name: "Eksport", exact: true }).click();
+  const download = page.waitForEvent("download");
+  await page.getByRole("button", { name: "Model 3D OBJ" }).click();
+  const file = await download;
+  expect(file.suggestedFilename()).toBe("bipv-model.obj");
+  const model = await readFile((await file.path())!, "utf8");
+  expect(model).toContain("g surface_roof-l");
+  expect(model).toContain("g surface_facade-south");
+  expect(model).toContain("g module_");
+  await page.screenshot({
+    path: "test-results/studio-imported-planes.png",
+    fullPage: true,
+  });
+  expect(errors).toEqual([]);
+});

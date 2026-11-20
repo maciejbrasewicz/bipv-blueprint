@@ -1,5 +1,16 @@
-export type SurfaceId = "south" | "north";
+export type SurfaceId = string;
 export type Vec3 = [number, number, number];
+export type PointUV = [number, number];
+export type PlanarSurface = {
+  id: SurfaceId;
+  name: string;
+  kind: "roof" | "facade";
+  origin: Vec3;
+  u: Vec3;
+  v: Vec3;
+  boundary_uv_m: PointUV[];
+  holes_uv_m?: PointUV[][];
+};
 export type Roof = {
   width_m: number;
   depth_m: number;
@@ -27,17 +38,13 @@ export type Scene = {
   gap_m: number;
   clearance_m: number;
   surfaces: SurfaceId[];
+  custom_surfaces?: PlanarSurface[] | null;
 };
-export type Surface = {
-  id: SurfaceId;
-  origin: Vec3;
-  u: Vec3;
-  v: Vec3;
+export type Surface = PlanarSurface & {
   normal: Vec3;
   width_m: number;
   height_m: number;
-  azimuth_deg: number;
-  boundary_uv_m: number[][];
+  azimuth_deg: number | null;
 };
 export type Product = {
   id: Scene["product_id"];
