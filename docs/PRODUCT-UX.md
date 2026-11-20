@@ -22,4 +22,6 @@ Kontrolki zachowują focus i mają opis klawiatury. Użytkownik może zmienić o
 
 ## Pierwsza próba P03 i odbiór P30
 
+Rzut UV z P03 korzysta z istniejącego API. Zaznaczenie przeszkody pozostaje wspólne między rzutem i 3D, z edycją w inspektorze. Podkład mapowy i kalibracja wchodzą po adapterze GIS w P09–P12.
+
 Pierwszy PR otwiera już istniejącą scenę z istniejącymi API. Na dachu z lukarną lub otworem projektant wybiera przeszkodę w planie, widzi ją w modelu, zmienia parametr, cofa zmianę i przechodzi do porównania. PR zapisuje zrzut każdego kluczowego stanu i zmierzony czas reakcji na laptopie referencyjnym. Docelowo P30 w ramach ścieżki E2E dochodzi do oferty, zmiany terminu potrzebnej po konflikcie i porównania rewizji. Sprawdzamy także zablokowany eksport, brak pokrycia, zdjęcie weryfikowane, oczekujący job, ograniczony koszt oraz cofnięty link. Ekrany operacyjne czytają realny stan domenowy z API.
