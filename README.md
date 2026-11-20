@@ -2,7 +2,7 @@
 
 **Live:** https://bipv-studio-production.up.railway.app
 
-[Quality gates](https://github.com/maciejbrasewicz/bipv-blueprint/actions/runs/44826345273) · [Production verification](https://github.com/maciejbrasewicz/bipv-blueprint/actions/workflows/production-smoke.yml)
+[Quality gates](https://github.com/maciejbrasewicz/bipv-blueprint/actions/runs/44826345273) · [Production verification](https://github.com/maciejbrasewicz/bipv-blueprint/actions/runs/44826881385)
 
 BIPV design software for installers and planners. The current release includes roof and facade geometry, an interactive 3D editor, layout variants, exports and private revision history. See the roadmap for the address-to-offer workflow.
 

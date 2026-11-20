@@ -5,7 +5,7 @@
 - [Application commit](https://github.com/maciejbrasewicz/bipv-blueprint/commit/95841ae57a61d43bdc73937dfe877a8ebe7c39d1) reached SUCCESS on the existing Railway service. Deployment ID `7290da93-7c0e-494e-a2d4-766628349164`.
 - The editor has a metric UV plan per surface, including concave outlines, holes and active variant placement. Obstacle selection persists between 2D and 3D, with numeric editing and undo.
 - [Quality gates](https://github.com/maciejbrasewicz/bipv-blueprint/actions/runs/44826345273) passed on the promoted SHA. The run covers 30 Python tests, three Chromium journeys, the PostgreSQL migration and history checks, the unchanged 20-test roof ZIP, and a Docker run at 250 MB / 0.1 vCPU.
-- [Production verification](https://github.com/maciejbrasewicz/bipv-blueprint/actions/workflows/production-smoke.yml) uses the pinned SHA in [production-target.json](production-target.json). The organization migration is tracked for P04/P05. The runtime uses the existing guest project API and data.
+- [Production verification](https://github.com/maciejbrasewicz/bipv-blueprint/actions/runs/44826881385) passed the live SHA, guest isolation and revision storage, and the three Chromium journeys for the pinned SHA in [production-target.json](production-target.json). The organization migration is tracked for P04/P05. The runtime uses the existing guest project API and data.
 
 ## Planar geometry and OBJ release · 20 November 2026
 
