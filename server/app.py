@@ -8,13 +8,14 @@ from uuid import UUID, uuid4
 
 import httpx
 from fastapi import FastAPI, Header, HTTPException, Request
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi.responses import FileResponse, JSONResponse, PlainTextResponse
 from fastapi.staticfiles import StaticFiles
 from starlette.concurrency import run_in_threadpool
 from starlette.middleware.gzip import GZipMiddleware
 
 from .geometry import CATALOG, ENGINE_VERSION, compute
-from .models import SaveProject, Scene
+from .model_export import export_obj
+from .models import ModelExport, SaveProject, Scene
 
 SUPABASE_URL = os.getenv("SUPABASE_URL", "").rstrip("/")
 SUPABASE_KEY = os.getenv("SUPABASE_PUBLISHABLE_KEY", "")
@@ -95,6 +96,20 @@ def catalog():
 async def layout(scene: Scene):
     async with compute_slots:
         return await run_in_threadpool(compute, scene)
+
+
+@app.post("/api/scene/validate", response_model=Scene, response_model_exclude_none=True)
+def validate_scene(scene: Scene):
+    return scene
+
+
+@app.post("/api/model.obj", response_class=PlainTextResponse)
+async def model_obj(body: ModelExport):
+    async with compute_slots:
+        content = await run_in_threadpool(export_obj, body)
+    return PlainTextResponse(
+        content, headers={"Content-Disposition": 'attachment; filename="bipv-model.obj"'}
+    )
 
 
 def workspace_headers(key: str | None):

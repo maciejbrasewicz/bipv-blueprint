@@ -1,0 +1,53 @@
+{
+  "schema_version": "1.0.0",
+  "name": "Przykład · dach L i fasada",
+  "surfaces": ["roof-l", "facade-south"],
+  "custom_surfaces": [
+    {
+      "id": "roof-l",
+      "name": "Dach w kształcie L",
+      "kind": "roof",
+      "origin": [-6, -4, 4],
+      "u": [1, 0, 0],
+      "v": [0, 1, 0],
+      "boundary_uv_m": [
+        [0, 0],
+        [12, 0],
+        [12, 4],
+        [7, 4],
+        [7, 8],
+        [0, 8]
+      ],
+      "holes_uv_m": [
+        [
+          [2, 2],
+          [4, 2],
+          [4, 4],
+          [2, 4]
+        ]
+      ]
+    },
+    {
+      "id": "facade-south",
+      "name": "Fasada południowa",
+      "kind": "facade",
+      "origin": [-6, -4, 0],
+      "u": [1, 0, 0],
+      "v": [0, 0, 1],
+      "boundary_uv_m": [
+        [0, 0],
+        [12, 0],
+        [12, 4],
+        [0, 4]
+      ],
+      "holes_uv_m": [
+        [
+          [4.5, 0.2],
+          [7.5, 0.2],
+          [7.5, 1.65],
+          [4.5, 1.65]
+        ]
+      ]
+    }
+  ]
+}

@@ -12,7 +12,7 @@ from shapely.prepared import prep
 
 from .models import Scene
 
-ENGINE_VERSION = "grid-search/0.1.0"
+ENGINE_VERSION = "grid-search/0.2.0"
 CATALOG = [
     {
         "id": "slate-75",
@@ -48,11 +48,33 @@ CATALOG = [
 
 
 def source_hash(scene: Scene) -> str:
-    payload = json.dumps(scene.model_dump(), sort_keys=True, separators=(",", ":"), ensure_ascii=False)
+    payload = json.dumps(
+        scene.model_dump(exclude_none=True), sort_keys=True, separators=(",", ":"), ensure_ascii=False
+    )
     return hashlib.sha256(payload.encode()).hexdigest()
 
 
 def surfaces(scene: Scene) -> list[dict]:
+    if scene.custom_surfaces is not None:
+        result = []
+        for surface in scene.custom_surfaces:
+            u, v = surface.u, surface.v
+            normal = [u[1] * v[2] - u[2] * v[1], u[2] * v[0] - u[0] * v[2], u[0] * v[1] - u[1] * v[0]]
+            polygon = surface.polygon()
+            x0, y0, x1, y1 = polygon.bounds
+            result.append(
+                {
+                    **surface.model_dump(mode="json"),
+                    "normal": normal,
+                    "width_m": x1 - x0,
+                    "height_m": y1 - y0,
+                    "azimuth_deg": round(math.degrees(math.atan2(normal[0], normal[1])) % 360, 3)
+                    if math.hypot(*normal[:2]) > 1e-9
+                    else None,
+                }
+            )
+        return result
+
     r = scene.roof
     pitch = math.radians(r.pitch_deg)
     c, s = math.cos(pitch), math.sin(pitch)
@@ -71,6 +93,9 @@ def surfaces(scene: Scene) -> list[dict]:
         result.append(
             {
                 "id": side,
+                "name": "Połać frontowa" if side == "south" else "Połać tylna",
+                "kind": "roof",
+                "holes_uv_m": [],
                 "origin": rotate(origin),
                 "u": rotate(u),
                 "v": rotate(v),
@@ -84,8 +109,12 @@ def surfaces(scene: Scene) -> list[dict]:
     return result
 
 
+def surface_polygon(surface: dict):
+    return Polygon(surface["boundary_uv_m"], surface["holes_uv_m"])
+
+
 def usable_polygon(scene: Scene, surface: dict):
-    roof = Polygon(surface["boundary_uv_m"])
+    roof = surface_polygon(surface)
     inner = roof.buffer(-scene.setback_m, join_style=2)
     obstacles = [
         box(o.u, o.v, o.u + o.width_m, o.v + o.depth_m).buffer(scene.clearance_m, join_style=2)
@@ -110,12 +139,15 @@ def layout_surface(scene: Scene, surface: dict, width: float, height: float) -> 
             while y + height <= max_y + 1e-9:
                 x = min_x + fx * step_x
                 while x + width <= max_x + 1e-9:
-                    if prepared.covers(box(x, y, x + width, y + height)):
+                    placement_x, placement_y = round(x, 7), round(y, 7)
+                    if prepared.covers(
+                        box(placement_x, placement_y, placement_x + width, placement_y + height)
+                    ):
                         current.append(
                             {
                                 "surface_id": surface["id"],
-                                "u": round(x, 7),
-                                "v": round(y, 7),
+                                "u": placement_x,
+                                "v": placement_y,
                                 "width_m": width,
                                 "height_m": height,
                             }
@@ -139,7 +171,7 @@ def _compute_cached(serialized_scene: str) -> dict:
     resolved = surfaces(scene)
     selected = [s for s in resolved if s["id"] in scene.surfaces]
     variants = []
-    roof_area = sum(s["width_m"] * s["height_m"] for s in selected)
+    roof_area = sum(surface_polygon(s).area for s in selected)
     for orientation, width, height in [
         ("landscape", product["width_m"], product["height_m"]),
         ("portrait", product["height_m"], product["width_m"]),
@@ -167,13 +199,15 @@ def _compute_cached(serialized_scene: str) -> dict:
         )
     variants.sort(key=lambda v: (-v["module_count"], v["id"]))
     warnings = [
-        "Scena parametryczna; bez pomiaru ani rekonstrukcji adresu.",
+        "Geometria z importu lub przykładu. Brak weryfikacji pomiarem."
+        if scene.custom_surfaces is not None
+        else "Scena parametryczna; bez pomiaru ani rekonstrukcji adresu.",
         "Katalog demonstracyjny; parametry nie pochodzą od producenta.",
         "Moc STC jest sumą mocy modułów. Roczny uzysk i dobór elektryczny nie są wyliczane.",
     ]
     for o in scene.obstacles:
         s = next(s for s in resolved if s["id"] == o.surface_id)
-        if not box(0, 0, s["width_m"], s["height_m"]).covers(box(o.u, o.v, o.u + o.width_m, o.v + o.depth_m)):
+        if not surface_polygon(s).covers(box(o.u, o.v, o.u + o.width_m, o.v + o.depth_m)):
             warnings.append(f"Przeszkoda {o.id} wykracza poza połać; użyto części przecinającej dach.")
     return {
         "schema_version": "1.0.0",
@@ -183,7 +217,7 @@ def _compute_cached(serialized_scene: str) -> dict:
             "units": "m",
             "axes": ["east", "north", "up"],
             "render_mapping": "(E,N,U) -> (E,U,-N)",
-            "source": "procedural",
+            "source": "explicit_planes" if scene.custom_surfaces is not None else "procedural",
         },
         "surfaces": resolved,
         "product": product,

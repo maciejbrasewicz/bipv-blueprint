@@ -21,22 +21,19 @@
         },
         "surface_id": {
           "default": "south",
-          "enum": [
-            "south",
-            "north"
-          ],
+          "pattern": "^[a-zA-Z0-9_-]{1,48}$",
           "title": "Surface Id",
           "type": "string"
         },
         "u": {
           "maximum": 40,
-          "minimum": 0,
+          "minimum": -40,
           "title": "U",
           "type": "number"
         },
         "v": {
           "maximum": 40,
-          "minimum": 0,
+          "minimum": -40,
           "title": "V",
           "type": "number"
         },
@@ -68,6 +65,160 @@
         "v"
       ],
       "title": "Obstacle",
+      "type": "object"
+    },
+    "PlanarSurface": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "pattern": "^[a-zA-Z0-9_-]{1,48}$",
+          "title": "Id",
+          "type": "string"
+        },
+        "name": {
+          "maxLength": 64,
+          "minLength": 1,
+          "title": "Name",
+          "type": "string"
+        },
+        "kind": {
+          "enum": [
+            "roof",
+            "facade"
+          ],
+          "title": "Kind",
+          "type": "string"
+        },
+        "origin": {
+          "maxItems": 3,
+          "minItems": 3,
+          "prefixItems": [
+            {
+              "maximum": 40,
+              "minimum": -40,
+              "type": "number"
+            },
+            {
+              "maximum": 40,
+              "minimum": -40,
+              "type": "number"
+            },
+            {
+              "maximum": 40,
+              "minimum": -40,
+              "type": "number"
+            }
+          ],
+          "title": "Origin",
+          "type": "array"
+        },
+        "u": {
+          "maxItems": 3,
+          "minItems": 3,
+          "prefixItems": [
+            {
+              "maximum": 1,
+              "minimum": -1,
+              "type": "number"
+            },
+            {
+              "maximum": 1,
+              "minimum": -1,
+              "type": "number"
+            },
+            {
+              "maximum": 1,
+              "minimum": -1,
+              "type": "number"
+            }
+          ],
+          "title": "U",
+          "type": "array"
+        },
+        "v": {
+          "maxItems": 3,
+          "minItems": 3,
+          "prefixItems": [
+            {
+              "maximum": 1,
+              "minimum": -1,
+              "type": "number"
+            },
+            {
+              "maximum": 1,
+              "minimum": -1,
+              "type": "number"
+            },
+            {
+              "maximum": 1,
+              "minimum": -1,
+              "type": "number"
+            }
+          ],
+          "title": "V",
+          "type": "array"
+        },
+        "boundary_uv_m": {
+          "items": {
+            "maxItems": 2,
+            "minItems": 2,
+            "prefixItems": [
+              {
+                "maximum": 40,
+                "minimum": -40,
+                "type": "number"
+              },
+              {
+                "maximum": 40,
+                "minimum": -40,
+                "type": "number"
+              }
+            ],
+            "type": "array"
+          },
+          "maxItems": 48,
+          "minItems": 3,
+          "title": "Boundary Uv M",
+          "type": "array"
+        },
+        "holes_uv_m": {
+          "items": {
+            "items": {
+              "maxItems": 2,
+              "minItems": 2,
+              "prefixItems": [
+                {
+                  "maximum": 40,
+                  "minimum": -40,
+                  "type": "number"
+                },
+                {
+                  "maximum": 40,
+                  "minimum": -40,
+                  "type": "number"
+                }
+              ],
+              "type": "array"
+            },
+            "maxItems": 48,
+            "minItems": 3,
+            "type": "array"
+          },
+          "maxItems": 4,
+          "title": "Holes Uv M",
+          "type": "array"
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "kind",
+        "origin",
+        "u",
+        "v",
+        "boundary_uv_m"
+      ],
+      "title": "PlanarSurface",
       "type": "object"
     },
     "Roof": {
@@ -172,16 +323,30 @@
     },
     "surfaces": {
       "items": {
-        "enum": [
-          "south",
-          "north"
-        ],
+        "pattern": "^[a-zA-Z0-9_-]{1,48}$",
         "type": "string"
       },
-      "maxItems": 2,
+      "maxItems": 6,
       "minItems": 1,
       "title": "Surfaces",
       "type": "array"
+    },
+    "custom_surfaces": {
+      "anyOf": [
+        {
+          "items": {
+            "$ref": "#/$defs/PlanarSurface"
+          },
+          "maxItems": 6,
+          "minItems": 1,
+          "type": "array"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Custom Surfaces"
     }
   },
   "title": "Scene",

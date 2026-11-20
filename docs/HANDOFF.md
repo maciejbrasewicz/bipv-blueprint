@@ -21,10 +21,20 @@ For a project saved at revisions 1 and 2, the history endpoint returns metadata 
 
 Migration 20261120163403_project_revision_history.sql is applied to the existing Supabase project. It backfills the current head and installs an AFTER trigger for snapshot capture. The parent project's row policy governs history visibility. Clients have SELECT only on history. Test and production environments use the same schema contract; neither requires a service-role key in the app.
 
+## Planar scenes and interoperability
+
+Scene v1 accepts optional custom_surfaces alongside the original gable adapter. See [schema](../contracts/scene.schema.json) and [worked roof/facade example](../web/src/example-planes.json). Surface IDs are stable strings. Each plane supplies a local ENU origin in metres, orthonormal U/V axes, an exterior UV ring and optional interior rings. The normal is the right-hand cross product U × V. Orient the axes so that the normal points outward. Use surfaces to select which planes receive modules. Obstacles are associated with a surface ID. The planar import assumes input surfaces describe distinct building faces. It validates each polygon and its holes independently. The scene is bounded to six surfaces, 250 m² of selected polygon area, and 600 m² of selected UV bounding boxes to limit computation.
+
+POST /api/scene/validate returns a normalized scene with defaults. POST /api/layout returns the resolved planes, both variants and evidence hash. The legacy field roof_area_m2 is the selected polygon area, including selected facades and excluding holes. POST /api/model.obj accepts scene and an optional variant of landscape or portrait. It returns a mesh in metres, X=East, Y=Up, Z=−North. Surface groups preserve the holes, and module groups preserve the checked placement. OBJ is a surface model and remains open at unmodelled walls. The snapshot/export format still uses scene schema v1 and guest project history requires no database migration for this feature. Imported vertices are edited in the source JSON at this stage.
+
+Open **Eksport → Wczytaj przykład dachu i fasady** to see the sample. The **Model 3D OBJ** export uses the active layout. To reproduce the test packet, use the [local instructions](ROOF-TEST-PACK.md) and build it with python scripts/package_roof_tests.py dist/BIPV-Roof-Tests.zip. GitHub Actions checks the extracted ZIP and keeps it as an artifact.
+
+See the [Electrotile requirements and rollout matrix](ELECTROTILE-DELIVERY.md) for acceptance thresholds, dependencies and module gaps.
+
 ## Pick up the work
 
 1. Named-user access. Design account ownership alongside guest ownership. Add an explicit one-time claim to an authenticated account and test two accounts, two guest keys, repeat claims and revocation. Keep guest support until migration UX passes.
-2. Free-form surface contract. Add metric polygons and holes alongside the current gable adapter. Verify ENU round trip, invalid shapes, non-overlap and complete containment. Keep old saved scenes readable.
+2. Image-driven geometry. Connect a licenced address/imagery source and interactive calibrated tracing. Convert UV rings to the existing plane contract. Retain source and uncertainty. Add checks for overlap between imported building faces and preserve old scenes.
 3. Manufacturer data and energy. Use datasheet-backed coverage dimensions and allowed orientations. Validate offline pvlib on recorded weather with time zone and energy accounting fixtures. Keep shadow preview distinct from numerical shading.
 4. Reconstruction and AI. Record image license, source, calibration and held-out reference cases. Run training/inference outside Railway. Wire bounded typed assistant tools to existing geometry APIs after contracts are stable. Persist actual tool traces and apply only approved draft edits.
 

@@ -7,7 +7,8 @@ Read ../AGENTS.md and ../docs/ARCHITECTURE.md. Use one owner and one branch/work
 | Task | Owner | Deliverable | Gate |
 |---|---|---|---|
 | AUTH-01 | APP | Named-user Supabase Auth and guest-to-account migration | Two-user/guest isolation, no ownership escalation, real auth test |
-| SCENE-02 | GEO | Free-form polygons/holes with parametric adapter and stable IDs | Basis, winding, holes, degeneracy and ENU/render round-trip cases |
+| SCENE-02 | GEO | Optional planar Scene v1 import and OBJ export implemented. See [handoff](../docs/HANDOFF.md) | Preserve full polygon containment and ENU mapping |
+| GEO-03 | GEO | Address/imagery adapter and calibrated tracing into the planar scene contract | Provenance, editable outlines and 10-address case protocol |
 | UI-02 | WEB (review: UX) | Direct obstacle manipulation and roof polygon editing with command history | Desktop/mobile interaction tests and visual review |
 | CAT-01 | APP (review: OPT) | Versioned manufacturer catalog, coverage vs external dimensions, allowed orientations | Real datasheet sources and dimensional fixtures |
 | PV-01 | PV | Offline pvlib baseline on a documented weather fixture | UTC, night, leap year, energy accounting and independent references |
