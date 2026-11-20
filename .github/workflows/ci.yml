@@ -31,6 +31,26 @@ jobs:
       - run: uv run ruff check server
       - run: uv run ruff format --check server
       - run: uv run pytest -q
+      - name: Verify organization migration preserves guest projects
+        timeout-minutes: 4
+        run: |
+          cid=$(docker run -d --rm -e POSTGRES_HOST_AUTH_METHOD=trust postgres:17-alpine)
+          trap 'docker stop "$cid" >/dev/null' EXIT
+          for i in {1..30}; do
+            if docker exec "$cid" pg_isready -h 127.0.0.1 -U postgres >/dev/null; then break; fi
+            sleep 1
+          done
+          sql() { docker exec -i "$cid" psql -h 127.0.0.1 -U postgres -Xv ON_ERROR_STOP=1 "$@"; }
+          sql -c 'create role anon; create role authenticated; create schema auth; create table auth.users (id uuid primary key);'
+          for migration in supabase/migrations/*.sql; do
+            if [[ "$migration" == *_product_organizations.sql ]]; then
+              sql < supabase/tests/before_product_organizations.sql
+              sql < "$migration"
+              sql < supabase/tests/product_organizations.sql
+            else
+              sql < "$migration"
+            fi
+          done
       - run: uv export --frozen --no-dev --no-hashes --format requirements-txt --output-file requirements.txt > /dev/null && git diff --exit-code requirements.txt
       - run: npm ci --prefix web --no-audit --no-fund
       - run: npm run format:check --prefix web

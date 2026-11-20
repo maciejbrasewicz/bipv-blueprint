@@ -9,18 +9,23 @@ ROOT = Path(__file__).resolve().parents[1]
 FILES = (
     "contracts/scene.schema.json",
     "pyproject.toml",
+    "server/__init__.py",
+    "server/app.py",
+    "server/geometry.py",
+    "server/model_export.py",
+    "server/models.py",
+    "server/tests/test_api.py",
+    "server/tests/test_geometry.py",
+    "server/tests/test_planar_geometry.py",
     "web/src/example-planes.json",
     "uv.lock",
 )
 
 
 def build_zip(out: Path, source_sha: str) -> None:
-    source_files = sorted(
-        [*FILES, *(path.relative_to(ROOT).as_posix() for path in (ROOT / "server").rglob("*.py"))]
-    )
     out.parent.mkdir(parents=True, exist_ok=True)
     with ZipFile(out, mode="w", compression=ZIP_DEFLATED) as archive:
-        for relative in source_files:
+        for relative in sorted(FILES):
             archive.write(ROOT / relative, relative)
         archive.write(ROOT / "docs" / "ROOF-TEST-PACK.md", "README.md")
         archive.writestr("SOURCE_COMMIT.txt", source_sha + "\n")
