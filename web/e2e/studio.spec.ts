@@ -53,13 +53,11 @@ test("studio renders, edits, undoes, exports and imports", async ({ page }) => {
   expect(json.suggestedFilename()).toBe("bipv-project.json");
   const content = await readFile((await json.path())!);
   expect(JSON.parse(content.toString()).scene.schema_version).toBe("1.0.0");
-  await page
-    .locator('input[type="file"]')
-    .setInputFiles({
-      name: "bipv-project.json",
-      mimeType: "application/json",
-      buffer: content,
-    });
+  await page.locator('input[type="file"]').setInputFiles({
+    name: "bipv-project.json",
+    mimeType: "application/json",
+    buffer: content,
+  });
   await expect(page.getByRole("status")).toContainText(
     "Zaimportowano i zweryfikowano",
   );
