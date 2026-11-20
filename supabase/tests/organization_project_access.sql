@@ -95,8 +95,9 @@ begin
   end if;
   update public.bipv_projects set name = 'Forbidden', revision = 3 where id = guest;
   if found then raise exception 'Viewer was allowed to update'; end if;
-  delete from storage.objects where bucket_id = 'bipv-project-assets';
-  if found then raise exception 'Viewer was allowed to delete assets'; end if;
+  if bipv_private.can_access_project_asset(
+    current_setting('bipv.test_org_a') || '/' || guest || '/photo.jpg', true
+  ) then raise exception 'Viewer was allowed to write assets'; end if;
 end;
 $$;
 
