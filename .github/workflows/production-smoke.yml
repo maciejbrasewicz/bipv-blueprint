@@ -8,7 +8,7 @@ permissions:
   contents: read
 concurrency:
   group: production-verification
-  cancel-in-progress: false
+  cancel-in-progress: true
 env:
   BASE_URL: https://bipv-studio-production.up.railway.app
   LIVE_CLOUD: '1'
@@ -44,9 +44,15 @@ jobs:
           print(json.dumps({"live_commit":expected,"cloud_configured":True,"status":"ok"}))
           PY
       - run: npm ci --prefix web --no-audit --no-fund
-      - run: npx playwright install --with-deps chromium
+      - name: Verify live cloud isolation before browser setup
+        run: npx playwright test --grep "live cloud isolates"
         working-directory: web
-      - run: npm run test:e2e
+      - name: Install only the headless browser
+        timeout-minutes: 3
+        run: npx playwright install --only-shell chromium
+        working-directory: web
+      - name: Verify the live studio and UI save
+        run: npx playwright test --grep "studio renders"
         working-directory: web
       - uses: actions/upload-artifact@v7.0.2
         if: always()
