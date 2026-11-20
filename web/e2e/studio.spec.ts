@@ -4,7 +4,8 @@ import { randomBytes } from "node:crypto";
 
 test("studio renders, edits, undoes, exports and imports", async ({ page }) => {
   const errors: string[] = [];
-  page.on("pageerror", (e) => errors.push(e.message));
+  page.on("pageerror", (e) => { errors.push(e.message); console.log("PAGE_ERROR", e.stack); });
+  page.on("console", (m) => { if(m.type()==="error") console.log("BROWSER_ERROR",m.text()); });
   await page.goto("/");
   await expect(
     page.getByText("Geometria obliczona", { exact: true }),
@@ -164,4 +165,9 @@ test("live cloud isolates guest workspaces and rejects stale revisions", async (
       ).toBe(404);
     }
   }
+});
+
+
+test.afterEach(async ({ page }, info) => {
+  if (info.status !== info.expectedStatus) console.log("PAGE_TEXT", await page.locator("body").innerText().catch(() => "unavailable"));
 });

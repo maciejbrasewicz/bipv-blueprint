@@ -102,7 +102,7 @@ jobs:
           git fetch origin evidence/r1
           git worktree add /tmp/bipv-evidence origin/evidence/r1
           mkdir -p /tmp/bipv-evidence/evidence
-          find web/test-results -maxdepth 1 -name '*.png' -exec cp {} /tmp/bipv-evidence/evidence/ \; || true
+          find web/test-results -type f \( -name '*.png' -o -name 'error-context.md' \) -exec cp {} /tmp/bipv-evidence/evidence/ \; || true
           python -c "import json,os,pathlib,subprocess; pathlib.Path('/tmp/bipv-evidence/evidence/run.json').write_text(json.dumps({'tested_commit':subprocess.check_output(['git','rev-parse','HEAD']).decode().strip(),'status':os.environ['JOB_STATUS'],'run_id':os.environ['GITHUB_RUN_ID']},indent=2))"
           git -C /tmp/bipv-evidence config user.name "github-actions[bot]"
           git -C /tmp/bipv-evidence config user.email "41898282+github-actions[bot]@users.noreply.github.com"
