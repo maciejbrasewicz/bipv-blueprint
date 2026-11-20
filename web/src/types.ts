@@ -141,3 +141,9 @@ export type ProjectRevisionSummary = {
   name: string;
   saved_at: string;
 };
+
+export type Organization = {
+  id: string;
+  name: string;
+  role: "owner" | "designer" | "viewer";
+};

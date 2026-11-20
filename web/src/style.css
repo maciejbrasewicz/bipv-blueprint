@@ -1960,3 +1960,39 @@ p {
     padding: 10px;
   }
 }
+
+.account-form {
+  display: grid;
+  gap: 12px;
+  margin-top: 16px;
+}
+.account-form label {
+  display: grid;
+  gap: 5px;
+  font-size: 12px;
+}
+.account-form input,
+.account-form select {
+  min-width: 0;
+  width: 100%;
+  padding: 9px 10px;
+  color: inherit;
+  background: #fbfcf9;
+  border: 1px solid #c6d5c0;
+  border-radius: 5px;
+  font: inherit;
+}
+.account-inline {
+  border-top: 1px solid #dce5d7;
+  padding-top: 12px;
+}
+.account-modal {
+  max-height: min(85dvh, 740px);
+  overflow-y: auto;
+}
+.version-pill {
+  max-width: 160px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

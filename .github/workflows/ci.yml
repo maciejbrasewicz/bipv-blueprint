@@ -41,7 +41,7 @@ jobs:
             sleep 1
           done
           sql() { docker exec -i "$cid" psql -h 127.0.0.1 -U postgres -Xv ON_ERROR_STOP=1 "$@"; }
-          sql -c 'create role anon; create role authenticated; create schema auth; create table auth.users (id uuid primary key);'
+          sql < supabase/tests/bootstrap.sql
           for migration in supabase/migrations/*.sql; do
             if [[ "$migration" == *_product_organizations.sql ]]; then
               sql < supabase/tests/before_product_organizations.sql
@@ -51,6 +51,7 @@ jobs:
               sql < "$migration"
             fi
           done
+          { echo 'begin;'; cat supabase/tests/organization_project_access.sql; echo 'rollback;'; } | sql
       - run: uv export --frozen --no-dev --no-hashes --format requirements-txt --output-file requirements.txt > /dev/null && git diff --exit-code requirements.txt
       - run: npm ci --prefix web --no-audit --no-fund
       - run: npm run format:check --prefix web
