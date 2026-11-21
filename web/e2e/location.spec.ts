@@ -1,5 +1,7 @@
 import { expect, test } from "@playwright/test";
 import { readFile } from "node:fs/promises";
+import { Box3 } from "three";
+import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
 
 test("location waits for address and building choices and saves only the selected reference", async ({
   page,
@@ -413,4 +415,27 @@ test("orthophoto retries, measures, corrects a trace and exports estimated geome
   const model = await readFile((await (await gableDownload).path())!, "utf8");
   expect(model).toContain("g surface_trace-gable-a\n");
   expect(model).toContain("g surface_trace-gable-b\n");
+
+  await exportMenu.click();
+  const binaryDownload = page.waitForEvent("download");
+  await page.getByRole("button", { name: "Model 3D GLB" }).click();
+  const binary = await binaryDownload;
+  expect(binary.suggestedFilename()).toBe("bipv-model.glb");
+  const bytes = await readFile((await binary.path())!);
+  const loaded = await new GLTFLoader().parseAsync(
+    Uint8Array.from(bytes).buffer,
+    "",
+  );
+  const roofNodes = loaded.scene.children.filter(
+    (node) => node.userData.role === "surface",
+  );
+  expect(roofNodes.map((node) => node.userData.surfaceId)).toEqual([
+    "trace-gable-a",
+    "trace-gable-b",
+  ]);
+  for (const node of roofNodes)
+    expect(new Box3().setFromObject(node).max.y).toBeCloseTo(5, 5);
+  expect(
+    loaded.scene.children.some((node) => node.userData.role === "pv"),
+  ).toBe(true);
 });

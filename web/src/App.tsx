@@ -784,18 +784,20 @@ function Studio({
     );
     setExportMenu(false);
   };
-  async function exportObj() {
+  async function exportModel(format: "obj" | "glb") {
     if (!variant || stale) return;
     setExportMenu(false);
     try {
-      const response = await fetch("/api/model.obj", {
+      const response = await fetch(`/api/model.${format}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ scene, variant: variant.id }),
       });
       if (!response.ok)
-        throw new Error("Eksport OBJ nie powiódł się. Spróbuj ponownie.");
-      download("bipv-model.obj", await response.text(), "text/plain");
+        throw new Error(
+          `Eksport ${format.toUpperCase()} nie powiódł się. Spróbuj ponownie.`,
+        );
+      download(`bipv-model.${format}`, await response.blob());
     } catch (e) {
       setToast((e as Error).message);
     }
@@ -906,9 +908,19 @@ function Studio({
                 <FileJson size={16} />
                 Projekt JSON
               </button>
-              <button onClick={exportObj} disabled={stale || !variant}>
+              <button
+                onClick={() => void exportModel("obj")}
+                disabled={stale || !variant}
+              >
                 <Box size={16} />
                 Model 3D OBJ
+              </button>
+              <button
+                onClick={() => void exportModel("glb")}
+                disabled={stale || !variant}
+              >
+                <Box size={16} />
+                Model 3D GLB
               </button>
               <button onClick={exportMaterials} disabled={stale || !variant}>
                 <LayoutGrid size={16} />

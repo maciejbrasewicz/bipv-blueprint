@@ -82,7 +82,7 @@ Select the building, show its orthophoto and open **Obrysuj dach**. Add the corn
 
 After preparing the outline, choose **Dwuspadowy**, click two points on the ridge line, and enter the ridge height and one pitch for both sides. The line is extended to the outline. An off-centre ridge can produce different eave heights. The server checks that it divides the outline into two roof planes with an unbroken common edge, each at least 0.25 m wide perpendicular to the ridge, and that both stay above the assumed ground.
 
-The scene stores both planes with stable IDs, their source trace and the operator's ridge assumptions. Studio calculates PV layout on their sloping areas. Automated references cover east–west and north–south orientation, off-centre ridges, OBJ seam height, invariant geometry after reversing the input points, and invalid inputs. Complex roofs, tracing a facade from a photograph, GLB export and automatic recovery of pitch and height remain separate work.
+The scene stores both planes with stable IDs, their source trace and the operator's ridge assumptions. Studio calculates PV layout on their sloping areas. Automated references cover east–west and north–south orientation, off-centre ridges, OBJ seam height, invariant geometry after reversing the input points, and invalid inputs. Complex roofs, tracing a facade from a photograph and automatic recovery of pitch and height remain separate work.
 
 ## P14 · seed-based contour suggestion
 
@@ -91,6 +91,12 @@ With an orthophoto and a selected building, choose **Obrysuj dach → Zaproponuj
 The browser runs two bounded connected-region passes on the existing raster and compares their size. The search uses the building's EGiB envelope plus 8 m, bounded to 320 × 320 pixels. The extracted exterior ring must be stable and cover 60–160% of the EGiB area within the 250 m² scene limit. This is a heuristic check on a single ring. No-data, unstable, clipped or materially incomplete proposals fall back to manual drawing.
 
 Automated replay uses generated rectangles, a concave roof and a rotated roof, with independent polygon IoU and boundary-distance checks. In a separate exploratory run on six manually outlined roofs from three GUGiK captures, one proposal went through (IoU 0.808, sampled maximum boundary difference 1.23 m at the requested 0.2 m/pixel); five were declined. The exploratory run used the reference polygon envelope and area as proxies for EGiB and took 0.02–5.21 ms per detector call on the local test machine, with image fetch and decode excluded. The outlines are visual annotations and the small convenience sample does not estimate field accuracy. The satellite-only acceptance scenario requires its own data, worker and validation.
+
+## P13 · binary glTF export
+
+Choose **Eksport → Model 3D GLB** to download the current layout. `POST /api/model.glb` uses the existing scene and optional variant input. The mesh includes roof and facade faces, their openings, chimney and skylight geometry, and the selected PV layout. Units are metres. The axes match the renderer and OBJ (X east, Y up, Z −north).
+
+Surface and obstacle nodes keep stable IDs. PV panels are batched by surface with module IDs in draw order. Top-level metadata includes the input hash, engine version and variant. The binary contains its own geometry and flat materials. The project JSON retains editable inputs and source evidence. [glTF 2.0 specification](https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.pdf)
 
 ## Pick up the work
 

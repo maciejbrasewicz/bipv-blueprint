@@ -1,6 +1,6 @@
 # BIPV Studio — plan budowy produktu
 
-Status: proponowany plan wykonawczy, 20 listopada 2026. Obowiązuje od istniejącego wdrożenia. [Stan ostatniego release'u](RELEASE.md) · [Kontrakty działającego kodu](HANDOFF.md) · [Macierz Electrotile](ELECTROTILE-DELIVERY.md) · [Backlog Foundry](../foundry/PRODUCT-BACKLOG.tsv) · [Runbook agentów](../foundry/PRODUCT-EXECUTION.md).
+Status: proponowany plan wykonawczy, 20 listopada 2026. Obowiązuje od istniejącego wdrożenia. [Aktualny stan planu](IMPLEMENTATION-STATUS.md). [Stan ostatniego release'u](RELEASE.md) · [Kontrakty działającego kodu](HANDOFF.md) · [Macierz Electrotile](ELECTROTILE-DELIVERY.md) · [Backlog Foundry](../foundry/PRODUCT-BACKLOG.tsv) · [Runbook agentów](../foundry/PRODUCT-EXECUTION.md).
 
 ## Produkt, który wypuszczamy
 
