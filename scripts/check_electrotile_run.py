@@ -161,6 +161,10 @@ def validate_inputs(plan: TestPlan, capture: TestCapture) -> dict[str, CaseObser
         raise ValueError("manifest contains duplicate case IDs")
     if set(plan.inputs_sha256) != case_ids:
         raise ValueError("manifest input digests must match the frozen case IDs")
+    if isinstance(plan, ReconstructionPlan | QueuePlan) and len(set(plan.inputs_sha256.values())) != len(
+        case_ids
+    ):
+        raise ValueError("address samples cannot reuse an identical frozen input")
     if isinstance(plan, ReconstructionPlan) and len(case_ids) != 10:
         raise ValueError("I-01 requires ten distinct frozen cases")
     if isinstance(plan, QueuePlan) and (
@@ -325,6 +329,7 @@ def evaluate(manifest_bytes: bytes, capture_bytes: bytes) -> dict:
         "capture_sha256": hashlib.sha256(capture_bytes).hexdigest(),
         "assessment_status": status,
         "acceptance_status": acceptance_status,
+        **({"cache": plan.cache} if isinstance(plan, QueuePlan) else {}),
         "case_counts": summary,
         "batch": batch,
         "cases": cases,

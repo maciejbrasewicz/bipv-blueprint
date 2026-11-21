@@ -221,6 +221,7 @@ def test_batch_clock_uses_first_submission_through_last_completion_despite_fast_
         row.update(started_ns=job_start, finished_ns=job_start + 7 * SECOND)
     report = score(manifest, capture)
     assert all(case["elapsed_ns"] == 7 * SECOND for case in report["cases"])
+    assert report["cache"] == "cold"
     assert report["batch"]["elapsed_ns"] == 501 * SECOND
     assert report["batch"]["status"] == "FAIL"
 
@@ -298,6 +299,15 @@ def test_manifest_hash_and_json_duplicate_keys_are_checked():
     bad_capture = capture.replace(b'"scope":', b'"scope": "replay", "scope":')
     with pytest.raises(ValueError, match="duplicate JSON field"):
         evaluate(manifest, bad_capture)
+
+
+@pytest.mark.parametrize("criterion", ["I-01", "N-01"])
+def test_frozen_address_sample_cannot_repeat_an_identical_input(criterion):
+    manifest, capture = sample(criterion)
+    manifest["inputs_sha256"]["case-00"] = manifest["inputs_sha256"]["case-01"]
+    capture["observations"][0]["input_sha256"] = manifest["inputs_sha256"]["case-01"]
+    with pytest.raises(ValueError, match="identical frozen input"):
+        score(manifest, capture)
 
 
 @pytest.mark.parametrize("version", [True, 1.0, "1", 2])
