@@ -379,7 +379,11 @@ test("orthophoto retries, measures, corrects a trace and exports estimated geome
   await placeRidge.click();
   await draw(0, 9);
   await draw(9, 9);
-  await expect(svg.locator(".trace-ridge line")).toBeVisible();
+  await expect(svg.locator(".trace-ridge circle")).toHaveCount(2);
+  await expect(svg.locator(".trace-ridge line")).toHaveCSS(
+    "stroke",
+    "rgb(107, 217, 255)",
+  );
   await form.getByLabel("Nachylenie obu połaci (°)").fill("30");
   await form.getByLabel(/Wysokość kalenicy/).fill("5");
   await submit.click();
