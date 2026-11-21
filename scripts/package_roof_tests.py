@@ -27,6 +27,7 @@ FILES = (
     "server/tests/test_account_access.py",
     "server/tests/test_api.py",
     "server/tests/test_geometry.py",
+    "server/tests/test_geometry_regression.py",
     "server/tests/test_planar_geometry.py",
     "server/tests/test_product_contracts.py",
     "server/tests/test_roof_acceptance.py",

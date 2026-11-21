@@ -12,7 +12,8 @@ from shapely.prepared import prep
 
 from .models import Scene
 
-ENGINE_VERSION = "grid-search/0.2.1"
+ENGINE_VERSION = "grid-search/0.2.2"
+COORDINATE_TOLERANCE_M = 1e-9
 CATALOG = [
     {
         "id": "slate-75",
@@ -68,7 +69,7 @@ def surfaces(scene: Scene) -> list[dict]:
                     "normal": normal,
                     "width_m": x1 - x0,
                     "height_m": y1 - y0,
-                    "azimuth_deg": round(math.degrees(math.atan2(normal[0], normal[1])) % 360, 3)
+                    "azimuth_deg": round(math.degrees(math.atan2(normal[0], normal[1])), 3) % 360
                     if math.hypot(*normal[:2]) > 1e-9
                     else None,
                 }
@@ -129,16 +130,18 @@ def layout_surface(scene: Scene, surface: dict, width: float, height: float) -> 
     if usable.is_empty:
         return [], 0.0
     min_x, min_y, max_x, max_y = usable.bounds
-    prepared = prep(usable)
+    # An exact fit can straddle a boundary by a few floating-point bits.
+    # Apply a 1 nm tolerance to containment only; the nominal area and layout stay unrounded.
+    prepared = prep(usable.buffer(COORDINATE_TOLERANCE_M))
     step_x, step_y = width + scene.gap_m, height + scene.gap_m
     best: list = []
     for fx in (0, 0.25, 0.5, 0.75):
         for fy in (0, 0.25, 0.5, 0.75):
             current = []
             y = min_y + fy * step_y
-            while y + height <= max_y + 1e-9:
+            while y + height <= max_y + COORDINATE_TOLERANCE_M:
                 x = min_x + fx * step_x
-                while x + width <= max_x + 1e-9:
+                while x + width <= max_x + COORDINATE_TOLERANCE_M:
                     # Rounding here can move a valid edge candidate outside the setback.
                     if prepared.covers(box(x, y, x + width, y + height)):
                         current.append(
