@@ -158,6 +158,17 @@
           ],
           "default": null,
           "title": "Suggestion Method"
+        },
+        "gable": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/TraceGable"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
         }
       },
       "required": [
@@ -585,6 +596,65 @@
         "status"
       ],
       "title": "SurfaceEvidence",
+      "type": "object"
+    },
+    "TraceGable": {
+      "additionalProperties": false,
+      "properties": {
+        "ridge_en_m": {
+          "maxItems": 2,
+          "minItems": 2,
+          "prefixItems": [
+            {
+              "maxItems": 2,
+              "minItems": 2,
+              "prefixItems": [
+                {
+                  "maximum": 60,
+                  "minimum": -60,
+                  "type": "number"
+                },
+                {
+                  "maximum": 60,
+                  "minimum": -60,
+                  "type": "number"
+                }
+              ],
+              "type": "array"
+            },
+            {
+              "maxItems": 2,
+              "minItems": 2,
+              "prefixItems": [
+                {
+                  "maximum": 60,
+                  "minimum": -60,
+                  "type": "number"
+                },
+                {
+                  "maximum": 60,
+                  "minimum": -60,
+                  "type": "number"
+                }
+              ],
+              "type": "array"
+            }
+          ],
+          "title": "Ridge En M",
+          "type": "array"
+        },
+        "pitch_deg": {
+          "maximum": 60,
+          "minimum": 5,
+          "title": "Pitch Deg",
+          "type": "number"
+        }
+      },
+      "required": [
+        "ridge_en_m",
+        "pitch_deg"
+      ],
+      "title": "TraceGable",
       "type": "object"
     }
   },

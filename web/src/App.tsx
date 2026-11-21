@@ -386,7 +386,11 @@ function Studio({
     setPlanSurface(next.geometry.surfaces[0]);
     setMode("project");
     setLocationOpen(false);
-    setToast("Utworzono szacowany dach płaski z obrysu.");
+    setToast(
+      trace.gable
+        ? "Utworzono szacowany dach dwuspadowy z obrysu."
+        : "Utworzono szacowany dach płaski z obrysu.",
+    );
   }
   function changeGeometry(next: Scene, changedSurfaceId?: string) {
     if (document.schema_version === "1.0.0") {

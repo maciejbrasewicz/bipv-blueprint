@@ -134,6 +134,7 @@ function BuildingMap({
   previousTrace?: OrthophotoTrace | null;
 }) {
   const side = radius * 2;
+  const map = useRef<SVGSVGElement>(null);
   const pending = useRef<AbortController | null>(null);
   const traceRequest = useRef<AbortController | null>(null);
   const [photo, setPhoto] = useState<{
@@ -153,6 +154,10 @@ function BuildingMap({
   const [seeding, setSeeding] = useState(false);
   const [suggested, setSuggested] = useState(false);
   const [height, setHeight] = useState("");
+  const [roofKind, setRoofKind] = useState<"flat" | "gable">("flat");
+  const [pitch, setPitch] = useState("");
+  const [ridge, setRidge] = useState<PointUV[]>([]);
+  const [placingRidge, setPlacingRidge] = useState(false);
   const [traceError, setTraceError] = useState("");
   const [applying, setApplying] = useState(false);
 
@@ -169,6 +174,8 @@ function BuildingMap({
       setSuggested(false);
       setCorrection(null);
       setMeasurement([]);
+      setRidge([]);
+      setPlacingRidge(false);
       return;
     }
     const controller = new AbortController();
@@ -201,6 +208,16 @@ function BuildingMap({
     );
     if (Math.abs(x) > radius || Math.abs(y) > radius) return;
     if (tracing) {
+      const vertex: PointUV = [
+        Math.round(x * 10) / 10,
+        Math.round(-y * 10) / 10,
+      ];
+      if (placingRidge) {
+        setRidge([...ridge, vertex]);
+        if (ridge.length === 1) setPlacingRidge(false);
+        setTraceError("");
+        return;
+      }
       if (seeding && photo?.pixels && selectedBuilding) {
         setSeeding(false);
         try {
@@ -220,10 +237,6 @@ function BuildingMap({
         }
         return;
       }
-      const vertex: PointUV = [
-        Math.round(x * 10) / 10,
-        Math.round(-y * 10) / 10,
-      ];
       setOutline((points) =>
         correction === null
           ? points.length < 48
@@ -260,7 +273,12 @@ function BuildingMap({
       setOutline(matchingTrace ? previousTrace.outline_en_m : []);
       setHeight(matchingTrace ? String(previousTrace.roof_height_m) : "");
       setSuggested(Boolean(matchingTrace && previousTrace.suggestion_method));
+      const savedGable = matchingTrace ? previousTrace.gable : undefined;
+      setRoofKind(savedGable ? "gable" : "flat");
+      setRidge(savedGable?.ridge_en_m ?? []);
+      setPitch(savedGable ? String(savedGable.pitch_deg) : "");
     }
+    setPlacingRidge(false);
     setSeeding(false);
     setCorrection(null);
     setTraceError("");
@@ -272,6 +290,7 @@ function BuildingMap({
   async function submitTrace(event: FormEvent) {
     event.preventDefault();
     if (!photo || !selectedSite || outline.length < 3 || applying) return;
+    if (roofKind === "gable" && (ridge.length !== 2 || !pitch)) return;
     const controller = new AbortController();
     traceRequest.current = controller;
     setTraceError("");
@@ -288,6 +307,10 @@ function BuildingMap({
           roof_height_m: Number(height),
           building_id: selectedSite.building_id,
           suggestion_method: suggested ? ROOF_CONTOUR_METHOD : undefined,
+          gable:
+            roofKind === "gable"
+              ? { ridge_en_m: [ridge[0], ridge[1]], pitch_deg: Number(pitch) }
+              : undefined,
         },
         controller.signal,
       );
@@ -342,6 +365,7 @@ function BuildingMap({
         </p>
       )}
       <svg
+        ref={map}
         className={`building-map${photo ? " with-ortho" : ""}${measuring || tracing ? " measuring" : ""}`}
         role="img"
         aria-label="Obrysy EGiB wokół punktu adresowego, północ u góry"
@@ -468,6 +492,21 @@ function BuildingMap({
             ))}
           </>
         )}
+        {tracing && roofKind === "gable" && ridge.length > 0 && (
+          <g className="trace-ridge">
+            {ridge.length === 2 && (
+              <line
+                x1={ridge[0][0]}
+                y1={-ridge[0][1]}
+                x2={ridge[1][0]}
+                y2={-ridge[1][1]}
+              />
+            )}
+            {ridge.map(([e, n], index) => (
+              <circle key={index} cx={e} cy={-n} r="1.2" />
+            ))}
+          </g>
+        )}
       </svg>
       {photo && (
         <p className="ortho-caption">
@@ -495,11 +534,15 @@ function BuildingMap({
           onSubmit={(event) => void submitTrace(event)}
         >
           <p className="ortho-caption" role="status">
-            {seeding
-              ? "Wskaż punkt wewnątrz dachu na obrazie."
-              : correction === null
-                ? `Wskaż narożniki kolejno po obwodzie. Punkty: ${outline.length}/48.`
-                : `Wskaż nowe położenie punktu ${correction + 1}.`}
+            {placingRidge
+              ? ridge.length
+                ? "Wskaż drugi punkt kalenicy."
+                : "Wskaż pierwszy punkt kalenicy."
+              : seeding
+                ? "Wskaż punkt wewnątrz dachu na obrazie."
+                : correction === null
+                  ? `Wskaż narożniki kolejno po obwodzie. Punkty: ${outline.length}/48.`
+                  : `Wskaż nowe położenie punktu ${correction + 1}.`}
           </p>
           {!outline.length && photo?.pixels && (
             <button
@@ -529,9 +572,10 @@ function BuildingMap({
                 aria-pressed={correction === index}
                 disabled={applying}
                 key={index}
-                onClick={() =>
-                  setCorrection(correction === index ? null : index)
-                }
+                onClick={() => {
+                  setPlacingRidge(false);
+                  setCorrection(correction === index ? null : index);
+                }}
               >
                 {index + 1}
               </button>
@@ -562,6 +606,7 @@ function BuildingMap({
               onClick={() => {
                 setEditing(false);
                 setSeeding(false);
+                setPlacingRidge(false);
                 setCorrection(null);
                 setTraceError("");
               }}
@@ -570,7 +615,67 @@ function BuildingMap({
             </button>
           </div>
           <label>
-            Wysokość dachu nad przyjętym poziomem gruntu (m)
+            Kształt dachu
+            <select
+              value={roofKind}
+              disabled={applying}
+              onChange={(event) => {
+                setRoofKind(
+                  event.currentTarget.value === "gable" ? "gable" : "flat",
+                );
+                setPlacingRidge(false);
+                setHeight("");
+                setTraceError("");
+              }}
+            >
+              <option value="flat">Płaski</option>
+              <option value="gable">Dwuspadowy</option>
+            </select>
+          </label>
+          {roofKind === "gable" && (
+            <>
+              <label>
+                Nachylenie obu połaci (°)
+                <input
+                  type="number"
+                  min="5"
+                  max="60"
+                  step="0.1"
+                  required
+                  value={pitch}
+                  disabled={applying}
+                  onChange={(event) => setPitch(event.currentTarget.value)}
+                />
+              </label>
+              <button
+                type="button"
+                className="button"
+                aria-pressed={placingRidge}
+                disabled={applying || outline.length < 3}
+                onClick={() => {
+                  if (!placingRidge) setRidge([]);
+                  setSeeding(false);
+                  setCorrection(null);
+                  setTraceError("");
+                  setPlacingRidge(!placingRidge);
+                  if (!placingRidge)
+                    map.current?.scrollIntoView({ block: "nearest" });
+                }}
+              >
+                {placingRidge
+                  ? "Anuluj wskazywanie kalenicy"
+                  : ridge.length === 2
+                    ? "Wskaż kalenicę ponownie"
+                    : "Wskaż dwa punkty kalenicy"}
+              </button>
+              <p className="ortho-caption">
+                Linia kalenicy zostanie przedłużona do krawędzi obrysu.
+              </p>
+            </>
+          )}
+          <label>
+            {roofKind === "gable" ? "Wysokość kalenicy" : "Wysokość dachu"} nad
+            przyjętym poziomem gruntu (m)
             <input
               type="number"
               min="0.1"
@@ -583,8 +688,9 @@ function BuildingMap({
             />
           </label>
           <p className="ortho-caption">
-            Powstanie szacowany dach płaski. Operacja zastępuje połacie i
-            przeszkody w bieżącej scenie. Możesz ją cofnąć.
+            Powstanie szacowany dach{" "}
+            {roofKind === "gable" ? "dwuspadowy" : "płaski"}. Operacja zastępuje
+            połacie i przeszkody w bieżącej scenie. Możesz ją cofnąć.
           </p>
           {traceError && (
             <p className="hole-error" role="alert">
@@ -595,7 +701,11 @@ function BuildingMap({
             type="submit"
             className="button primary"
             disabled={
-              outline.length < 3 || !height || !selectedSite || applying
+              outline.length < 3 ||
+              !height ||
+              !selectedSite ||
+              applying ||
+              (roofKind === "gable" && (ridge.length !== 2 || !pitch))
             }
           >
             {applying ? "Sprawdzam obrys…" : "Zastąp geometrię obrysem"}
