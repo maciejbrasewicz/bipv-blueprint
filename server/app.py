@@ -6,7 +6,7 @@ from pathlib import Path
 from uuid import UUID, uuid4
 
 import httpx
-from fastapi import FastAPI, HTTPException, Request
+from fastapi import FastAPI, HTTPException, Request, Response
 from fastapi.responses import FileResponse, JSONResponse, PlainTextResponse
 from fastapi.staticfiles import StaticFiles
 from starlette.concurrency import run_in_threadpool
@@ -14,7 +14,9 @@ from starlette.middleware.gzip import GZipMiddleware
 
 from .cloud import CLOUD, db, project_access
 from .geo import router as geo_router
+from .geo_trace import TraceSceneInput, scene_from_orthophoto
 from .geometry import CATALOG, ENGINE_VERSION, compute
+from .glb_export import export_glb
 from .model_export import export_obj
 from .models import ModelExport, Scene
 from .product_contracts import SaveProject, SceneV2
@@ -108,12 +110,31 @@ def validate_scene_v2(scene: SceneV2):
     return scene
 
 
+@app.post("/api/scene/from-orthophoto", response_model=SceneV2, response_model_exclude_none=True)
+def trace_scene(body: TraceSceneInput):
+    try:
+        return scene_from_orthophoto(body)
+    except ValueError as exc:
+        raise HTTPException(422, str(exc)) from exc
+
+
 @app.post("/api/model.obj", response_class=PlainTextResponse)
 async def model_obj(body: ModelExport):
     async with compute_slots:
         content = await run_in_threadpool(export_obj, body)
     return PlainTextResponse(
         content, headers={"Content-Disposition": 'attachment; filename="bipv-model.obj"'}
+    )
+
+
+@app.post("/api/model.glb", response_class=Response, responses={200: {"content": {"model/gltf-binary": {}}}})
+async def model_glb(body: ModelExport):
+    async with compute_slots:
+        content = await run_in_threadpool(export_glb, body)
+    return Response(
+        content,
+        media_type="model/gltf-binary",
+        headers={"Content-Disposition": 'attachment; filename="bipv-model.glb"'},
     )
 
 

@@ -2155,6 +2155,78 @@ p {
   fill: #813e22;
 }
 
+.location-map-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 6px;
+}
+
+.location-map-panel .ortho-caption {
+  margin: 4px 0;
+  font-size: 11px;
+}
+
+.building-map.with-ortho g path {
+  fill-opacity: 0.27;
+  stroke: #fff;
+}
+
+.building-map.with-ortho .chosen-building path {
+  fill-opacity: 0.55;
+  stroke: #cff78e;
+}
+
+.building-map.with-ortho text {
+  paint-order: stroke;
+  stroke: white;
+  stroke-width: 0.55px;
+}
+
+.building-map.measuring,
+.building-map.measuring g {
+  cursor: crosshair;
+}
+
+.trace-outline {
+  fill: #f7ca5250;
+  stroke: #ffcf5c;
+  stroke-width: 0.8;
+  pointer-events: none;
+}
+
+.trace-vertex {
+  fill: #ffcf5c;
+  stroke: #282720;
+  stroke-width: 0.35;
+  pointer-events: none;
+}
+
+.building-map .trace-ridge {
+  pointer-events: none;
+}
+
+.trace-ridge line {
+  stroke: #6bd9ff;
+  stroke-width: 0.9;
+}
+
+.trace-ridge circle {
+  fill: #6bd9ff;
+  stroke: #153a49;
+  stroke-width: 0.3;
+}
+
+.roof-trace label {
+  display: grid;
+  gap: 4px;
+  font-size: 12px;
+}
+
+.roof-trace input {
+  width: 100px;
+}
+
 .building-options {
   min-width: 0;
   max-height: 320px;

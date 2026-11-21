@@ -58,6 +58,7 @@ import {
   type Layout,
   type Obstacle,
   type Organization,
+  type OrthophotoTrace,
   type Project,
   type ProjectRevisionSummary,
   type ProjectSummary,
@@ -352,6 +353,44 @@ function Studio({
     changed(next);
     setLocationOpen(false);
     setToast("Zapisano lokalizację budynku w projekcie.");
+  }
+  async function applyOrthophotoTrace(
+    chosenSite: SceneSite,
+    trace: OrthophotoTrace,
+    signal: AbortSignal,
+  ) {
+    const current = documentRef.current;
+    const { name, product_id, setback_m, gap_m, clearance_m } =
+      geometry(current);
+    const next = await api<SceneV2>(
+      "scene/from-orthophoto",
+      "POST",
+      {
+        name,
+        product_id,
+        setback_m,
+        gap_m,
+        clearance_m,
+        site: chosenSite,
+        trace,
+      },
+      undefined,
+      signal,
+    );
+    if (signal.aborted) return;
+    if (documentRef.current !== current)
+      throw new Error("Scena zmieniła się podczas walidacji. Ponów edycję.");
+    changed(next);
+    setSelected(null);
+    setHole(null);
+    setPlanSurface(next.geometry.surfaces[0]);
+    setMode("project");
+    setLocationOpen(false);
+    setToast(
+      trace.gable
+        ? "Utworzono szacowany dach dwuspadowy z obrysu."
+        : "Utworzono szacowany dach płaski z obrysu.",
+    );
   }
   function changeGeometry(next: Scene, changedSurfaceId?: string) {
     if (document.schema_version === "1.0.0") {
@@ -745,18 +784,20 @@ function Studio({
     );
     setExportMenu(false);
   };
-  async function exportObj() {
+  async function exportModel(format: "obj" | "glb") {
     if (!variant || stale) return;
     setExportMenu(false);
     try {
-      const response = await fetch("/api/model.obj", {
+      const response = await fetch(`/api/model.${format}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ scene, variant: variant.id }),
       });
       if (!response.ok)
-        throw new Error("Eksport OBJ nie powiódł się. Spróbuj ponownie.");
-      download("bipv-model.obj", await response.text(), "text/plain");
+        throw new Error(
+          `Eksport ${format.toUpperCase()} nie powiódł się. Spróbuj ponownie.`,
+        );
+      download(`bipv-model.${format}`, await response.blob());
     } catch (e) {
       setToast((e as Error).message);
     }
@@ -867,9 +908,19 @@ function Studio({
                 <FileJson size={16} />
                 Projekt JSON
               </button>
-              <button onClick={exportObj} disabled={stale || !variant}>
+              <button
+                onClick={() => void exportModel("obj")}
+                disabled={stale || !variant}
+              >
                 <Box size={16} />
                 Model 3D OBJ
+              </button>
+              <button
+                onClick={() => void exportModel("glb")}
+                disabled={stale || !variant}
+              >
+                <Box size={16} />
+                Model 3D GLB
               </button>
               <button onClick={exportMaterials} disabled={stale || !variant}>
                 <LayoutGrid size={16} />
@@ -1144,6 +1195,9 @@ function Studio({
               <p className="info-note">
                 <span>
                   Status geometrii <strong>{geometryStatus}</strong>
+                  {provenance?.orthophoto_trace
+                    ? " · obrys z ortofotomapy"
+                    : ""}
                   {provenance?.source_asset_ids.length
                     ? ` · źródła: ${provenance.source_asset_ids.length}`
                     : ""}
@@ -2116,6 +2170,13 @@ function Studio({
       {locationOpen && (
         <LocationDialog
           current={site}
+          previousTrace={
+            document.schema_version === "2.0.0"
+              ? document.surface_evidence.find((item) => item.orthophoto_trace)
+                  ?.orthophoto_trace
+              : undefined
+          }
+          onTrace={applyOrthophotoTrace}
           onConfirm={confirmSite}
           onClose={() => setLocationOpen(false)}
         />

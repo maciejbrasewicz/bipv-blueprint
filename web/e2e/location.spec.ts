@@ -1,5 +1,7 @@
 import { expect, test } from "@playwright/test";
 import { readFile } from "node:fs/promises";
+import { Box3 } from "three";
+import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
 
 test("location waits for address and building choices and saves only the selected reference", async ({
   page,
@@ -132,4 +134,308 @@ test("location lets the user retry provider failure and handles lack of coverage
   await expect(
     dialog.getByRole("button", { name: "Potwierdź budynek" }),
   ).toHaveCount(0);
+});
+
+test("orthophoto retries, measures, corrects a trace and exports estimated geometry", async ({
+  page,
+}) => {
+  const point = {
+    label: "Adres testowy, Próbna 20",
+    region: "",
+    easting_m: 674247,
+    northing_m: 483584,
+  };
+  const site = {
+    address: point.label,
+    building_id: "ORTHO_BUILDING",
+    latitude_deg: 52.1907565,
+    longitude_deg: 21.5499962,
+    source: "gugik-egib-wfs",
+    retrieved_at: "2026-11-21T10:00:00Z",
+  };
+  await page.route("**/api/geo/sources", (route) =>
+    route.fulfill({ json: { enabled: true } }),
+  );
+  await page.route("**/api/geo/addresses", (route) =>
+    route.fulfill({ json: { candidates: [point] } }),
+  );
+  await page.route("**/api/geo/buildings", (route) =>
+    route.fulfill({
+      json: {
+        radius_m: 60,
+        partial: false,
+        candidates: [
+          {
+            site,
+            distance_m: 0,
+            area_m2: 48,
+            rings_m: [
+              [
+                [
+                  [0, 0],
+                  [8, 0],
+                  [8, 6],
+                  [0, 6],
+                  [0, 0],
+                ],
+              ],
+            ],
+          },
+        ],
+      },
+    }),
+  );
+  await page.goto("/");
+  const pixels = await page.evaluate(() => {
+    const canvas = document.createElement("canvas");
+    canvas.width = canvas.height = 600;
+    const blank = canvas.toDataURL("image/png").split(",")[1];
+    const ctx = canvas.getContext("2d")!;
+    ctx.fillStyle = "#6f8565";
+    ctx.fillRect(0, 0, 600, 600);
+    ctx.fillStyle = "#def4ca";
+    ctx.fillRect(310, 270, 32, 30);
+    return [blank, canvas.toDataURL("image/png").split(",")[1]];
+  });
+  let imageryRequests = 0;
+  await page.route("**/api/geo/orthophoto", (route) => {
+    expect(route.request().postDataJSON()).toEqual({
+      easting_m: 674247,
+      northing_m: 483584,
+    });
+    return route.fulfill({
+      json: {
+        bounds_m: { west: 674187, south: 483524, east: 674307, north: 483644 },
+        grid_m_per_pixel: 0.2,
+        width_px: 600,
+        height_px: 600,
+        sha256: "a".repeat(64),
+        retrieved_at: "2026-11-21T10:02:00Z",
+        image_base64: pixels[Math.min(imageryRequests++, 1)],
+      },
+    });
+  });
+  await page.getByRole("button", { name: "Ustal lokalizację budynku" }).click();
+  const dialog = page.getByRole("dialog", { name: "Lokalizacja budynku" });
+  await dialog.getByRole("searchbox").fill("Adres testowy");
+  await dialog.getByRole("button", { name: "Szukaj adresu" }).click();
+  await dialog.getByRole("button", { name: point.label }).click();
+  const imageButton = dialog.getByRole("button", {
+    name: "Pokaż ortofotomapę",
+  });
+  await expect(imageButton).toBeVisible();
+  expect(imageryRequests).toBe(0);
+  const selected = dialog.getByRole("radio", { name: /Budynek 1/ });
+  await selected.check();
+  await imageButton.click();
+  await expect(dialog.getByRole("alert")).toContainText(
+    "Brak pokrycia ortofotomapą",
+  );
+  await expect(selected).toBeChecked();
+  await imageButton.click();
+  const svg = dialog.locator("svg.building-map");
+  const image = svg.locator("image");
+  await expect(image).toBeVisible();
+  await expect(image).toHaveAttribute("x", "-60");
+  await expect(image).toHaveAttribute("y", "-60");
+  await expect(image).toHaveAttribute("width", "120");
+
+  await dialog.getByRole("button", { name: "Zmierz odległość" }).click();
+  const coords = await svg.evaluate((element) => {
+    const matrix = (element as SVGSVGElement).getScreenCTM()!;
+    return [
+      [8, 5],
+      [11, 9],
+    ].map(([u, v]) => {
+      const { x, y } = new DOMPoint(u, v).matrixTransform(matrix);
+      return { x, y };
+    });
+  });
+  for (const { x, y } of coords) await page.mouse.click(x, y);
+  // Mouse coordinates are rounded by Chromium before dispatch.
+  await expect(dialog.getByRole("status")).toHaveText(
+    /Odległość: (4,[5-9]|5(,[0-5])?) m/,
+  );
+  await expect(svg.locator("line")).toHaveCount(1);
+  await expect(selected).toBeChecked();
+  await dialog.getByRole("button", { name: "Ukryj ortofotomapę" }).click();
+  await expect(image).toHaveCount(0);
+  await expect(svg.locator("line")).toHaveCount(0);
+  await expect(
+    dialog.getByRole("button", { name: "Potwierdź budynek" }),
+  ).toBeEnabled();
+
+  await imageButton.click();
+  await dialog.getByRole("button", { name: "Obrysuj dach" }).click();
+  const form = dialog.getByRole("form", { name: "Obrys dachu" });
+  const submit = form.getByRole("button", { name: "Zastąp geometrię obrysem" });
+  await expect(submit).toBeDisabled();
+  async function draw(e: number, n: number) {
+    await svg.scrollIntoViewIfNeeded();
+    const { x, y } = await svg.evaluate(
+      (element, [east, north]) => {
+        const matrix = (element as SVGSVGElement).getScreenCTM()!;
+        const { x, y } = new DOMPoint(east, -north).matrixTransform(matrix);
+        return { x, y };
+      },
+      [e, n],
+    );
+    await page.mouse.click(x, y);
+  }
+  for (const [e, n] of [
+    [-6, -4],
+    [6, -4],
+    [-6, 4],
+    [6, 4],
+  ])
+    await draw(e, n);
+  await form.getByRole("spinbutton").fill("6.4");
+  await submit.click();
+  await expect(form.getByRole("alert")).toContainText("Obrys przecina się");
+
+  await form.getByRole("button", { name: "Przesuń punkt 3" }).click();
+  await draw(6, 4);
+  await form.getByRole("button", { name: "Przesuń punkt 4" }).click();
+  await draw(-6, 4);
+  await submit.click();
+  await expect(dialog).toBeHidden();
+  await expect(
+    page.getByText("Dach płaski · obrys z ortofotomapy").first(),
+  ).toBeVisible();
+  await page.getByRole("button", { name: "Cofnij", exact: true }).click();
+  await expect(
+    page.getByRole("button", { name: "Ustal lokalizację budynku" }),
+  ).toBeVisible();
+  await page.getByRole("button", { name: "Ponów", exact: true }).click();
+  await page.reload();
+  await expect(page.getByText(/EGiB · ORTHO_BUILDING/)).toBeVisible();
+
+  const exportMenu = page.getByRole("button", { name: "Eksport", exact: true });
+  await exportMenu.click();
+  const objDownload = page.waitForEvent("download");
+  await page.getByRole("button", { name: "Model 3D OBJ" }).click();
+  const obj = await readFile((await (await objDownload).path())!, "utf8");
+  const roof = obj.split("g surface_trace-roof\n")[1].split("\ng ")[0];
+  const vertices = roof
+    .split("\n")
+    .filter((line) => line.startsWith("v "))
+    .map((line) => line.split(" ").slice(1).map(Number));
+  expect(vertices).toHaveLength(6);
+  expect(vertices.every(([, height]) => height === 6.4)).toBe(true);
+
+  await exportMenu.click();
+  const sceneDownload = page.waitForEvent("download");
+  await page.getByRole("button", { name: "Projekt JSON" }).click();
+  const data = JSON.parse(
+    await readFile((await (await sceneDownload).path())!, "utf8"),
+  );
+  const evidence = data.scene.surface_evidence[0];
+  expect(evidence.status).toBe("estimated");
+  expect(evidence.orthophoto_trace).toMatchObject({
+    building_id: "ORTHO_BUILDING",
+    image_sha256: "a".repeat(64),
+    roof_height_m: 6.4,
+  });
+  const [first, second, third, fourth] = evidence.orthophoto_trace.outline_en_m;
+  expect(second[0] - first[0]).toBeGreaterThan(11.5);
+  expect(fourth[1] - first[1]).toBeGreaterThan(7.5);
+  expect(third[0]).toBeGreaterThan(5.5);
+
+  await page.getByRole("button", { name: "Zmień lokalizację budynku" }).click();
+  await dialog.getByRole("button", { name: "Szukaj adresu" }).click();
+  await dialog.getByRole("button", { name: point.label }).click();
+  await selected.check();
+  // Use a fresh image ID for this assisted draft so reopening does not restore the manual trace.
+  await page.route("**/api/geo/orthophoto", (route) =>
+    route.fulfill({
+      json: {
+        bounds_m: { west: 674187, south: 483524, east: 674307, north: 483644 },
+        grid_m_per_pixel: 0.2,
+        width_px: 600,
+        height_px: 600,
+        sha256: "c".repeat(64),
+        retrieved_at: "2026-11-21T10:04:00Z",
+        image_base64: pixels[1],
+      },
+    }),
+  );
+  await imageButton.click();
+  await dialog.getByRole("button", { name: "Obrysuj dach" }).click();
+  const suggest = form.getByRole("button", { name: "Zaproponuj obrys" });
+  await suggest.click();
+  await draw(-4, -4);
+  await expect(form.getByRole("alert")).toContainText(
+    "Nie znaleziono wyraźnego obrysu",
+  );
+  await expect(svg.locator(".trace-vertex")).toHaveCount(0);
+  await suggest.click();
+  await draw(4, 3);
+  await expect(form.getByText(/Sprawdź i popraw/)).toBeVisible();
+  await expect(svg.locator(".trace-vertex")).toHaveCount(4);
+  await form.getByRole("button", { name: "Przesuń punkt 1" }).click();
+  await draw(2.5, 6);
+  await form.getByLabel("Kształt dachu").selectOption("gable");
+  const placeRidge = form.getByRole("button", {
+    name: "Wskaż dwa punkty kalenicy",
+  });
+  await placeRidge.click();
+  await draw(0, 9);
+  await draw(9, 9);
+  await expect(svg.locator(".trace-ridge circle")).toHaveCount(2);
+  await expect(svg.locator(".trace-ridge line")).toHaveCSS(
+    "stroke",
+    "rgb(107, 217, 255)",
+  );
+  await form.getByLabel("Nachylenie obu połaci (°)").fill("30");
+  await form.getByLabel(/Wysokość kalenicy/).fill("5");
+  await submit.click();
+  await expect(form.getByRole("alert")).toContainText("dokładnie dwie połacie");
+  await form.getByRole("button", { name: "Wskaż kalenicę ponownie" }).click();
+  await draw(0, 3);
+  await draw(9, 3);
+  const applied = page.waitForResponse((response) =>
+    response.url().endsWith("/scene/from-orthophoto"),
+  );
+  await submit.click();
+  const result = await applied;
+  expect(result.status()).toBe(200);
+  const gable = await result.json();
+  expect(gable.geometry.surfaces).toEqual(["trace-gable-a", "trace-gable-b"]);
+  const [updated, other] = gable.surface_evidence;
+  expect(updated.orthophoto_trace).toEqual(other.orthophoto_trace);
+  expect(updated.orthophoto_trace.gable.pitch_deg).toBe(30);
+  expect(updated.orthophoto_trace.gable.ridge_en_m).toHaveLength(2);
+  expect(updated.orthophoto_trace.suggestion_method).toBe("seed-rgb-v1");
+  expect(updated.orthophoto_trace.outline_en_m[0][0]).toBeCloseTo(2.5, 0);
+  await expect(dialog).toBeHidden();
+
+  await exportMenu.click();
+  const gableDownload = page.waitForEvent("download");
+  await page.getByRole("button", { name: "Model 3D OBJ" }).click();
+  const model = await readFile((await (await gableDownload).path())!, "utf8");
+  expect(model).toContain("g surface_trace-gable-a\n");
+  expect(model).toContain("g surface_trace-gable-b\n");
+
+  await exportMenu.click();
+  const binaryDownload = page.waitForEvent("download");
+  await page.getByRole("button", { name: "Model 3D GLB" }).click();
+  const binary = await binaryDownload;
+  expect(binary.suggestedFilename()).toBe("bipv-model.glb");
+  const bytes = await readFile((await binary.path())!);
+  const loaded = await new GLTFLoader().parseAsync(
+    Uint8Array.from(bytes).buffer,
+    "",
+  );
+  const roofNodes = loaded.scene.children.filter(
+    (node) => node.userData.role === "surface",
+  );
+  expect(roofNodes.map((node) => node.userData.surfaceId)).toEqual([
+    "trace-gable-a",
+    "trace-gable-b",
+  ]);
+  for (const node of roofNodes)
+    expect(new Box3().setFromObject(node).max.y).toBeCloseTo(5, 5);
+  expect(
+    loaded.scene.children.some((node) => node.userData.role === "pv"),
+  ).toBe(true);
 });

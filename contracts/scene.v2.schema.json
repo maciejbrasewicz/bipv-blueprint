@@ -1,6 +1,29 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$defs": {
+    "GridPoint": {
+      "additionalProperties": false,
+      "properties": {
+        "easting_m": {
+          "maximum": 1000000,
+          "minimum": 0,
+          "title": "Easting M",
+          "type": "number"
+        },
+        "northing_m": {
+          "maximum": 1000000,
+          "minimum": 0,
+          "title": "Northing M",
+          "type": "number"
+        }
+      },
+      "required": [
+        "easting_m",
+        "northing_m"
+      ],
+      "title": "GridPoint",
+      "type": "object"
+    },
     "Obstacle": {
       "additionalProperties": false,
       "properties": {
@@ -66,6 +89,98 @@
         "v"
       ],
       "title": "Obstacle",
+      "type": "object"
+    },
+    "OrthophotoTrace": {
+      "additionalProperties": false,
+      "properties": {
+        "source": {
+          "const": "gugik-orto-wms",
+          "title": "Source",
+          "type": "string"
+        },
+        "image_sha256": {
+          "pattern": "^[a-f0-9]{64}$",
+          "title": "Image Sha256",
+          "type": "string"
+        },
+        "retrieved_at": {
+          "format": "date-time",
+          "title": "Retrieved At",
+          "type": "string"
+        },
+        "center": {
+          "$ref": "#/$defs/GridPoint"
+        },
+        "outline_en_m": {
+          "items": {
+            "maxItems": 2,
+            "minItems": 2,
+            "prefixItems": [
+              {
+                "maximum": 60,
+                "minimum": -60,
+                "type": "number"
+              },
+              {
+                "maximum": 60,
+                "minimum": -60,
+                "type": "number"
+              }
+            ],
+            "type": "array"
+          },
+          "maxItems": 48,
+          "minItems": 3,
+          "title": "Outline En M",
+          "type": "array"
+        },
+        "roof_height_m": {
+          "exclusiveMinimum": 0,
+          "maximum": 40,
+          "title": "Roof Height M",
+          "type": "number"
+        },
+        "building_id": {
+          "pattern": "^[\\w./-]{1,96}$",
+          "title": "Building Id",
+          "type": "string"
+        },
+        "suggestion_method": {
+          "anyOf": [
+            {
+              "const": "seed-rgb-v1",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Suggestion Method"
+        },
+        "gable": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/TraceGable"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "source",
+        "image_sha256",
+        "retrieved_at",
+        "center",
+        "outline_en_m",
+        "roof_height_m",
+        "building_id"
+      ],
+      "title": "OrthophotoTrace",
       "type": "object"
     },
     "PlanarSurface": {
@@ -463,6 +578,17 @@
           "maxItems": 8,
           "title": "Source Asset Ids",
           "type": "array"
+        },
+        "orthophoto_trace": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/OrthophotoTrace"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
         }
       },
       "required": [
@@ -470,6 +596,65 @@
         "status"
       ],
       "title": "SurfaceEvidence",
+      "type": "object"
+    },
+    "TraceGable": {
+      "additionalProperties": false,
+      "properties": {
+        "ridge_en_m": {
+          "maxItems": 2,
+          "minItems": 2,
+          "prefixItems": [
+            {
+              "maxItems": 2,
+              "minItems": 2,
+              "prefixItems": [
+                {
+                  "maximum": 60,
+                  "minimum": -60,
+                  "type": "number"
+                },
+                {
+                  "maximum": 60,
+                  "minimum": -60,
+                  "type": "number"
+                }
+              ],
+              "type": "array"
+            },
+            {
+              "maxItems": 2,
+              "minItems": 2,
+              "prefixItems": [
+                {
+                  "maximum": 60,
+                  "minimum": -60,
+                  "type": "number"
+                },
+                {
+                  "maximum": 60,
+                  "minimum": -60,
+                  "type": "number"
+                }
+              ],
+              "type": "array"
+            }
+          ],
+          "title": "Ridge En M",
+          "type": "array"
+        },
+        "pitch_deg": {
+          "maximum": 60,
+          "minimum": 5,
+          "title": "Pitch Deg",
+          "type": "number"
+        }
+      },
+      "required": [
+        "ridge_en_m",
+        "pitch_deg"
+      ],
+      "title": "TraceGable",
       "type": "object"
     }
   },

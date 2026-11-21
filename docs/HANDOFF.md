@@ -62,6 +62,42 @@ Open **Lokalizacja budynku**, search for the Polish address, select an address p
 - Input validation, a 14 s deadline, a 512 KiB bound, at most two concurrent upstream lookups and 30 lookups per minute limit the impact on the existing service. The UI distinguishes empty coverage, a partial set and provider failure. `BIPV_GEODATA_ENABLED=0` disables outward geodata lookups while preserving local editing and import.
 - EGiB building IDs and geometry are covered by the access provision in Art. 40a(2)(1)(j). The adapter queries those public attributes. This path uses no aerial or satellite imagery. [GUGiK UUG](https://services.gugik.gov.pl/uug/opis.html) · [GUGiK WFS EGiB](https://mapy.geoportal.gov.pl/wss/service/PZGIK/EGIB/WFS/UslugaZbiorcza) · [Dz.U. 2026 poz. 1389](https://www.dziennikustaw.gov.pl/D2026000138901.pdf)
 
+## P11 · georeferenced orthophoto preview
+
+After finding an address with a building footprint, select **Pokaż ortofotomapę**. The overlay shares the EGiB coordinate frame. **Zmierz odległość** calculates the horizontal grid distance between two points on the map. The displayed pixel spacing is the nominal spacing of the requested raster, independent of provider ground resolution and roof accuracy.
+
+- `POST /api/geo/orthophoto` accepts the selected EPSG:2180 grid point. It requests a 600 × 600 PNG for the surrounding 120 × 120 m square. WMS 1.3.0 uses northing/easting in BBOX. The JSON contract names the west, south, east and north bounds explicitly. It reports the provider, CRS, grid spacing, retrieval time and SHA-256 of the original PNG.
+- The adapter uses the shared 14 s deadline and request budget. The raster path accepts at most 1.5 MB upstream. PNG dimensions and integrity of its chunks are checked on the server. The browser handles undecodable or transparent images and preserves the selected EGiB building on failure.
+- The preview and two-point measurement live in the location dialog. The saved project still records the selected site only. Source kind is `orthophoto`, separate from the satellite-only tender scenario. [GUGiK ORTO and terms of use](https://www.geoportal.gov.pl/pl/dane/ortofotomapa-orto/)
+
+## P12 · trace to an estimated roof
+
+Select the building, show its orthophoto and open **Obrysuj dach**. Add the corners in perimeter order. Select a numbered point and click the replacement position, or use **Usuń punkt**. Enter the assumed height and apply the outline. This replaces the current roof surfaces and obstacles as one undoable scene change. It preserves the product and layout clearances.
+
+- `POST /api/scene/from-orthophoto` creates a Scene v2. The backend rejects invalid rings, repeated vertices, out-of-raster coordinates, an unrelated building and excess area. It converts EPSG:2180 offsets into the WGS84 local east/north tangent frame anchored at the outline midpoint. The specified height is relative to the assumed local ground level. OBJ exports the evaluated planes in the usual metric axes.
+- The estimated surface carries the image SHA-256, retrieval time, building ID, grid origin, original clicked points and entered elevation in `surface_evidence[].orthophoto_trace`. The PNG itself stays in the dialog. Reopening the same building with the same extent and image SHA can restore the editable points.
+- Flat traces still produce one horizontal surface. The Scene v2 schema accepts older records. A rollback to code that predates this optional field requires compatibility for projects already saved with trace provenance.
+
+## P13 · two roof planes from a traced ridge
+
+After preparing the outline, choose **Dwuspadowy**, click two points on the ridge line, and enter the ridge height and one pitch for both sides. The line is extended to the outline. An off-centre ridge can produce different eave heights. The server checks that it divides the outline into two roof planes with an unbroken common edge, each at least 0.25 m wide perpendicular to the ridge, and that both stay above the assumed ground.
+
+The scene stores both planes with stable IDs, their source trace and the operator's ridge assumptions. Studio calculates PV layout on their sloping areas. Automated references cover east–west and north–south orientation, off-centre ridges, OBJ seam height, invariant geometry after reversing the input points, and invalid inputs. Complex roofs, tracing a facade from a photograph and automatic recovery of pitch and height remain separate work.
+
+## P14 · seed-based contour suggestion
+
+With an orthophoto and a selected building, choose **Obrysuj dach → Zaproponuj obrys** and point inside the visible roof. The suggested ring goes into the existing editable draft. The estimated scene still requires the operator's height and explicit application. The saved trace records `suggestion_method=seed-rgb-v1`, including after vertex corrections.
+
+The browser runs two bounded connected-region passes on the existing raster and compares their size. The search uses the building's EGiB envelope plus 8 m, bounded to 320 × 320 pixels. The extracted exterior ring must be stable and cover 60–160% of the EGiB area within the 250 m² scene limit. This is a heuristic check on a single ring. No-data, unstable, clipped or materially incomplete proposals fall back to manual drawing.
+
+Automated replay uses generated rectangles, a concave roof and a rotated roof, with independent polygon IoU and boundary-distance checks. In a separate exploratory run on six manually outlined roofs from three GUGiK captures, one proposal went through (IoU 0.808, sampled maximum boundary difference 1.23 m at the requested 0.2 m/pixel); five were declined. The exploratory run used the reference polygon envelope and area as proxies for EGiB and took 0.02–5.21 ms per detector call on the local test machine, with image fetch and decode excluded. The outlines are visual annotations and the small convenience sample does not estimate field accuracy. The satellite-only acceptance scenario requires its own data, worker and validation.
+
+## P13 · binary glTF export
+
+Choose **Eksport → Model 3D GLB** to download the current layout. `POST /api/model.glb` uses the existing scene and optional variant input. The mesh includes roof and facade faces, their openings, chimney and skylight geometry, and the selected PV layout. Units are metres. The axes match the renderer and OBJ (X east, Y up, Z −north).
+
+Surface and obstacle nodes keep stable IDs. PV panels are batched by surface with module IDs in draw order. Top-level metadata includes the input hash, engine version and variant. The binary contains its own geometry and flat materials. The project JSON retains editable inputs and source evidence. [glTF 2.0 specification](https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.pdf)
+
 ## Pick up the work
 
 1. Named-user access. Design account ownership alongside guest ownership. Add an explicit one-time claim to an authenticated account and test two accounts, two guest keys, repeat claims and revocation. Keep guest support until migration UX passes.

@@ -16,3 +16,26 @@ Podstawa zakresu to załącznik 2, s. 10–13 oraz zapytanie ET/2025/7, s. 3. Pr
 **Ocena.** PASS wymaga kompletnego i poprawnego wyniku oraz dotrzymania limitu. Przy zaliczeniu granicy z przekroczeniem celu zapisz wynik i odchylenie od celu. FAIL oznacza niespełnienie kryterium na wykonanej próbie. BLOCKED oznacza brak niezbędnego modułu, dostępu, danych, referencji albo uzgodnionej miary. Brak wyniku na rozpoczętej, poprawnie przygotowanej próbie ujmij jako FAIL i zachowaj przypadek w mianowniku.
 
 **Naprawa i retest.** Każdy FAIL otrzymuje ID, kroki odtworzenia, oczekiwany i rzeczywisty wynik, wersję wejścia, log i priorytet. Po poprawce powtórz pierwotne wejście i sąsiedni przypadek graniczny. Raport końcowy wiąże wynik retestu z commitem i wersją wdrożenia. Automaty Studio oraz pomiary syntetyczne mają własny dowód wykonania w instrukcji paczki oraz w katalogu `evidence/`.
+
+## Automatyczna ocena zapisanych przebiegów
+
+`scripts.check_electrotile_run` ocenia jeden zamknięty przebieg I-01, I-02, N-01 lub III-02. Uruchom go na dwóch plikach JSON.
+
+```sh
+uv run --frozen python -m scripts.check_electrotile_run manifest.json capture.json --output report.json
+```
+
+Manifest jest zamrażany przed pomiarem. Zawiera `version: 1`, `criterion`, `dataset_id`, uporządkowane `case_ids`, słownik `inputs_sha256` z SHA-256 dokładnych pakietów wejściowych i pola właściwe dla próby. Capture zawiera `version: 1`, to samo `criterion`, `run_id`, `scope` (`studio-fixture`, `replay`, `client-live`), `release_sha`, `environment_id`, `observer_id`, `manifest_sha256` dokładnych bajtów manifestu, `closed_ns` oraz listę `observations`. I-01 i N-01 wymagają odrębnych skrótów wejść w obrębie próby. Repozytorium przechowuje syntetyczne przypadki. Pakiety klienta oraz odpowiadające im manifesty i pomiary przechowuj w uzgodnionej przestrzeni klienta.
+
+Każda obserwacja zawiera `case_id`, `input_sha256`, `started_ns`, `finished_ns` i `output`. Znaczniki czasu to liczby całkowite w nanosekundach z jednego zegara monotonicznego obserwatora. Start mierzy zdarzenie z tabeli odbiorczej i pozostaje ten sam po retry. Koniec to chwila dostępności kompletnego wyniku. Próba rozpoczęta bez wyniku ma `finished_ns: null` i `output: null`. Brak obserwacji daje `NOT_RUN` dla przypadku. W rozpoczętej partii N-01 brak któregokolwiek przypadku daje `FAIL` partii.
+
+| ID | Dodatkowe pola manifestu | Pola `output` i reguła |
+|---|---|---|
+| I-01 | `voivodeship_id`, `sampling_seed`, `population_sha256`, dokładnie 10 ID | `model_sha256`, `geometry_review_sha256`, `geometry_valid` i `geometry_sources`. Ocena wymaga wyłącznie źródła `satellite` dla rekonstrukcji oraz zaliczonej niezależnej kontroli geometrii. |
+| I-02 | `catalog_id`, słownik `references` według ID z `module_count` i `accepted_type_sets` | `report_sha256`, słownik `modules_by_type` z kanonicznymi typami producenta i dodatnimi liczbami sztuk. Raport porównuje liczbę i typ per wycena. Jeden wynik odbiegający o więcej niż 20% nie może zniknąć w średniej. Przed badaniem klient potwierdza skład próby, agregację i normalizację SKU. |
+| N-01 | `cache` (`cold` albo `warm`), dokładnie 20 ID. Capture powtarza `cache` | `image_sha256`, `source`, `preprocessed` i `matches_case`. Wymagane jest poprawnie obrobione zdjęcie satelitarne dla każdego ID. Identyczny plik wynikowy przypisany do różnych adresów oblewa partię. Czas partii biegnie od pierwszego zgłoszenia do ostatniego wyniku, także przy nierównomiernych zgłoszeniach. |
+| III-02 | Wspólne pola manifestu | `quote_sha256`, `profitability_sha256` i `visualization_sha256`. Obserwacja może zawierać `active_ns`, liczone bez podwójnego liczenia nakładających się czynności. Limit 6 h dotyczy całego czasu od przyjęcia kompletnego zgłoszenia. |
+
+Raport zachowuje wszystkie zamrożone przypadki, ich powody oraz SHA-256 manifestu i pomiaru. Rozróżnia cel od dopuszczalnej granicy. Kod wyjścia `0` oznacza zaliczoną ocenę automatu, `1` oznacza niezaliczoną lub niewykonaną próbę, a `2` oznacza błąd danych lub odczytu. Dla syntetyków i replay status odbioru pozostaje `BLOCKED`. Dla zaliczonego przebiegu klienta automat ustawia `REVIEW_REQUIRED`. Przegląd potwierdza autentyczność logu, definicje zdarzeń, licencje i pochodzenie źródeł, poprawność losowania, skróty artefaktów i wyniki sprawdzeń merytorycznych. Ocenę liczbową można uruchomić bez połączenia z Electrotile. Integracja, która rejestruje zdarzenia i pobiera dowody w ich środowisku, wymaga dostępu do systemu.
+
+Testy działają w zwykłym workflow `Quality gates` i publikują wyniki JUnit. Można też uruchomić sam zestaw oceny przez `uv run --frozen pytest -q server/tests/test_electrotile_run.py`.
