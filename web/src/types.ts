@@ -48,6 +48,15 @@ export type SceneSite = {
   source: "gugik-egib-wfs";
   retrieved_at: string;
 };
+export type OrthophotoTrace = {
+  source: "gugik-orto-wms";
+  image_sha256: string;
+  retrieved_at: string;
+  center: { easting_m: number; northing_m: number };
+  outline_en_m: PointUV[];
+  roof_height_m: number;
+  building_id: string;
+};
 export type SceneV2 = {
   schema_version: "2.0.0";
   geometry: Scene;
@@ -61,6 +70,7 @@ export type SceneV2 = {
     surface_id: SurfaceId;
     status: "estimated" | "measured" | "unverified";
     source_asset_ids: string[];
+    orthophoto_trace?: OrthophotoTrace | null;
   }[];
 };
 export type SceneDocument = Scene | SceneV2;

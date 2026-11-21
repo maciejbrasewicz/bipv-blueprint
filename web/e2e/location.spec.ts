@@ -134,7 +134,7 @@ test("location lets the user retry provider failure and handles lack of coverage
   ).toHaveCount(0);
 });
 
-test("orthophoto keeps the EGiB reference and supports a 3-4-5 metre map measurement", async ({
+test("orthophoto retries, measures, corrects a trace and exports estimated geometry", async ({
   page,
 }) => {
   const point = {
@@ -146,8 +146,8 @@ test("orthophoto keeps the EGiB reference and supports a 3-4-5 metre map measure
   const site = {
     address: point.label,
     building_id: "ORTHO_BUILDING",
-    latitude_deg: 52.42,
-    longitude_deg: 20.18,
+    latitude_deg: 52.1907565,
+    longitude_deg: 21.5499962,
     source: "gugik-egib-wfs",
     retrieved_at: "2026-11-21T10:00:00Z",
   };
@@ -207,7 +207,9 @@ test("orthophoto keeps the EGiB reference and supports a 3-4-5 metre map measure
         grid_m_per_pixel: 0.2,
         width_px: 600,
         height_px: 600,
-        image_base64: pixels[imageryRequests++],
+        sha256: "a".repeat(64),
+        retrieved_at: "2026-11-21T10:02:00Z",
+        image_base64: pixels[Math.min(imageryRequests++, 1)],
       },
     });
   });
@@ -260,4 +262,79 @@ test("orthophoto keeps the EGiB reference and supports a 3-4-5 metre map measure
   await expect(
     dialog.getByRole("button", { name: "Potwierdź budynek" }),
   ).toBeEnabled();
+
+  await imageButton.click();
+  await dialog.getByRole("button", { name: "Obrysuj dach" }).click();
+  const form = dialog.getByRole("form", { name: "Obrys dachu" });
+  const submit = form.getByRole("button", { name: "Zastąp geometrię obrysem" });
+  await expect(submit).toBeDisabled();
+  async function draw(e: number, n: number) {
+    const { x, y } = await svg.evaluate(
+      (element, [east, north]) => {
+        const matrix = (element as SVGSVGElement).getScreenCTM()!;
+        const { x, y } = new DOMPoint(east, -north).matrixTransform(matrix);
+        return { x, y };
+      },
+      [e, n],
+    );
+    await page.mouse.click(x, y);
+  }
+  for (const [e, n] of [
+    [-6, -4],
+    [6, -4],
+    [-6, 4],
+    [6, 4],
+  ])
+    await draw(e, n);
+  await form.getByRole("spinbutton").fill("6.4");
+  await submit.click();
+  await expect(form.getByRole("alert")).toContainText("Obrys przecina się");
+
+  await form.getByRole("button", { name: "Przesuń punkt 3" }).click();
+  await draw(6, 4);
+  await form.getByRole("button", { name: "Przesuń punkt 4" }).click();
+  await draw(-6, 4);
+  await submit.click();
+  await expect(dialog).toBeHidden();
+  await expect(
+    page.getByText("Dach płaski · obrys z ortofotomapy").first(),
+  ).toBeVisible();
+  await page.getByRole("button", { name: "Cofnij", exact: true }).click();
+  await expect(
+    page.getByRole("button", { name: "Ustal lokalizację budynku" }),
+  ).toBeVisible();
+  await page.getByRole("button", { name: "Ponów", exact: true }).click();
+  await page.reload();
+  await expect(page.getByText(/EGiB · ORTHO_BUILDING/)).toBeVisible();
+
+  const exportMenu = page.getByRole("button", { name: "Eksport", exact: true });
+  await exportMenu.click();
+  const objDownload = page.waitForEvent("download");
+  await page.getByRole("button", { name: "Model 3D OBJ" }).click();
+  const obj = await readFile((await (await objDownload).path())!, "utf8");
+  const roof = obj.split("g surface_trace-roof\n")[1].split("\ng ")[0];
+  const vertices = roof
+    .split("\n")
+    .filter((line) => line.startsWith("v "))
+    .map((line) => line.split(" ").slice(1).map(Number));
+  expect(vertices).toHaveLength(6);
+  expect(vertices.every(([, height]) => height === 6.4)).toBe(true);
+
+  await exportMenu.click();
+  const sceneDownload = page.waitForEvent("download");
+  await page.getByRole("button", { name: "Projekt JSON" }).click();
+  const data = JSON.parse(
+    await readFile((await (await sceneDownload).path())!, "utf8"),
+  );
+  const evidence = data.scene.surface_evidence[0];
+  expect(evidence.status).toBe("estimated");
+  expect(evidence.orthophoto_trace).toMatchObject({
+    building_id: "ORTHO_BUILDING",
+    image_sha256: "a".repeat(64),
+    roof_height_m: 6.4,
+  });
+  const [first, second, third, fourth] = evidence.orthophoto_trace.outline_en_m;
+  expect(second[0] - first[0]).toBeGreaterThan(11.5);
+  expect(fourth[1] - first[1]).toBeGreaterThan(7.5);
+  expect(third[0]).toBeGreaterThan(5.5);
 });
