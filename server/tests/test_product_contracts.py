@@ -80,3 +80,72 @@ def test_job_success_requires_artifact_and_attempt():
         JobV1.model_validate(payload)
     payload["artifacts"] = [{"artifact_id": payload["job_id"], "sha256": "a" * 64}]
     assert JobV1.model_validate(payload).state == "succeeded"
+
+
+def test_v2_validation_preserves_provenance_and_does_not_change_layout():
+    from fastapi.testclient import TestClient
+
+    from server.app import app, request_window
+
+    payload = fixture("roof.json")
+    payload["origin"] = {"latitude_deg": 53.43, "longitude_deg": 14.55}
+    payload["surface_evidence"][0].update(
+        status="measured", source_asset_ids=["f945ff7a-6a3e-4848-a321-07f60530b25d"]
+    )
+    request_window.clear()
+    with TestClient(app) as client:
+        validated = client.post("/api/scene/v2/validate", json=payload)
+        assert validated.status_code == 200
+        assert validated.json()["surface_evidence"] == payload["surface_evidence"]
+        assert validated.json()["origin"] == payload["origin"]
+        raw = client.post("/api/layout", json=payload["geometry"])
+        restored = client.post("/api/layout", json=validated.json()["geometry"])
+        assert raw.status_code == restored.status_code == 200
+        assert raw.json()["source_hash"] == restored.json()["source_hash"]
+        assert raw.json()["variants"] == restored.json()["variants"]
+
+        payload["surface_evidence"][0]["source_asset_ids"] = []
+        assert client.post("/api/scene/v2/validate", json=payload).status_code == 422
+
+
+@pytest.mark.parametrize("version", ["1.0.0", "2.0.0"])
+def test_project_saves_document_in_current_and_next_revision(monkeypatch, version):
+    from fastapi.testclient import TestClient
+
+    import server.app as api_module
+    from server import cloud
+
+    payload = fixture("roof.json")
+    payload["surface_evidence"][0]["source_asset_ids"] = ["f945ff7a-6a3e-4848-a321-07f60530b25d"]
+    if version == "1.0.0":
+        payload = payload["geometry"]
+    calls = []
+    project_id = "26110000-0000-4000-8000-000000000090"
+
+    async def fake_db(request, method, path, headers, **kwargs):
+        assert path == "bipv_projects"
+        assert headers["x-workspace-key"] == "f" * 64
+        calls.append((method, kwargs))
+        return [{"id": project_id, **kwargs["json"]}]
+
+    monkeypatch.setattr(cloud, "CLOUD", True)
+    monkeypatch.setattr(api_module, "db", fake_db)
+    api_module.request_window.clear()
+    headers = {"X-Workspace-Key": "f" * 64}
+    with TestClient(api_module.app) as client:
+        created = client.post("/api/projects", json={"scene": payload}, headers=headers)
+        assert created.status_code == 201
+        body = created.json()
+        assert body["name"] == fixture("roof.json")["geometry"]["name"]
+        assert body["scene"]["schema_version"] == version
+        if version == "2.0.0":
+            assert body["scene"]["surface_evidence"] == payload["surface_evidence"]
+        updated = client.patch(
+            f"/api/projects/{project_id}",
+            json={"scene": body["scene"], "expected_revision": 1},
+            headers=headers,
+        )
+        assert updated.status_code == 200
+        assert updated.json()["scene"] == body["scene"]
+        assert updated.json()["revision"] == 2
+        assert calls[-1][1]["params"]["revision"] == "eq.1"

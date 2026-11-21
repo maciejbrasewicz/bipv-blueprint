@@ -56,6 +56,15 @@ class SceneV2(StrictModel):
         return cls(schema_version="2.0.0", geometry=scene)
 
 
+class SaveProject(StrictModel):
+    scene: Scene | SceneV2
+    expected_revision: int | None = Field(default=None, ge=1, le=1_000_000)
+
+    @property
+    def name(self) -> str:
+        return self.scene.geometry.name if isinstance(self.scene, SceneV2) else self.scene.name
+
+
 class Footprint(StrictModel):
     width_m: PositiveMeters
     height_m: PositiveMeters

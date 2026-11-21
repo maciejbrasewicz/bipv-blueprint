@@ -40,6 +40,23 @@ export type Scene = {
   surfaces: SurfaceId[];
   custom_surfaces?: PlanarSurface[] | null;
 };
+export type SceneV2 = {
+  schema_version: "2.0.0";
+  geometry: Scene;
+  origin?: {
+    latitude_deg: number;
+    longitude_deg: number;
+    ellipsoidal_height_m?: number;
+  };
+  surface_evidence: {
+    surface_id: SurfaceId;
+    status: "estimated" | "measured" | "unverified";
+    source_asset_ids: string[];
+  }[];
+};
+export type SceneDocument = Scene | SceneV2;
+export type HoleSelection = { surfaceId: string; index: number };
+
 export type Surface = PlanarSurface & {
   normal: Vec3;
   width_m: number;
@@ -87,7 +104,7 @@ export type Layout = {
 export type Project = {
   id: string;
   name: string;
-  scene: Scene;
+  scene: SceneDocument;
   revision: number;
   created_at: string;
   updated_at: string;

@@ -1,6 +1,7 @@
 import { expect, test } from "@playwright/test";
 import { readFile } from "node:fs/promises";
 import { randomBytes } from "node:crypto";
+import examplePlanes from "../src/example-planes.json";
 
 test("studio renders, edits, undoes, exports and imports", async ({ page }) => {
   const errors: string[] = [];
@@ -425,4 +426,119 @@ test("studio keeps the 2D workspace and account available when WebGL fails", asy
     page.getByRole("dialog", { name: "Konto i organizacje", exact: true }),
   ).toBeVisible();
   await expect(page.getByLabel("E-mail", { exact: true })).toBeVisible();
+});
+
+test("Scene v2 hole correction invalidates old results and undo restores provenance", async ({
+  page,
+}) => {
+  const errors: string[] = [];
+  page.on("pageerror", (error) => errors.push(error.message));
+  await page.goto("/");
+  const status = page.getByTestId("layout-status");
+  await expect(status).toHaveText("Geometria obliczona");
+
+  // Synthetic source ID exercises the measured-data contract.
+  const sourceId = "f945ff7a-6a3e-4848-a321-07f60530b25d";
+  const origin = { latitude_deg: 53.43, longitude_deg: 14.55 };
+  const scene = {
+    schema_version: "2.0.0",
+    geometry: examplePlanes,
+    origin,
+    surface_evidence: [
+      {
+        surface_id: "roof-l",
+        status: "measured",
+        source_asset_ids: [sourceId],
+      },
+    ],
+  };
+  await page.locator('input[type="file"]').setInputFiles({
+    name: "synthetic-scene-v2.json",
+    mimeType: "application/json",
+    buffer: Buffer.from(JSON.stringify(scene)),
+  });
+  await expect(
+    page.getByRole("textbox", { name: "Nazwa projektu" }),
+  ).toHaveValue(/dach L/);
+  await expect(status).toHaveText("Geometria obliczona");
+  await page.getByRole("button", { name: "Rzut 2D", exact: true }).click();
+
+  const plan = page.getByRole("region", { name: "Rzut powierzchni" });
+  const hole = plan.getByRole("button", { name: "Otwór 1 w rzucie" });
+  await hole.focus();
+  await hole.press("Enter");
+  await expect(hole).toHaveAttribute("aria-pressed", "true");
+  const initialPath = await hole.getAttribute("d");
+  const editor = page.getByRole("form", { name: "Korekta otworu" });
+  const u = editor.getByLabel("U otworu (m)", { exact: true });
+  const apply = editor.getByRole("button", { name: "Zastosuj korektę" });
+  const evidence = page.locator(".surface-inspector .info-note");
+  await expect(evidence).toContainText("Zmierzona");
+
+  await u.fill("0");
+  await apply.click();
+  await expect(editor.getByRole("alert")).toBeVisible();
+  await expect(hole).toHaveAttribute("d", initialPath!);
+  await expect(evidence).toContainText("Zmierzona");
+
+  let resumeLayout!: () => void;
+  const stalled = new Promise<void>((resolve) => {
+    resumeLayout = resolve;
+  });
+  await page.route("**/api/layout", async (route) => {
+    if (
+      route.request().postDataJSON().custom_surfaces?.[0]
+        .holes_uv_m[0][0][0] === 2.5
+    )
+      await stalled;
+    await route.continue();
+  });
+  await u.fill("2.5");
+  await apply.click();
+  await expect(status).toHaveText("Przeliczanie układu");
+  await expect(evidence).toContainText("Niezweryfikowana");
+  await expect(plan.locator(".plan-panels rect")).toHaveCount(0);
+  const exportMenu = page.getByRole("button", { name: "Eksport", exact: true });
+  await exportMenu.click();
+  const exportObj = page.getByRole("button", { name: "Model 3D OBJ" });
+  await expect(exportObj).toBeDisabled();
+  await exportMenu.click();
+  resumeLayout();
+
+  await expect(status).toHaveText("Geometria obliczona");
+  await expect(hole).toHaveAttribute("d", /^M 2\.5 -2 /);
+  await page
+    .getByRole("button", { name: "Widok perspektywiczny", exact: true })
+    .click();
+  await expect(page.locator("canvas")).toBeVisible();
+  await expect(u).toHaveValue("2.5");
+  await exportMenu.click();
+  const download = page.waitForEvent("download");
+  await exportObj.click();
+  const model = await readFile((await (await download).path())!, "utf8");
+  expect(model).toContain("v -3.50000000 4.00000000 2.00000000");
+
+  await page.getByRole("button", { name: "Cofnij", exact: true }).click();
+  await expect(u).toHaveValue("2");
+  await expect(evidence).toContainText("Zmierzona");
+  await expect(status).toHaveText("Geometria obliczona");
+  await page.getByRole("button", { name: "Rzut 2D", exact: true }).click();
+  await expect(hole).toHaveAttribute("d", initialPath!);
+
+  // Reopen the saved local document and verify portable JSON round-trip.
+  await page.reload();
+  await expect(status).toHaveText("Geometria obliczona");
+  await exportMenu.click();
+  const exportedJson = page.waitForEvent("download");
+  await page.getByRole("button", { name: "Projekt JSON" }).click();
+  const restored = JSON.parse(
+    await readFile((await (await exportedJson).path())!, "utf8"),
+  );
+  expect(restored.scene.schema_version).toBe("2.0.0");
+  expect(restored.scene.origin).toEqual(origin);
+  expect(restored.scene.surface_evidence).toEqual(scene.surface_evidence);
+  expect(restored.scene.geometry.custom_surfaces[0].holes_uv_m).toEqual(
+    examplePlanes.custom_surfaces[0].holes_uv_m,
+  );
+  expect(errors).toEqual([]);
 });

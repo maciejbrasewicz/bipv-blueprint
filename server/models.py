@@ -115,11 +115,6 @@ class Scene(StrictModel):
         return self
 
 
-class SaveProject(StrictModel):
-    scene: Scene
-    expected_revision: int | None = Field(default=None, ge=1, le=1_000_000)
-
-
 class ModelExport(StrictModel):
     scene: Scene
     variant: Literal["landscape", "portrait"] | None = None

@@ -972,21 +972,6 @@ p {
   padding-top: 28px;
   padding-bottom: 18px;
 }
-.prototype-badge {
-  display: flex;
-  align-items: center;
-  gap: 5px;
-  font-size: 7px;
-  letter-spacing: 0.1em;
-  font-weight: 600;
-  color: #91a37e;
-}
-.prototype-badge > span {
-  width: 4px;
-  height: 4px;
-  border: 1px solid #a5b68e;
-  border-radius: 50%;
-}
 .right-footer p {
   font-size: 8px;
   color: #8da07a;
@@ -1995,4 +1980,47 @@ p {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.surface-inspector,
+.hole-editor {
+  display: grid;
+  gap: 10px;
+}
+
+.surface-inspector .info-note,
+.hole-error {
+  margin: 0;
+}
+
+.hole-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+
+.hole-buttons button[aria-pressed="true"] {
+  border-color: #628f4d;
+  background: #e3efd9;
+}
+
+.hole-error {
+  color: #8c2d21;
+  font-size: 12px;
+}
+
+.plan-hole {
+  fill: transparent;
+  stroke: #75896b;
+  stroke-width: 1.2px;
+  vector-effect: non-scaling-stroke;
+  cursor: pointer;
+}
+
+.plan-hole:hover,
+.plan-hole:focus-visible,
+.plan-hole[aria-pressed="true"] {
+  fill: #c8e1b4a0;
+  stroke: #47782d;
+  stroke-width: 2px;
 }

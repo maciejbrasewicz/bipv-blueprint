@@ -47,17 +47,22 @@ import type { LucideIcon } from "lucide-react";
 import { api, download, workspaceKey } from "./api";
 import AccountDialog from "./AccountDialog";
 import SurfacePlan from "./SurfacePlan";
+import HoleEditor from "./HoleEditor";
 import examplePlanes from "./example-planes.json";
 import {
   INITIAL,
   type CloudRef,
+  type HoleSelection,
   type Layout,
   type Obstacle,
   type Organization,
   type Project,
   type ProjectRevisionSummary,
   type ProjectSummary,
+  type PointUV,
   type Scene,
+  type SceneDocument,
+  type SceneV2,
 } from "./types";
 const SceneView = lazy(() => import("./SceneView"));
 const num = (v: number, d = 1) =>
@@ -147,18 +152,27 @@ function IconButton(p: {
     </button>
   );
 }
-function readLocal(): Scene {
+function geometry(document: SceneDocument): Scene {
+  return document.schema_version === "2.0.0" ? document.geometry : document;
+}
+
+function readLocal(): SceneDocument {
   try {
-    const v = JSON.parse(localStorage.getItem("bipv.scene.v1") || "null");
-    return v?.schema_version === "1.0.0" &&
-      v.roof &&
-      Array.isArray(v.obstacles) &&
-      v.surfaces?.length
-      ? v
-      : INITIAL;
-  } catch {
-    return INITIAL;
-  }
+    const document = JSON.parse(
+      localStorage.getItem("bipv.scene.v1") || "null",
+    );
+    const scene = geometry(document);
+    if (
+      scene.schema_version === "1.0.0" &&
+      scene.roof &&
+      Array.isArray(scene.obstacles) &&
+      scene.surfaces?.length &&
+      (document.schema_version !== "2.0.0" ||
+        Array.isArray(document.surface_evidence))
+    )
+      return document;
+  } catch {}
+  return INITIAL;
 }
 function readCloudRef(): CloudRef | null {
   try {
@@ -212,11 +226,12 @@ function Studio({
   initialProject?: Project;
   onScope: (organization: Organization | null, project?: Project) => void;
 }) {
-  const [scene, setScene] = useState<Scene>(() =>
+  const [document, setDocument] = useState<SceneDocument>(() =>
       organization ? (initialProject?.scene ?? INITIAL) : readLocal(),
     ),
-    [history, setHistory] = useState<Scene[]>([]),
-    [future, setFuture] = useState<Scene[]>([]);
+    [history, setHistory] = useState<SceneDocument[]>([]),
+    [future, setFuture] = useState<SceneDocument[]>([]);
+  const scene = geometry(document);
   const [result, setResult] = useState<Layout | null>(null),
     [resultInput, setResultInput] = useState(""),
     [computing, setComputing] = useState(true),
@@ -226,6 +241,7 @@ function Studio({
     [variantId, setVariantId] = useState(""),
     [selected, setSelected] = useState<string | null>(null),
     [view, setView] = useState("orbit"),
+    [hole, setHole] = useState<HoleSelection | null>(null),
     [planSurface, setPlanSurface] = useState<string | null>(null),
     [webglUnavailable, setWebglUnavailable] = useState(false),
     [grid, setGrid] = useState(true);
@@ -246,9 +262,10 @@ function Studio({
   const [accountOpen, setAccountOpen] = useState(false);
   const projectKey = () =>
     organization ? { organizationId: organization.id } : workspaceKey();
+  const documentInput = JSON.stringify(document);
   const dirty = project
-    ? project.input !== JSON.stringify(scene)
-    : JSON.stringify(scene) !== JSON.stringify(INITIAL);
+    ? project.input !== documentInput
+    : documentInput !== JSON.stringify(INITIAL);
   const canLeave = () =>
     !organization ||
     !dirty ||
@@ -269,26 +286,103 @@ function Studio({
   );
   const [revisionError, setRevisionError] = useState("");
   const revisionRequest = useRef<AbortController | null>(null);
-  const file = useRef<HTMLInputElement>(null),
-    sceneRef = useRef(scene);
-  sceneRef.current = scene;
-  const serialized = JSON.stringify(scene),
-    stale = resultInput !== serialized;
+  const file = useRef<HTMLInputElement>(null);
+  const documentRef = useRef(document);
+  documentRef.current = document;
+  const serialized = JSON.stringify(scene);
+  const stale = resultInput !== serialized;
+  const calculating = computing || stale;
+  const currentResult = stale ? null : result;
   const variant =
-      result?.variants.find((v) => v.id === variantId) ?? result?.variants[0],
-    obstacle = scene.obstacles.find((o) => o.id === selected);
+    currentResult?.variants.find((v) => v.id === variantId) ??
+    currentResult?.variants[0];
   const surfaceChoices = scene.custom_surfaces ?? [
     { id: "south", name: "Połać frontowa" },
     { id: "north", name: "Połać tylna" },
   ];
+  const obstacle = scene.obstacles.find((o) => o.id === selected);
+  const requestedSurface =
+    obstacle?.surface_id ?? hole?.surfaceId ?? planSurface;
+  const activeSurfaceId =
+    surfaceChoices.find((surface) => surface.id === requestedSurface)?.id ??
+    scene.surfaces[0];
+  const inspectedSurface = scene.custom_surfaces?.find(
+    (surface) => surface.id === activeSurfaceId,
+  );
+  const inspectedRing =
+    hole?.surfaceId === activeSurfaceId
+      ? inspectedSurface?.holes_uv_m?.[hole.index]
+      : undefined;
+  const provenance =
+    document.schema_version === "2.0.0"
+      ? document.surface_evidence.find(
+          (item) => item.surface_id === activeSurfaceId,
+        )
+      : undefined;
+  const geometryStatus =
+    provenance?.status === "measured"
+      ? "Zmierzona"
+      : provenance?.status === "estimated"
+        ? "Szacowana"
+        : "Niezweryfikowana";
   const surfaceTitle = (id: string) =>
     surfaceChoices.find((s) => s.id === id)?.name ?? id;
-  const changed = useCallback((next: Scene) => {
-    setHistory((h) => [...h.slice(-39), sceneRef.current]);
+  const changed = useCallback((next: SceneDocument) => {
+    const previous = documentRef.current;
+    documentRef.current = next;
+    setHistory((h) => [...h.slice(-39), previous]);
     setFuture([]);
-    setScene(next);
+    setDocument(next);
   }, []);
-  const patch = (partial: Partial<Scene>) => changed({ ...scene, ...partial });
+  function changeGeometry(next: Scene, changedSurfaceId?: string) {
+    if (document.schema_version === "1.0.0") {
+      changed(next);
+      return;
+    }
+    changed({
+      ...document,
+      geometry: next,
+      surface_evidence: document.surface_evidence.map((item) =>
+        item.surface_id === changedSurfaceId ||
+        (!next.custom_surfaces && next.roof !== scene.roof)
+          ? { ...item, status: "unverified" }
+          : item,
+      ),
+    });
+  }
+  const patch = (partial: Partial<Scene>) =>
+    changeGeometry({ ...scene, ...partial });
+  function selectObstacle(id: string | null) {
+    setSelected(id);
+    setHole(null);
+  }
+  function selectHole(next: HoleSelection) {
+    setSelected(null);
+    setHole(next);
+    setPlanSurface(next.surfaceId);
+    setMode("project");
+  }
+  async function applyHole(nextRing: PointUV[]) {
+    if (!hole || !inspectedRing) return;
+    const requestedDocument = document;
+    const candidate = {
+      ...scene,
+      custom_surfaces: scene.custom_surfaces?.map((surface) =>
+        surface.id === hole.surfaceId
+          ? {
+              ...surface,
+              holes_uv_m: surface.holes_uv_m?.map((ring, index) =>
+                index === hole.index ? nextRing : ring,
+              ),
+            }
+          : surface,
+      ),
+    };
+    await api<Scene>("scene/validate", "POST", candidate);
+    if (documentRef.current !== requestedDocument)
+      throw new Error("Scena zmieniła się podczas walidacji. Ponów edycję.");
+    changeGeometry(candidate, hole.surfaceId);
+  }
   useEffect(() => {
     api<{ cloud_configured: boolean }>("health")
       .then((h) => setCloudConfigured(h.cloud_configured))
@@ -297,11 +391,11 @@ function Studio({
   useEffect(() => {
     if (organization) return;
     try {
-      localStorage.setItem("bipv.scene.v1", serialized);
+      localStorage.setItem("bipv.scene.v1", documentInput);
     } catch {
       setToast("Pamięć urządzenia jest niedostępna. Wyeksportuj projekt JSON.");
     }
-  }, [serialized, organization]);
+  }, [documentInput, organization]);
   useEffect(() => {
     if (organization) return;
     try {
@@ -318,17 +412,18 @@ function Studio({
       api<Layout>(
         "layout",
         "POST",
-        sceneRef.current,
+        JSON.parse(serialized),
         undefined,
         controller.signal,
       )
         .then((r) => {
+          if (controller.signal.aborted) return;
           setResult(r);
           setResultInput(serialized);
           setComputing(false);
         })
         .catch((e) => {
-          if (e.name !== "AbortError") {
+          if (!controller.signal.aborted && e.name !== "AbortError") {
             setError(e.message);
             setComputing(false);
           }
@@ -346,25 +441,25 @@ function Studio({
   }, [toast]);
   const undo = () => {
     if (!history.length) return;
-    setFuture((f) => [scene, ...f]);
-    setScene(history[history.length - 1]);
+    setFuture((f) => [document, ...f]);
+    setDocument(history[history.length - 1]);
     setHistory((h) => h.slice(0, -1));
   };
   const redo = () => {
     if (!future.length) return;
-    setHistory((h) => [...h, scene]);
-    setScene(future[0]);
+    setHistory((h) => [...h, document]);
+    setDocument(future[0]);
     setFuture((f) => f.slice(1));
   };
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if ((e.target as HTMLElement)?.matches("input,textarea")) return;
-      if ((e.ctrlKey || e.metaKey) && e.key === "z") {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "z") {
         e.preventDefault();
         e.shiftKey ? redo() : undo();
       }
       if (e.key === "Escape") {
-        setSelected(null);
+        selectObstacle(null);
         closeProjects();
         setExportMenu(false);
         setHelp(false);
@@ -380,13 +475,16 @@ function Studio({
       const p = await api<Project>(
         project ? "projects/" + project.id : "projects",
         project ? "PATCH" : "POST",
-        { scene, ...(project ? { expected_revision: project.revision } : {}) },
+        {
+          scene: document,
+          ...(project ? { expected_revision: project.revision } : {}),
+        },
         projectKey(),
       );
       setProject({
         id: p.id,
         revision: p.revision,
-        input: JSON.stringify(scene),
+        input: documentInput,
       });
       setToast("Zapisano w Supabase · rewizja " + p.revision);
     } catch (e) {
@@ -427,9 +525,7 @@ function Studio({
   }
 
   async function loadRevision(summary: ProjectSummary, revision: number) {
-    const hasLocalChanges = project
-      ? project.input !== serialized
-      : serialized !== JSON.stringify(INITIAL);
+    const hasLocalChanges = dirty;
     if (
       hasLocalChanges &&
       !window.confirm("Zastąpić bieżące zmiany lokalne wybraną rewizją?")
@@ -446,7 +542,7 @@ function Studio({
       const key = projectKey();
       const [latest, snapshot] = await Promise.all([
         api<Project>(path, "GET", undefined, key, controller.signal),
-        api<{ scene: Scene }>(
+        api<{ scene: SceneDocument }>(
           path + "/revisions/" + revision,
           "GET",
           undefined,
@@ -456,12 +552,13 @@ function Studio({
       ]);
       if (controller.signal.aborted) return;
       changed(snapshot.scene);
+      setPlanSurface(null);
       setProject({
         id: latest.id,
         revision: latest.revision,
         input: JSON.stringify(latest.scene),
       });
-      setSelected(null);
+      selectObstacle(null);
       closeProjects();
       setToast(
         "Wczytano rewizję " +
@@ -502,12 +599,13 @@ function Studio({
         projectKey(),
       );
       changed(p.scene);
+      setPlanSurface(null);
       setProject({
         id: p.id,
         revision: p.revision,
         input: JSON.stringify(p.scene),
       });
-      setSelected(null);
+      selectObstacle(null);
       setProjectModal(false);
       setToast("Otworzono projekt z Supabase.");
     } catch (e) {
@@ -534,7 +632,7 @@ function Studio({
     });
   const addObstacle = (kind: "chimney" | "skylight") => {
     if (scene.obstacles.length >= 12) {
-      setToast("Limit demonstratora: 12 przeszkód.");
+      setToast("Scena może zawierać do 12 przeszkód.");
       return;
     }
     const id = kind + "-" + crypto.randomUUID().slice(0, 8);
@@ -559,7 +657,7 @@ function Studio({
       height_m: kind === "chimney" ? 1.1 : 0.12,
     };
     patch({ obstacles: [...scene.obstacles, o] });
-    setSelected(id);
+    selectObstacle(id);
   };
   const exportJson = () => {
     download(
@@ -567,7 +665,7 @@ function Studio({
       JSON.stringify(
         {
           format: "registry9-bipv-project/1",
-          scene,
+          scene: document,
           provenance:
             stale || !result
               ? null
@@ -648,8 +746,7 @@ function Studio({
   function loadExample() {
     if (
       scene !== INITIAL &&
-      serialized !== JSON.stringify(INITIAL) &&
-      project?.input !== serialized &&
+      dirty &&
       !window.confirm("Zastąpić bieżący szkic przykładem?")
     )
       return;
@@ -660,14 +757,23 @@ function Studio({
   }
 
   async function importJson(f: File) {
+    const requestedDocument = documentRef.current;
     try {
       if (f.size > 65000) throw new Error("Plik sceny przekracza 65 KB.");
       const j = JSON.parse(await f.text()),
         next = j.scene ?? j;
-      const validated = await api<Scene>("scene/validate", "POST", next);
+      const validated =
+        next?.schema_version === "2.0.0"
+          ? await api<SceneV2>("scene/v2/validate", "POST", next)
+          : await api<Scene>("scene/validate", "POST", next);
+      if (documentRef.current !== requestedDocument)
+        throw new Error(
+          "Scena zmieniła się podczas importu. Wczytaj plik ponownie.",
+        );
       changed(validated);
       setProject(null);
-      setSelected(null);
+      setPlanSurface(null);
+      selectObstacle(null);
       setToast("Zaimportowano i zweryfikowano scenę.");
     } catch (e) {
       setToast((e as Error).message);
@@ -779,10 +885,7 @@ function Studio({
             )}
             <span>{saving ? "Zapisywanie…" : "Zapisz projekt"}</span>
           </button>
-          <IconButton
-            label="Informacje o demonstratorze"
-            onClick={() => setHelp(true)}
-          >
+          <IconButton label="Pomoc BIPV Studio" onClick={() => setHelp(true)}>
             <CircleHelp size={18} />
           </IconButton>
         </div>
@@ -801,9 +904,10 @@ function Studio({
           </div>
           <button
             className={
-              "object-row building " + (selected === null ? "selected" : "")
+              "object-row building " +
+              (selected === null && hole === null ? "selected" : "")
             }
-            onClick={() => setSelected(null)}
+            onClick={() => selectObstacle(null)}
           >
             <Box size={17} />
             <span>
@@ -873,7 +977,7 @@ function Studio({
                   (selected === o.id ? "selected" : "")
                 }
                 onClick={() => {
-                  setSelected(o.id);
+                  selectObstacle(o.id);
                   setMode("project");
                 }}
               >
@@ -976,16 +1080,66 @@ function Studio({
                 <Trash2 size={13} />
                 Usuń przeszkodę
               </button>
-              <button className="text-button" onClick={() => setSelected(null)}>
+              <button
+                className="text-button"
+                onClick={() => selectObstacle(null)}
+              >
                 <ArrowLeft size={13} />
                 Geometria budynku
               </button>
             </>
           ) : scene.custom_surfaces ? (
-            <p className="info-note">
-              Obrysy i otwory pochodzą z pliku sceny. Zmień geometrię przez
-              import JSON.
-            </p>
+            <div className="surface-inspector">
+              <label className="select-field">
+                Sprawdzana powierzchnia
+                <select
+                  value={inspectedSurface?.id ?? ""}
+                  onChange={(event) => {
+                    setPlanSurface(event.currentTarget.value);
+                    setHole(null);
+                  }}
+                >
+                  {scene.custom_surfaces.map((surface) => (
+                    <option key={surface.id} value={surface.id}>
+                      {surface.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <p className="info-note">
+                <span>
+                  Status geometrii <strong>{geometryStatus}</strong>
+                  {provenance?.source_asset_ids.length
+                    ? ` · źródła: ${provenance.source_asset_ids.length}`
+                    : ""}
+                </span>
+              </p>
+              <div className="hole-buttons" aria-label="Otwory powierzchni">
+                {inspectedSurface?.holes_uv_m?.map((_, index) => (
+                  <button
+                    key={index}
+                    className="button"
+                    type="button"
+                    aria-pressed={
+                      hole?.surfaceId === inspectedSurface.id &&
+                      hole.index === index
+                    }
+                    onClick={() =>
+                      selectHole({ surfaceId: inspectedSurface.id, index })
+                    }
+                  >
+                    Otwór {index + 1}
+                  </button>
+                ))}
+              </div>
+              {hole && inspectedRing && (
+                <HoleEditor
+                  key={`${hole.surfaceId}/${hole.index}`}
+                  ring={inspectedRing}
+                  onApply={applyHole}
+                />
+              )}
+            </div>
           ) : (
             <>
               <div className="field-grid">
@@ -1199,17 +1353,17 @@ function Studio({
             {result && view === "plan" ? (
               <SurfacePlan
                 surfaces={result.surfaces}
-                surfaceId={
-                  obstacle?.surface_id ?? planSurface ?? scene.surfaces[0]
-                }
+                surfaceId={activeSurfaceId}
                 onSurface={(surfaceId) => {
                   setPlanSurface(surfaceId);
-                  if (obstacle?.surface_id !== surfaceId) setSelected(null);
+                  if (activeSurfaceId !== surfaceId) selectObstacle(null);
                 }}
                 obstacles={scene.obstacles}
                 variant={stale ? undefined : variant}
                 selected={selected}
-                onSelect={setSelected}
+                onSelect={selectObstacle}
+                hole={hole}
+                onHole={selectHole}
                 showGrid={grid}
               />
             ) : result ? (
@@ -1233,7 +1387,8 @@ function Studio({
                     result={result}
                     variant={variant}
                     selected={selected}
-                    onSelect={setSelected}
+                    onSelect={selectObstacle}
+                    hole={hole}
                     onPanel={(p) =>
                       setToast(
                         p.id +
@@ -1266,10 +1421,10 @@ function Studio({
                 </button>
               </div>
             )}
-            {computing && result && (
+            {calculating && !error && result && (
               <div className="recompute">
                 <LoaderCircle size={14} className="spin" />
-                Przeliczanie geometrii…
+                Poprzednia geometria · trwa przeliczanie
               </div>
             )}
             {view !== "plan" && (
@@ -1332,7 +1487,7 @@ function Studio({
               </div>
             ) : (
               <div className="variant-dock">
-                {result?.variants.map((v, i) => (
+                {currentResult?.variants.map((v, i) => (
                   <button
                     key={v.id}
                     className={variant?.id === v.id ? "active" : ""}
@@ -1393,7 +1548,13 @@ function Studio({
             </div>
             <div className="power-bottom">
               <span>{scene.surfaces.length} · wybrane powierzchnie</span>
-              <b>{stale ? "Aktualizacja…" : "Obliczono"}</b>
+              <b>
+                {error
+                  ? "Błąd obliczenia"
+                  : calculating
+                    ? "Przeliczanie…"
+                    : "Obliczono"}
+              </b>
             </div>
           </div>
           <div className={"metric-grid " + (stale ? "stale" : "")}>
@@ -1469,7 +1630,7 @@ function Studio({
               <div className="section-label">ŚLAD OBLICZENIA</div>
               <dl className="trace">
                 <dt>Algorytm</dt>
-                <dd>{result?.engine_version ?? "—"}</dd>
+                <dd>{currentResult?.engine_version ?? "—"}</dd>
                 <dt>Układ współrzędnych</dt>
                 <dd>ENU → (E, U, −N)</dd>
                 <dt>Źródło geometrii</dt>
@@ -1478,20 +1639,28 @@ function Studio({
                     ? "Powierzchnie z importu"
                     : "Scena parametryczna"}
                 </dd>
+                <dt>Powierzchnia</dt>
+                <dd>{surfaceTitle(activeSurfaceId)}</dd>
+                <dt>Status geometrii</dt>
+                <dd>{geometryStatus}</dd>
+                <dt>Format sceny</dt>
+                <dd>Scene {document.schema_version}</dd>
                 <dt>Czas pierwszego obliczenia</dt>
-                <dd>{result?.duration_ms ?? "—"} ms</dd>
+                <dd>
+                  {currentResult ? `${currentResult.duration_ms} ms` : "—"}
+                </dd>
                 <dt>Hash wejścia</dt>
-                <dd className="hash">{result?.source_hash ?? "—"}</dd>
+                <dd className="hash">{currentResult?.source_hash ?? "—"}</dd>
                 <dt>Rewizja zapisu</dt>
                 <dd>
                   {project
                     ? String(project.revision) +
-                      (project.input !== serialized ? " · zmiany lokalne" : "")
+                      (dirty ? " · zmiany lokalne" : "")
                     : "Projekt lokalny"}
                 </dd>
               </dl>
               <div className="section-label">ZAKRES WYNIKU</div>
-              {result?.warnings.map((w, i) => (
+              {currentResult?.warnings.map((w, i) => (
                 <p className="quality-note" key={i}>
                   <ShieldCheck size={14} />
                   {w}
@@ -1501,7 +1670,7 @@ function Studio({
           ) : (
             <>
               <div className="section-label">
-                PRODUKT BIPV<span className="label-tag">DEMO</span>
+                PRODUKT BIPV<span className="label-tag">KATALOG TESTOWY</span>
               </div>
               <div className="product-preview">
                 <div className={"product-swatch " + scene.product_id} />
@@ -1571,10 +1740,6 @@ function Studio({
             </>
           )}
           <div className="right-footer">
-            <div className="prototype-badge">
-              <span />
-              DEMONSTRATOR INŻYNIERSKI
-            </div>
             <p>
               Geometria i rozmieszczenie są obliczane. Uzysk roczny, stringi i
               wycena pozostają do wdrożenia.
@@ -1590,13 +1755,13 @@ function Studio({
         <div>
           <span
             className={
-              "status-dot " + (error ? "red" : computing ? "amber" : "")
+              "status-dot " + (error ? "red" : calculating ? "amber" : "")
             }
           />
-          <span data-testid="layout-status">
+          <span data-testid="layout-status" role="status">
             {error
               ? "Błąd obliczenia"
-              : computing
+              : calculating
                 ? "Przeliczanie układu"
                 : "Geometria obliczona"}
           </span>
@@ -1605,9 +1770,9 @@ function Studio({
           Kopia lokalna
         </div>
         <div className="status-middle">
-          {result?.engine_version ?? "—"}
+          {currentResult?.engine_version ?? "—"}
           <span>·</span>
-          {result?.source_hash.slice(0, 10) ?? "oczekiwanie"}
+          {currentResult?.source_hash.slice(0, 10) ?? "oczekiwanie"}
         </div>
         <div>
           <span className={"status-dot " + (cloudConfigured ? "" : "amber")} />
@@ -1809,13 +1974,13 @@ function Studio({
             className="modal help-modal"
             role="dialog"
             aria-modal="true"
-            aria-label="O demonstratorze"
+            aria-label="Pomoc BIPV Studio"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="modal-heading">
               <div>
                 <span className="eyebrow">REGISTRY9 ENGINEERING</span>
-                <h2>BIPV Studio / R1</h2>
+                <h2>Praca z projektem BIPV</h2>
               </div>
               <IconButton
                 label="Zamknij informacje"
@@ -1825,16 +1990,16 @@ function Studio({
               </IconButton>
             </div>
             <p>
-              Parametryczny demonstrator projektowania pokryć BIPV. Edytuj dach
-              i przeszkody, porównaj układy oraz zachowaj projekt w Supabase.
+              Zaimportuj połać dachu lub fasadę, porównaj rozmieszczenie modułów
+              i zapisz rewizję projektu.
             </p>
             <div className="help-grid">
               <div>
                 <MousePointer2 />
                 <strong>Geometria</strong>
                 <p>
-                  Kliknij komin lub okno, aby zmienić parametry. Ctrl / ⌘ + Z
-                  cofa edycję.
+                  Zaznacz otwór w rzucie i popraw jego wierzchołek w metrach.
+                  Ctrl / ⌘ + Z cofa zapisaną korektę.
                 </p>
               </div>
               <div>
@@ -1863,8 +2028,8 @@ function Studio({
               </div>
             </div>
             <div className="info-note">
-              R1 nie zawiera rekonstrukcji adresów, modeli ML ani wykonania
-              agentów AI. Powstają w kolejnych etapach.
+              Panel Kontrola pokazuje status geometrii wybranej powierzchni.
+              Ręczna korekta otworu wymaga ponownej weryfikacji pomiaru.
             </div>
             <a
               className="repo-link"
@@ -1902,7 +2067,8 @@ function Studio({
                 onClick={() => {
                   changed(structuredClone(INITIAL));
                   setProject(null);
-                  setSelected(null);
+                  setPlanSurface(null);
+                  selectObstacle(null);
                   setConfirmReset(false);
                 }}
               >

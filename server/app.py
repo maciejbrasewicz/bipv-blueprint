@@ -15,7 +15,8 @@ from starlette.middleware.gzip import GZipMiddleware
 from .cloud import CLOUD, db, project_access
 from .geometry import CATALOG, ENGINE_VERSION, compute
 from .model_export import export_obj
-from .models import ModelExport, SaveProject, Scene
+from .models import ModelExport, Scene
+from .product_contracts import SaveProject, SceneV2
 
 DIST = Path(os.getenv("WEB_DIST", "web/dist"))
 compute_slots = asyncio.Semaphore(2)
@@ -100,6 +101,11 @@ def validate_scene(scene: Scene):
     return scene
 
 
+@app.post("/api/scene/v2/validate", response_model=SceneV2, response_model_exclude_none=True)
+def validate_scene_v2(scene: SceneV2):
+    return scene
+
+
 @app.post("/api/model.obj", response_class=PlainTextResponse)
 async def model_obj(body: ModelExport):
     async with compute_slots:
@@ -162,8 +168,8 @@ async def create_project(
             json={
                 "p_organization": str(access.organization),
                 "p_project": str(uuid4()),
-                "p_name": body.scene.name,
-                "p_scene": body.scene.model_dump(),
+                "p_name": body.name,
+                "p_scene": body.scene.model_dump(mode="json"),
             },
         )
         return await get_project(project_id, request)
@@ -173,7 +179,7 @@ async def create_project(
         "bipv_projects",
         access.headers,
         params={"select": PROJECT_FIELDS},
-        json={"id": str(uuid4()), "name": body.scene.name, "scene": body.scene.model_dump()},
+        json={"id": str(uuid4()), "name": body.name, "scene": body.scene.model_dump(mode="json")},
     )
     return rows[0]
 
@@ -199,8 +205,8 @@ async def update_project(
             **access.scope,
         },
         json={
-            "name": body.scene.name,
-            "scene": body.scene.model_dump(),
+            "name": body.name,
+            "scene": body.scene.model_dump(mode="json"),
             "revision": body.expected_revision + 1,
         },
     )

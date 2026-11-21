@@ -1,4 +1,10 @@
-import type { Obstacle, PointUV, Surface, Variant } from "./types";
+import type {
+  HoleSelection,
+  Obstacle,
+  PointUV,
+  Surface,
+  Variant,
+} from "./types";
 
 type Props = {
   surfaces: Surface[];
@@ -8,6 +14,8 @@ type Props = {
   variant?: Variant;
   selected: string | null;
   onSelect: (id: string) => void;
+  hole: HoleSelection | null;
+  onHole: (hole: HoleSelection) => void;
   showGrid: boolean;
 };
 
@@ -27,6 +35,8 @@ export default function SurfacePlan({
   variant,
   selected,
   onSelect,
+  hole,
+  onHole,
   showGrid,
 }: Props) {
   const surface = surfaces.find((item) => item.id === surfaceId) ?? surfaces[0];
@@ -104,6 +114,26 @@ export default function SurfacePlan({
               />
             ))}
         </g>
+        {surface.holes_uv_m?.map((ring, index) => (
+          <path
+            className="plan-hole"
+            key={index}
+            d={ringPath(ring)}
+            role="button"
+            tabIndex={0}
+            aria-label={`Otwór ${index + 1} w rzucie`}
+            aria-pressed={
+              hole?.surfaceId === surface.id && hole.index === index
+            }
+            onClick={() => onHole({ surfaceId: surface.id, index })}
+            onKeyDown={(event) => {
+              if (event.key === "Enter" || event.key === " ") {
+                event.preventDefault();
+                onHole({ surfaceId: surface.id, index });
+              }
+            }}
+          />
+        ))}
         {obstacles.map((obstacle, index) => {
           if (obstacle.surface_id !== surface.id) return null;
           const label = obstacle.kind === "chimney" ? "Komin" : "Okno dachowe";

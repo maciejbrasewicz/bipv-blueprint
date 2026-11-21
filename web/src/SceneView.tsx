@@ -4,6 +4,7 @@ import { OrbitControls, Grid, Line } from "@react-three/drei";
 import * as THREE from "three";
 import SunCalc from "suncalc";
 import type {
+  HoleSelection,
   Layout,
   Obstacle,
   Placement,
@@ -394,6 +395,7 @@ export type ViewProps = {
   showGrid: boolean;
   view: string;
   selected: string | null;
+  hole: HoleSelection | null;
   onSelect: (id: string) => void;
   onPanel: (p: Placement) => void;
   sunMode: boolean;
@@ -408,10 +410,15 @@ function World(p: ViewProps) {
     showGrid,
     view,
     selected,
+    hole,
     onSelect,
     onPanel,
     sunMode,
   } = p;
+  const selectedSurface = result.surfaces.find(
+    (surface) => surface.id === hole?.surfaceId,
+  );
+  const ring = hole && selectedSurface?.holes_uv_m?.[hole.index];
   const solar = useMemo(
     () =>
       SunCalc.getPosition(
@@ -485,6 +492,15 @@ function World(p: ViewProps) {
           wire={showGrid}
         />
       ))}
+      {selectedSurface && ring && (
+        <Line
+          points={[...ring, ring[0]].map(([u, v]) =>
+            uv(selectedSurface, u, v, 0.015),
+          )}
+          color="#47782d"
+          lineWidth={2}
+        />
+      )}
       {variant && (
         <Cells
           placements={variant.placements}

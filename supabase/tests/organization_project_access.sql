@@ -137,3 +137,41 @@ begin
 end;
 $$;
 reset role;
+
+-- Persist the complete v2 document while preserving old revisions and tenant scope.
+set local role authenticated;
+select set_config('request.jwt.claims', '{"sub":"26110000-0000-4000-8000-000000000001","is_anonymous":false}', true);
+do $$
+declare
+  project uuid := '26110000-0000-4000-8000-000000000003';
+  document jsonb := '{"schema_version":"2.0.0","geometry":{"schema_version":"1.0.0"},"surface_evidence":[{"surface_id":"south","status":"unverified"}]}';
+begin
+  update public.bipv_projects set scene = document, revision = 3 where id = project and revision = 2;
+  if not found then raise exception 'Owner could not persist Scene v2'; end if;
+  if (select scene from public.bipv_project_revisions where project_id = project and revision = 3)
+      is distinct from document then
+    raise exception 'Revision discarded Scene v2 provenance';
+  end if;
+  if (select scene->>'schema_version' from public.bipv_project_revisions where project_id = project and revision = 2)
+      is distinct from '1.0.0' then
+    raise exception 'Scene v2 write modified a legacy revision';
+  end if;
+  begin
+    update public.bipv_projects set scene = '{"schema_version":"2.0.0","geometry":{}}', revision = 4
+      where id = project;
+    raise exception 'Scene v2 without versioned geometry was accepted';
+  exception when check_violation then null;
+  end;
+end;
+$$;
+
+select set_config('request.jwt.claims', '{"sub":"26110000-0000-4000-8000-000000000002","is_anonymous":false}', true);
+do $$
+begin
+  if exists (select 1 from public.bipv_project_revisions
+    where project_id = '26110000-0000-4000-8000-000000000003' and revision = 3) then
+    raise exception 'Another organization read the Scene v2 revision';
+  end if;
+end;
+$$;
+reset role;
