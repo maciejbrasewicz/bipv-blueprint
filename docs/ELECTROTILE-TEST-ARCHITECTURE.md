@@ -1,6 +1,6 @@
 # ET/2025/7 — architektura i plan wdrożenia testów
 
-Plan wykonawczy do [protokołu odbiorczego](ELECTROTILE-ACCEPTANCE.md). Załącznik 2, §E, s. 10–13 obejmuje testowanie funkcjonalne i niefunkcjonalne oraz poprawki w trzech modułach. Zapytanie przewiduje 14 dni od podpisania umowy. Próbka uruchamialna z oferty służy do oceny metody pracy. Odbiór wymaga wykonania na systemie i danych uzgodnionych z Electrotile.
+Plan wykonawczy do [protokołu odbiorczego](ELECTROTILE-ACCEPTANCE.md) i [instrukcji laboratorium testowego](ELECTROTILE-TEST-LAB.md). Załącznik 2, §E, s. 10–13 obejmuje testowanie funkcjonalne i niefunkcjonalne oraz poprawki w trzech modułach. Zapytanie przewiduje 14 dni od podpisania umowy. Próbka uruchamialna z oferty służy do oceny metody pracy. Odbiór wymaga wykonania na systemie i danych uzgodnionych z Electrotile.
 
 ## 1. Ryzyka, kryteria i mierzone zdarzenia
 
@@ -29,7 +29,7 @@ flowchart TB
   V --> D["Dowody z przebiegu i decyzja QA"]
 ```
 
-- **Testowane wejścia.** Istniejący pytest odpytuje normalne API. Playwright weryfikuje zdarzenia i artefakty tak, jak widzi je operator. Adapter do systemu Electrotile powstaje po inwentaryzacji API, interfejsu i eksportów. Wyciąga wyniki w uzgodnionej postaci do sprawdzenia przez te same reguły tam, gdzie semantyka jest zgodna. Testy i dane referencyjne są wersjonowane niezależnie od silnika.
+- **Testowane wejścia.** Laboratorium uruchamia przypadki lokalnie i pobiera rzeczywiste wyniki z API, interfejsu lub eksportu za pomocą adaptera. Adapter Electrotile powstaje po inwentaryzacji interfejsów i uzgodnieniu sposobu odczytu stanu końcowego. Otrzymuje wejście przypadku, a niezależna kontrola porównuje jego wynik z zamrożonym wzorcem. Testy i dane referencyjne są wersjonowane niezależnie od silnika.
 - **Tryby uruchomienia.** `studio-fixture` działa na wersjonowanych danych syntetycznych w CI. `replay` odtwarza utrwalone odpowiedzi usług i błędy według scenariusza. `client-live` mierzy uzgodnione środowisko odbiorcze z rzeczywistymi ścieżkami pozyskania danych. Raport identyfikuje tryb na poziomie każdego wyniku i całego przebiegu. Kryteria odbioru Electrotile otrzymują PASS wyłącznie z kompletnego przebiegu odbiorczego. Rejestr źródeł oznacza satelitę, ortofoto oraz LiDAR odrębnymi wartościami.
 - **Zestawy danych.** Krótki zestaw deterministyczny przy każdym PR, większy zestaw regresyjny przed wydaniem, zamrożona próba odbiorcza. Populacja adresów i zawodowe wyceny mają wersję, identyfikatory i spis wyłączeń uzgodniony przed losowaniem. Utrwal seed i algorytm losowania; oddziel całe budynki i ich warianty między strojeniem a próbą odbiorczą. Zachowaj niepowodzenia i braki w raporcie. Korektę złego wejścia udokumentuj i ponów według uzgodnionej reguły.
 - **Porównanie i tolerancje.** Analiza z ręcznie policzonymi figurami i niezależnym odczytem eksportu jest pierwszą linią. Porównania z drugim algorytmem na tych samych wejściach wykrywają rozbieżności i podlegają ocenie projektanta. Osobno ewidencjonuj tolerancję numeryczną, rozdzielczość obrazu i uzgodniony błąd użytkowy. Nie przenoś tolerancji jednej klasy pomiaru na inną.
@@ -49,10 +49,15 @@ flowchart TB
 
 | Etap | Praca i warunek zamknięcia |
 |---|---|
-| A · od razu, BIPV Studio | Podłącz zaawansowaną regresję I-03 do obecnego pytest i Actions. Reprodukcja defektu na bazowym SHA, poprawka, retest pierwotnych przypadków i granic. Do przebiegu CI dołącz JUnit i manifest pozwalający zidentyfikować kod i fixture. |
+| A · gotowość przed startem | Wykonaj próbkę lokalnie na dostępnym API Studio i potwierdź czułość kontroli na celowo błędnych odpowiedziach. Zachowaj pierwszy wynik, wartości oczekiwane i rzeczywiste oraz retest tych samych przypadków. |
+| A · następna praca własna | Rozszerz niezależną ocenę I-01 i I-03 o eksport geometrii oraz odtworzenie obliczeń energii na zamrożonych danych. Przygotuj obserwację zdarzeń do pomiarów całej partii i pełnej oferty. |
 | B · dni 1–2 od startu z klientem | Inwentaryzacja trzech modułów, pomiar bazowy w środowisku odbiorczym. Potwierdzenie danych satelitarnych i licencji, listy adresów, historycznych wycen, katalogu i pomiarów. Uzgodnienie kryteriów jakości, zdarzeń start/stop i reguły braków. Pierwsza próba importu oraz odczytu eksportu. |
 | C · dni 3–7 | Funkcjonalne i graniczne testy I–III oraz testy awarii i współbieżności. Najpierw ścieżki grożące przerwaniem projektu oraz błędnym materiałem, geometrią lub ofertą. Każdy błąd ma wejście, wynik oczekiwany i rzeczywisty, priorytet oraz test regresyjny. |
 | D · dni 8–11 | Naprawy, retesty na pierwotnych i sąsiednich przypadkach, pełne pomiary 10 adresów, wycen, kolejki 20 i oferty 6 h. Powtórzenie z przypiętym kodem, danymi i limitami, wraz z odchyleniami i nieudanymi próbami. |
 | E · dni 12–14 | Zamrożenie wersji, pełna regresja, niezależne powtórzenie kluczowych wyników, raport śledzenia od wymagania do przebiegu, naprawy i retestu. Zamknięcie odbioru na konkretnym SHA albo opis nierozstrzygniętych kryteriów i przyczyn blokady. |
 
-Prace B–E zależą od dostępu, licencji, wersji systemu i danych referencyjnych. Studio sprawdza metodę i wykonywalną część techniczną. Odbiór ma własną decyzję QA. Promocja Studio używa dotychczasowego workflow wydania i dokładnego SHA po przejściu bramek.
+## 5. Stan wykonania
+
+Instrukcja laboratorium zawiera 17 procedur. Próba doboru PV na API Studio wykonała trzy przypadki ze zgodnym wynikiem. Próba na kontrolowanych danych wykazała dziewięć wprowadzonych rozbieżności i potwierdziła ich usunięcie w retescie. Automaty porównują obecnie I-02, listy cięć, BOM, trasy wiązek oraz stan mediów, ofert, zamówień i rezerwacji. Kryteria czasowe mają osobny protokół oceny.
+
+Prace B–E wymagają środowiska testowego Electrotile, dostępu do interfejsów i eksportów, danych referencyjnych oraz odpowiednich licencji. Wyniki odbiorcze oczekują na przebieg na wersji klienta i decyzję QA.
