@@ -156,6 +156,14 @@ function segmentDistanceSquared(p: PointUV, a: PointUV, b: PointUV) {
 }
 
 function simplify(ring: PointUV[]) {
+  // Boundary extraction starts at the first edge reached by the flood. Start
+  // simplification at a stable corner instead of potentially retaining a point
+  // in the middle of the first straight edge.
+  const anchor = ring.reduce((best, [x, y], index) => {
+    const [bx, by] = ring[best];
+    return y < by || (y === by && x < bx) ? index : best;
+  }, 0);
+  ring = [...ring.slice(anchor), ...ring.slice(0, anchor)];
   const closed = [...ring, ring[0]];
   const keep = new Set([0]);
   const stack = [[0, closed.length - 1]];

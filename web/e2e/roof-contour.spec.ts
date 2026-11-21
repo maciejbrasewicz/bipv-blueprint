@@ -189,3 +189,22 @@ test("seed contour declines a stable segment that covers only part of the buildi
     reason: "area-mismatch",
   });
 });
+
+test("a rectangular proposal keeps the same four corners from different seed pixels", () => {
+  const pixels = image((x, y) => (inRoof(x, y) ? roof : ground));
+  const expected = {
+    outline: [
+      [35, 25],
+      [105, 25],
+      [105, 95],
+      [35, 95],
+    ],
+  };
+  for (const point of [
+    [36, 28],
+    [70, 60],
+    [90, 88],
+  ] as PointUV[]) {
+    expect(roofContour(pixels, point, bounds)).toEqual(expected);
+  }
+});
