@@ -200,10 +200,22 @@ test("live cloud isolates guest workspaces and rejects stale revisions", async (
       status: "unverified",
       source_asset_ids: ["ed31462d-3212-4c3c-b00b-ac396c1ade2f"],
     };
+    const site =
+      process.env.GEO_ENABLED === "true"
+        ? {
+            address: "P09 fixture, Próbna 1",
+            building_id: "P09_FIXTURE",
+            latitude_deg: 52,
+            longitude_deg: 19,
+            source: "gugik-egib-wfs",
+            retrieved_at: "2026-11-21T08:00:00Z",
+          }
+        : undefined;
     const sceneV2 = {
       schema_version: "2.0.0",
       geometry: { name: "CI revision fixture" },
       surface_evidence: [preservedEvidence],
+      ...(site ? { site } : {}),
     };
     const updated = await request.patch("/api/projects/" + id, {
       headers: ha,

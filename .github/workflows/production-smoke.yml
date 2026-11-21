@@ -48,6 +48,8 @@ jobs:
           PY
       - run: npm ci --prefix web --no-audit --no-fund
       - name: Verify live v1/v2 revisions and workspace isolation
+        env:
+          GEO_ENABLED: ${{ steps.deployed.outputs.geo }}
         run: npx playwright test --grep "live cloud isolates"
         working-directory: web
       - name: Verify live GUGiK address and footprints

@@ -1,7 +1,8 @@
 {
-  "commit": "ff9f87fda0d8966d66284ed590a21eb03065d5f6",
+  "commit": "8432f18e49f94c087881cceb03edc76b608d7d35",
   "url": "https://bipv-studio-production.up.railway.app",
-  "quality_run": "https://github.com/maciejbrasewicz/bipv-blueprint/actions/runs/44883788038",
-  "railway_deployment": "ac2779e7-f699-4bbc-a73e-879afd171ac6",
-  "verification_revision": 9
+  "quality_run": "https://github.com/maciejbrasewicz/bipv-blueprint/actions/runs/44896489024",
+  "railway_deployment": "2f9399aa-5e67-4472-bd93-85b3a667e8ef",
+  "verification_revision": 10,
+  "geo": true
 }
