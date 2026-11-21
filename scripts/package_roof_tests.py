@@ -14,6 +14,9 @@ FILES = (
     "pyproject.toml",
     "scripts/benchmark_roof_tests.py",
     "scripts/check_electrotile_run.py",
+    "scripts/electrotile_checks.py",
+    "scripts/electrotile_lab.py",
+    "scripts/electrotile_studio_adapter.py",
     "scripts/sync_product_contracts.py",
     "server/__init__.py",
     "server/accounts.py",
@@ -30,6 +33,7 @@ FILES = (
     "server/tests/test_account_access.py",
     "server/tests/test_api.py",
     "server/tests/test_electrotile_run.py",
+    "server/tests/test_electrotile_lab.py",
     "server/tests/test_geometry.py",
     "server/tests/test_geo_trace.py",
     "server/tests/test_glb_export.py",
@@ -37,6 +41,16 @@ FILES = (
     "server/tests/test_planar_geometry.py",
     "server/tests/test_product_contracts.py",
     "server/tests/test_roof_acceptance.py",
+    "tests/fixtures/electrotile-lab/functional-replay/inputs/offer-audit-race.json",
+    "tests/fixtures/electrotile-lab/functional-replay/inputs/pattern-unbuildable.json",
+    "tests/fixtures/electrotile-lab/functional-replay/inputs/profiles-kerf.json",
+    "tests/fixtures/electrotile-lab/functional-replay/inputs/wiring-route.json",
+    "tests/fixtures/electrotile-lab/functional-replay/manifest.json",
+    "tests/fixtures/electrotile-lab/replay_adapter.py",
+    "tests/fixtures/electrotile-lab/studio-pv/inputs/pv-exact-grid.json",
+    "tests/fixtures/electrotile-lab/studio-pv/inputs/pv-grid-20.json",
+    "tests/fixtures/electrotile-lab/studio-pv/inputs/pv-too-small.json",
+    "tests/fixtures/electrotile-lab/studio-pv/manifest.json",
     "tests/fixtures/product/catalog.json",
     "tests/fixtures/product/facade.json",
     "tests/fixtures/product/job.json",
@@ -61,6 +75,8 @@ def build_zip(out: Path, source_sha: str, evidence_dir: Path | None = None) -> N
             archive.write(ROOT / relative, relative)
         archive.write(ROOT / "docs" / "ROOF-TEST-PACK.md", "README.md")
         archive.write(ROOT / "docs" / "ELECTROTILE-ACCEPTANCE.md", "PROTOKOL-ET-2025-7.md")
+        archive.write(ROOT / "docs" / "ELECTROTILE-TEST-LAB.md", "docs/ELECTROTILE-TEST-LAB.md")
+        archive.write(ROOT / "docs" / "ELECTROTILE-ACCEPTANCE.md", "docs/ELECTROTILE-ACCEPTANCE.md")
         archive.writestr("SOURCE_COMMIT.txt", source_sha + "\n")
         if evidence_dir is not None:
             for name in EVIDENCE_FILES:

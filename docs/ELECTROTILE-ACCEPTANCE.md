@@ -1,5 +1,7 @@
 # Protokół testów odbiorczych · Electrotile ET/2025/7
 
+W repozytorium szczegółowe karty wykonania oraz instrukcję lokalnego laboratorium opisuje `docs/ELECTROTILE-TEST-LAB.md`.
+
 Podstawa zakresu to załącznik 2, s. 10–13 oraz zapytanie ET/2025/7, s. 3. Przed wykonaniem testów zamrozić identyfikator wydania, wejścia i wersję zbioru referencyjnego. Rejestrować system, region i zasoby wykonawcze, wersję źródeł i katalogu, warunki cache, błędy i ponowienia. Dla materiałów licencjonowanych ewidencjonować identyfikator lub hash zgodnie z zasadami retencji.
 
 | ID | Próba | Wykonanie i warunek zaliczenia | Dowód | Status dla Electrotile |
