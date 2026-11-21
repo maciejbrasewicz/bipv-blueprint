@@ -40,9 +40,18 @@ export type Scene = {
   surfaces: SurfaceId[];
   custom_surfaces?: PlanarSurface[] | null;
 };
+export type SceneSite = {
+  address: string;
+  building_id: string;
+  latitude_deg: number;
+  longitude_deg: number;
+  source: "gugik-egib-wfs";
+  retrieved_at: string;
+};
 export type SceneV2 = {
   schema_version: "2.0.0";
   geometry: Scene;
+  site?: SceneSite;
   origin?: {
     latitude_deg: number;
     longitude_deg: number;

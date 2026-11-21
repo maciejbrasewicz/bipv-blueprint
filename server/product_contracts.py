@@ -7,6 +7,7 @@ from uuid import UUID
 
 from pydantic import AwareDatetime, Field, model_validator
 
+from .geo_contracts import SceneSite
 from .models import Scene, StrictModel, SurfaceId
 
 Sha256 = Annotated[str, Field(pattern=r"^[a-f0-9]{64}$")]
@@ -39,6 +40,7 @@ class SceneV2(StrictModel):
     schema_version: Literal["2.0.0"]
     geometry: Scene
     origin: SceneOrigin | None = None
+    site: SceneSite | None = None
     surface_evidence: list[SurfaceEvidence] = Field(default_factory=list, max_length=6)
 
     @model_validator(mode="after")

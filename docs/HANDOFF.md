@@ -53,6 +53,15 @@ Open **Eksport → Wczytaj przykład dachu i fasady** to see the sample. The **M
 
 See the [Electrotile requirements and rollout matrix](ELECTROTILE-DELIVERY.md) for acceptance thresholds, dependencies and module gaps.
 
+## P09 · address and building selection
+
+Open **Lokalizacja budynku**, search for the Polish address, select an address point and select a building on the footprint plan or in the list. Confirming writes the official address label, selected building ID, representative coordinates and retrieval time to `SceneV2.site` as one undoable change. Building footprints serve as a selection overlay. The scene's metric roof/facade geometry and local reference frame are independent of the site selection.
+
+- `GET /api/geo/sources` identifies GUGiK sources, the lookup CRS and the retention policy. The raw address search, alternative addresses and building footprint responses are retained only for the dialog. The user-confirmed project reference follows the project's existing local or cloud revision lifecycle.
+- `POST /api/geo/addresses` uses GUGiK UUG. `POST /api/geo/buildings` queries the WFS EGiB buildings layer for an EPSG:2180 bounding box and returns candidates within 60 m. UUG returns easting/northing. WFS 2.0 GML uses northing/easting for EPSG:2180. PROJ gives the selected reference point in WGS84.
+- Input validation, a 14 s deadline, a 512 KiB bound, at most two concurrent upstream lookups and 30 lookups per minute limit the impact on the existing service. The UI distinguishes empty coverage, a partial set and provider failure. `BIPV_GEODATA_ENABLED=0` disables outward geodata lookups while preserving local editing and import.
+- EGiB building IDs and geometry are covered by the access provision in Art. 40a(2)(1)(j). The adapter queries those public attributes. This path uses no aerial or satellite imagery. [GUGiK UUG](https://services.gugik.gov.pl/uug/opis.html) · [GUGiK WFS EGiB](https://mapy.geoportal.gov.pl/wss/service/PZGIK/EGIB/WFS/UslugaZbiorcza) · [Dz.U. 2026 poz. 1389](https://www.dziennikustaw.gov.pl/D2026000138901.pdf)
+
 ## Pick up the work
 
 1. Named-user access. Design account ownership alongside guest ownership. Add an explicit one-time claim to an authenticated account and test two accounts, two guest keys, repeat claims and revocation. Keep guest support until migration UX passes.

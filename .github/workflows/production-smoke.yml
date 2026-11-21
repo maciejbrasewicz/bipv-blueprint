@@ -24,6 +24,7 @@ jobs:
         with:
           node-version: '24'
       - name: Verify the deployed commit and cloud configuration
+        id: deployed
         run: |
           python - <<'PY'
           import json,os,pathlib,re,time,urllib.request
@@ -42,17 +43,50 @@ jobs:
           assert health["cloud_configured"] is True
           assert health["status"]=="ok"
           print(json.dumps({"live_commit":expected,"cloud_configured":True,"status":"ok"}))
+          with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as output:
+              print("geo=" + str(bool(target.get("geo"))).lower(), file=output)
           PY
       - run: npm ci --prefix web --no-audit --no-fund
       - name: Verify live v1/v2 revisions and workspace isolation
         run: npx playwright test --grep "live cloud isolates"
         working-directory: web
+      - name: Verify live GUGiK address and footprints
+        if: steps.deployed.outputs.geo == 'true'
+        timeout-minutes: 3
+        run: |
+          python - <<'PY'
+          import json,os,time,urllib.error,urllib.request
+          base=os.environ["BASE_URL"]+"/api/geo/"
+          def post(path, payload):
+              request=urllib.request.Request(base+path,data=json.dumps(payload).encode(),
+                                             headers={"Content-Type":"application/json"})
+              for attempt in range(2):
+                  try:
+                      with urllib.request.urlopen(request,timeout=35) as response:
+                          return json.load(response)
+                  except urllib.error.HTTPError as error:
+                      if attempt or error.code not in (502, 503, 504):
+                          print(error.read(4096).decode(errors="replace"))
+                          raise
+                      time.sleep(2)
+          points=post("addresses",{"address":"Marki, Andersa 1"})["candidates"]
+          candidates=[point for point in points if point["label"].startswith("Marki,")]
+          assert candidates, "No Marki candidate"
+          result=post("buildings",candidates[0])
+          assert result["candidates"], "No footprint candidates at the documented GUGiK sample"
+          print({"addresses":len(points),"footprints":len(result["candidates"]),"partial":result["partial"]})
+          PY
       - name: Install only the headless browser
         timeout-minutes: 3
         run: npx playwright install --only-shell chromium
         working-directory: web
       - name: Verify the live studio, UI save and Scene v2 editing
-        run: npx playwright test --grep "studio renders|Scene v2 hole correction"
+        env:
+          GEO_ENABLED: ${{ steps.deployed.outputs.geo }}
+        run: |
+          filter="studio renders|Scene v2 hole correction"
+          if [ "$GEO_ENABLED" = true ]; then filter="$filter|location waits|location lets"; fi
+          npx playwright test --grep "$filter"
         working-directory: web
       - uses: actions/upload-artifact@v7.0.2
         if: always()

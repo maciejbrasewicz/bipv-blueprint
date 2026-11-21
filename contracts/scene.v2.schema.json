@@ -390,6 +390,54 @@
       "title": "SceneOrigin",
       "type": "object"
     },
+    "SceneSite": {
+      "additionalProperties": false,
+      "properties": {
+        "address": {
+          "maxLength": 160,
+          "minLength": 3,
+          "title": "Address",
+          "type": "string"
+        },
+        "building_id": {
+          "pattern": "^[\\w./-]{1,96}$",
+          "title": "Building Id",
+          "type": "string"
+        },
+        "latitude_deg": {
+          "maximum": 90,
+          "minimum": -90,
+          "title": "Latitude Deg",
+          "type": "number"
+        },
+        "longitude_deg": {
+          "maximum": 180,
+          "minimum": -180,
+          "title": "Longitude Deg",
+          "type": "number"
+        },
+        "source": {
+          "const": "gugik-egib-wfs",
+          "title": "Source",
+          "type": "string"
+        },
+        "retrieved_at": {
+          "format": "date-time",
+          "title": "Retrieved At",
+          "type": "string"
+        }
+      },
+      "required": [
+        "address",
+        "building_id",
+        "latitude_deg",
+        "longitude_deg",
+        "source",
+        "retrieved_at"
+      ],
+      "title": "SceneSite",
+      "type": "object"
+    },
     "SurfaceEvidence": {
       "additionalProperties": false,
       "properties": {
@@ -439,6 +487,17 @@
       "anyOf": [
         {
           "$ref": "#/$defs/SceneOrigin"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "site": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/SceneSite"
         },
         {
           "type": "null"

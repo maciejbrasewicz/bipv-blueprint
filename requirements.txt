@@ -13,6 +13,7 @@ certifi==2026.10.23
     # via
     #   httpcore
     #   httpx
+    #   pyproj
 click==8.5.1
     # via uvicorn
 fastapi==0.165.0
@@ -37,6 +38,8 @@ pydantic==2.14.4
     # via fastapi
 pydantic-core==2.50.5
     # via pydantic
+pyproj==3.7.2
+    # via bipv-blueprint
 shapely==2.2.0
     # via bipv-blueprint
 socksio==1.0.0

@@ -18,6 +18,8 @@ FILES = (
     "server/accounts.py",
     "server/app.py",
     "server/cloud.py",
+    "server/geo.py",
+    "server/geo_contracts.py",
     "server/geometry.py",
     "server/model_export.py",
     "server/models.py",

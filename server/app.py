@@ -13,6 +13,7 @@ from starlette.concurrency import run_in_threadpool
 from starlette.middleware.gzip import GZipMiddleware
 
 from .cloud import CLOUD, db, project_access
+from .geo import router as geo_router
 from .geometry import CATALOG, ENGINE_VERSION, compute
 from .model_export import export_obj
 from .models import ModelExport, Scene
@@ -34,6 +35,7 @@ app = FastAPI(
     title="Registry9 BIPV Studio", version="0.1.0", lifespan=lifespan, docs_url=None, redoc_url=None
 )
 app.add_middleware(GZipMiddleware, minimum_size=1000, compresslevel=5)
+app.include_router(geo_router)
 
 
 @app.middleware("http")

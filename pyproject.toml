@@ -2,7 +2,13 @@
 name = "bipv-blueprint"
 version = "0.1.0"
 requires-python = ">=3.12"
-dependencies = ["fastapi==0.165.0", "uvicorn==0.54.0", "shapely==2.2.0", "httpx[socks]==0.28.1"]
+dependencies = [
+    "fastapi==0.165.0",
+    "uvicorn==0.54.0",
+    "shapely==2.2.0",
+    "httpx[socks]==0.28.1",
+    "pyproj==3.7.2",
+]
 [dependency-groups]
 dev = ["pytest==9.2.0", "ruff==0.17.6"]
 [tool.pytest.ini_options]

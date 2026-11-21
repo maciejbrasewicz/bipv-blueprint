@@ -26,6 +26,7 @@ import {
   LayoutGrid,
   LoaderCircle,
   Maximize,
+  MapPin,
   MousePointer2,
   Move3D,
   Plus,
@@ -48,6 +49,7 @@ import { api, download, workspaceKey } from "./api";
 import AccountDialog from "./AccountDialog";
 import SurfacePlan from "./SurfacePlan";
 import HoleEditor from "./HoleEditor";
+import LocationDialog from "./LocationDialog";
 import examplePlanes from "./example-planes.json";
 import {
   INITIAL,
@@ -62,6 +64,7 @@ import {
   type PointUV,
   type Scene,
   type SceneDocument,
+  type SceneSite,
   type SceneV2,
 } from "./types";
 const SceneView = lazy(() => import("./SceneView"));
@@ -260,6 +263,8 @@ function Studio({
         : null;
     });
   const [accountOpen, setAccountOpen] = useState(false);
+  const [locationOpen, setLocationOpen] = useState(false);
+  const site = document.schema_version === "2.0.0" ? document.site : undefined;
   const projectKey = () =>
     organization ? { organizationId: organization.id } : workspaceKey();
   const documentInput = JSON.stringify(document);
@@ -334,6 +339,20 @@ function Studio({
     setFuture([]);
     setDocument(next);
   }, []);
+  function confirmSite(site: SceneSite) {
+    const next: SceneV2 =
+      document.schema_version === "2.0.0"
+        ? { ...document, site }
+        : {
+            schema_version: "2.0.0",
+            geometry: document,
+            surface_evidence: [],
+            site,
+          };
+    changed(next);
+    setLocationOpen(false);
+    setToast("Zapisano lokalizację budynku w projekcie.");
+  }
   function changeGeometry(next: Scene, changedSurfaceId?: string) {
     if (document.schema_version === "1.0.0") {
       changed(next);
@@ -902,6 +921,22 @@ function Studio({
               {scene.obstacles.length + surfaceChoices.length + 1}
             </span>
           </div>
+          <button
+            className="object-row project-location"
+            aria-label={
+              site ? "Zmień lokalizację budynku" : "Ustal lokalizację budynku"
+            }
+            onClick={() => setLocationOpen(true)}
+          >
+            <MapPin size={17} />
+            <span>
+              {site?.address ?? "Lokalizacja budynku"}
+              <small>
+                {site ? `EGiB · ${site.building_id}` : "Wyszukaj adres"}
+              </small>
+            </span>
+            <ChevronRight size={13} />
+          </button>
           <button
             className={
               "object-row building " +
@@ -2077,6 +2112,13 @@ function Studio({
             </div>
           </section>
         </div>
+      )}
+      {locationOpen && (
+        <LocationDialog
+          current={site}
+          onConfirm={confirmSite}
+          onClose={() => setLocationOpen(false)}
+        />
       )}
       <input
         ref={file}
