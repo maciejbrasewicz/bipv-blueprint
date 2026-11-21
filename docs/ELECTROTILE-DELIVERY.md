@@ -6,8 +6,8 @@ Zapytanie dotyczy testów funkcjonalnych i niefunkcjonalnych trzech modułów or
 
 | Obszar z załącznika 2 | Dostępne w Studio | Następny dowód odbioru |
 |---|---|---|
-| I · pozyskanie imagery i geolokalizacja | Polski adres, potwierdzenie budynku EGiB i georeferencjonowany podkład GUGiK ORTO. Import powierzchni w lokalnym ENU i eksport OBJ | Licencjonowany dostawca zdjęć satelitarnych, ślad źródła oraz 10 wylosowanych adresów. Model tylko ze zdjęcia satelitarnego. Cel 300 s, limit 900 s od startu interfejsu |
-| I · obrys, połacie, fasady, przeszkody | Pomiar, propozycja i korekta obrysu na ortofotomapie. Przeniesienie szacowanego dachu płaskiego lub dwuspadowego do lokalnej sceny ENU i eksport OBJ. Operator podaje wysokość, kalenicę i nachylenie. Import wielokątów i otworów, ręczne kominy i okna | Walidacja propozycji na zamrożonej próbce terenowej, pomierzone wysokości, nachylenia i niepewność modelu. Osobny test zdjęcia fasady |
+| I · pozyskanie imagery i geolokalizacja | Polski adres, potwierdzenie budynku EGiB i georeferencjonowany podkład GUGiK ORTO. Import powierzchni w lokalnym ENU i eksport OBJ/GLB | Licencjonowany dostawca zdjęć satelitarnych, ślad źródła oraz 10 wylosowanych adresów. Model tylko ze zdjęcia satelitarnego. Cel 300 s, limit 900 s od startu interfejsu |
+| I · obrys, połacie, fasady, przeszkody | Pomiar, propozycja i korekta obrysu na ortofotomapie. Przeniesienie szacowanego dachu płaskiego lub dwuspadowego do lokalnej sceny ENU i eksport OBJ/GLB. Operator podaje wysokość, kalenicę i nachylenie. Import wielokątów i otworów, ręczne kominy i okna | Walidacja propozycji na zamrożonej próbce terenowej, pomierzone wysokości, nachylenia i niepewność modelu. Osobny test zdjęcia fasady |
 | I · rozmieszczenie i dobór PV | Dwie orientacje siatki, pełna kontrola obrysu i odsunięć, moc STC z katalogu demonstracyjnego | Katalog Electrotile i przypadki referencyjne. Cel 60 s, limit 120 s, odchylenie do 20% od eksperta. Załącznik wskazuje ok. 100 historycznych wycen i modeli, a sposób oceny rodzaju produktu i agregacji błędów trzeba uzgodnić przed testem |
 | I · uzysk roczny | Podgląd słońca i cienia w 3D | Roczne kWh względem lokalizacji, osi świata, nachylenia i cienia. Porównanie do niezależnego wyniku referencyjnego, osobny wariant pracy optymalizatorów |
 | II · mikropanele, profile, wiązki | Eksport liczby i powierzchni modułów w CSV | Katalog schematów mikropaneli, reguły cięcia i obróbki, ułożenie elektryczne oraz długości wiązek. Zgodność z referencyjną listą materiałów/cięć i schematem |
@@ -16,7 +16,7 @@ Zapytanie dotyczy testów funkcjonalnych i niefunkcjonalnych trzech modułów or
 
 ## Kolejność kolejnych integracji
 
-1. **Dane i kalibracja.** Doprowadzić ścieżkę adres → obraz → edytowalny obrys → zwalidowana scena ENU → OBJ. Zachować licencję, pochodzenie, metodę i niepewność geometrii. Przypadki testowe mogą użyć jawnych fixture w oczekiwaniu na dane dostawcy.
+1. **Dane i kalibracja.** Doprowadzić ścieżkę adres → obraz → edytowalny obrys → zwalidowana scena ENU → OBJ/GLB. Zachować licencję, pochodzenie, metodę i niepewność geometrii. Przypadki testowe mogą użyć jawnych fixture w oczekiwaniu na dane dostawcy.
 2. **Katalog i materiały.** Wersjonowany import SKU z dokumentacji producenta, osobno wymiary pokrycia, szczeliny i dozwolony obrót. Następnie reguły profili i wiązek ze sprawdzalnym wejściem i wyjściem. Zestawienia powinny wskazywać użyty wariant sceny i wersję katalogu.
 3. **Energia i elektryka.** Model uzysku ze zdefiniowanym źródłem danych pogodowych oraz osobnym modelem zacienienia. Zestaw obliczeń elektrycznych wymaga kart katalogowych i niezależnych przypadków weryfikacyjnych.
 4. **Klient i oferta.** Dostęp imienny, kontrola mediów, odtwarzalne kalkulacje, dokument oferty i rezerwacja. Uwierzytelnianie kont i przejęcie projektu gościnnego można realizować równolegle z pracą na syntetycznych scenach.

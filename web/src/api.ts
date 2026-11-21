@@ -65,10 +65,12 @@ export function workspaceKey() {
 }
 export function download(
   name: string,
-  content: string,
+  content: string | Blob,
   type = "application/json",
 ) {
-  const url = URL.createObjectURL(new Blob([content], { type }));
+  const url = URL.createObjectURL(
+    typeof content === "string" ? new Blob([content], { type }) : content,
+  );
   const link = document.createElement("a");
   link.href = url;
   link.download = name;
