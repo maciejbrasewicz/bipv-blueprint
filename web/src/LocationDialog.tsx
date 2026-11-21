@@ -7,7 +7,7 @@ import {
 } from "react";
 import { MapPin, Search, X } from "lucide-react";
 import { api } from "./api";
-import type { PointUV, SceneSite } from "./types";
+import type { OrthophotoTrace, PointUV, SceneSite } from "./types";
 
 type AddressPoint = {
   label: string;
@@ -28,7 +28,14 @@ type Orthophoto = {
   height_px: number;
   grid_m_per_pixel: number;
   image_base64: string;
+  sha256: string;
+  retrieved_at: string;
 };
+type ApplyTrace = (
+  site: SceneSite,
+  trace: OrthophotoTrace,
+  signal: AbortSignal,
+) => Promise<void>;
 
 async function decodedOrthophoto(raster: Orthophoto) {
   const image = new Image();
@@ -62,15 +69,20 @@ function BuildingMap({
   point,
   selected,
   onSelect,
+  onTrace,
+  previousTrace,
 }: {
   buildings: Building[];
   radius: number;
   point: AddressPoint;
   selected: string;
   onSelect: (id: string) => void;
+  onTrace: ApplyTrace;
+  previousTrace?: OrthophotoTrace | null;
 }) {
   const side = radius * 2;
   const pending = useRef<AbortController | null>(null);
+  const traceRequest = useRef<AbortController | null>(null);
   const [photo, setPhoto] = useState<{
     raster: Orthophoto;
     url: string;
@@ -79,13 +91,25 @@ function BuildingMap({
   const [photoError, setPhotoError] = useState("");
   const [measuring, setMeasuring] = useState(false);
   const [measurement, setMeasurement] = useState<PointUV[]>([]);
+  const [editing, setEditing] = useState(false);
+  const [traceBuilding, setTraceBuilding] = useState("");
+  const tracing = editing && traceBuilding === selected;
+  const [outline, setOutline] = useState<PointUV[]>([]);
+  const [correction, setCorrection] = useState<number | null>(null);
+  const [height, setHeight] = useState("");
+  const [traceError, setTraceError] = useState("");
+  const [applying, setApplying] = useState(false);
 
   useEffect(() => () => pending.current?.abort(), []);
+  useEffect(() => () => traceRequest.current?.abort(), [selected]);
 
   async function toggleOrthophoto() {
     if (photo) {
       setPhoto(null);
       setMeasuring(false);
+      setEditing(false);
+      setOutline([]);
+      setCorrection(null);
       setMeasurement([]);
       return;
     }
@@ -110,17 +134,87 @@ function BuildingMap({
     }
   }
 
-  function pickMeasurement(event: MouseEvent<SVGSVGElement>) {
-    if (!measuring) return;
+  function mapClick(event: MouseEvent<SVGSVGElement>) {
+    if ((!measuring && !tracing) || applying) return;
     const matrix = event.currentTarget.getScreenCTM();
     if (!matrix) return;
     const { x, y } = new DOMPoint(event.clientX, event.clientY).matrixTransform(
       matrix.inverse(),
     );
     if (Math.abs(x) > radius || Math.abs(y) > radius) return;
+    if (tracing) {
+      const point: PointUV = [
+        Math.round(x * 10) / 10,
+        Math.round(-y * 10) / 10,
+      ];
+      setOutline((points) =>
+        correction === null
+          ? points.length < 48
+            ? [...points, point]
+            : points
+          : points.map((vertex, index) =>
+              index === correction ? point : vertex,
+            ),
+      );
+      setCorrection(null);
+      setTraceError("");
+      return;
+    }
     setMeasurement((points) =>
       points.length === 1 ? [...points, [x, y]] : [[x, y]],
     );
+  }
+
+  const selectedSite = buildings.find(
+    ({ site }) => site.building_id === selected,
+  )?.site;
+  function startTrace() {
+    setMeasuring(false);
+    setMeasurement([]);
+    if (traceBuilding !== selected || !outline.length) {
+      const matchingTrace =
+        previousTrace &&
+        photo &&
+        previousTrace.image_sha256 === photo.raster.sha256 &&
+        previousTrace.building_id === selected &&
+        previousTrace.center.easting_m === point.easting_m &&
+        previousTrace.center.northing_m === point.northing_m;
+      setOutline(matchingTrace ? previousTrace.outline_en_m : []);
+      setHeight(matchingTrace ? String(previousTrace.roof_height_m) : "");
+    }
+    setCorrection(null);
+    setTraceError("");
+    setApplying(false);
+    setTraceBuilding(selected);
+    setEditing(true);
+  }
+
+  async function submitTrace(event: FormEvent) {
+    event.preventDefault();
+    if (!photo || !selectedSite || outline.length < 3 || applying) return;
+    const controller = new AbortController();
+    traceRequest.current = controller;
+    setTraceError("");
+    setApplying(true);
+    try {
+      await onTrace(
+        selectedSite,
+        {
+          source: "gugik-orto-wms",
+          image_sha256: photo.raster.sha256,
+          retrieved_at: photo.raster.retrieved_at,
+          center: { easting_m: point.easting_m, northing_m: point.northing_m },
+          outline_en_m: outline,
+          roof_height_m: Number(height),
+          building_id: selectedSite.building_id,
+        },
+        controller.signal,
+      );
+    } catch (error) {
+      if (!controller.signal.aborted) setTraceError((error as Error).message);
+    } finally {
+      if (!controller.signal.aborted) setApplying(false);
+    }
   }
 
   const bounds = photo?.raster.bounds_m;
@@ -131,12 +225,12 @@ function BuildingMap({
           type="button"
           className="button"
           onClick={() => void toggleOrthophoto()}
-          disabled={loading}
+          disabled={loading || (tracing && applying)}
           aria-pressed={!!photo}
         >
           {photo ? "Ukryj ortofotomapę" : "Pokaż ortofotomapę"}
         </button>
-        {photo && (
+        {photo && !tracing && (
           <button
             type="button"
             className="button"
@@ -149,6 +243,16 @@ function BuildingMap({
             Zmierz odległość
           </button>
         )}
+        {photo && !tracing && (
+          <button
+            type="button"
+            className="button"
+            disabled={!selectedSite}
+            onClick={startTrace}
+          >
+            Obrysuj dach
+          </button>
+        )}
       </div>
       {loading && <p role="status">Pobieram ortofotomapę GUGiK…</p>}
       {photoError && (
@@ -157,11 +261,11 @@ function BuildingMap({
         </p>
       )}
       <svg
-        className={`building-map${photo ? " with-ortho" : ""}${measuring ? " measuring" : ""}`}
+        className={`building-map${photo ? " with-ortho" : ""}${measuring || tracing ? " measuring" : ""}`}
         role="img"
         aria-label="Obrysy EGiB wokół punktu adresowego, północ u góry"
         viewBox={`${-radius} ${-radius} ${side} ${side}`}
-        onClick={pickMeasurement}
+        onClick={mapClick}
       >
         <defs>
           <pattern
@@ -214,7 +318,7 @@ function BuildingMap({
               key={id}
               className={selected === id ? "chosen-building" : ""}
               onClick={() => {
-                if (!measuring) onSelect(id);
+                if (!measuring && !tracing) onSelect(id);
               }}
             >
               <path d={path} fillRule="evenodd" />
@@ -262,6 +366,27 @@ function BuildingMap({
             pointerEvents="none"
           />
         ))}
+        {tracing && outline.length > 0 && (
+          <>
+            <path
+              className="trace-outline"
+              d={
+                outline
+                  .map(([e, n], index) => `${index ? "L" : "M"}${e},${-n}`)
+                  .join(" ") + (outline.length >= 3 ? " Z" : "")
+              }
+            />
+            {outline.map(([e, n], index) => (
+              <circle
+                key={index}
+                className="trace-vertex"
+                cx={e}
+                cy={-n}
+                r={correction === index ? "1.8" : "1.1"}
+              />
+            ))}
+          </>
+        )}
       </svg>
       {photo && (
         <p className="ortho-caption">
@@ -282,16 +407,112 @@ function BuildingMap({
               : "Wskaż pierwszy punkt na mapie."}
         </p>
       )}
+      {tracing && (
+        <form
+          className="roof-trace"
+          aria-label="Obrys dachu"
+          onSubmit={(event) => void submitTrace(event)}
+        >
+          <p className="ortho-caption" role="status">
+            {correction === null
+              ? `Wskaż narożniki kolejno po obwodzie. Punkty: ${outline.length}/48.`
+              : `Wskaż nowe położenie punktu ${correction + 1}.`}
+          </p>
+          <div className="location-map-controls">
+            {outline.map(([e, n], index) => (
+              <button
+                type="button"
+                className="button"
+                aria-label={`Przesuń punkt ${index + 1}`}
+                title={`E ${e} m · N ${n} m`}
+                aria-pressed={correction === index}
+                disabled={applying}
+                key={index}
+                onClick={() =>
+                  setCorrection(correction === index ? null : index)
+                }
+              >
+                {index + 1}
+              </button>
+            ))}
+          </div>
+          <div className="location-map-controls">
+            <button
+              type="button"
+              className="button"
+              disabled={!outline.length || applying}
+              onClick={() => {
+                setOutline((points) =>
+                  points.filter(
+                    (_, index) => index !== (correction ?? points.length - 1),
+                  ),
+                );
+                setCorrection(null);
+                setTraceError("");
+              }}
+            >
+              Usuń punkt
+            </button>
+            <button
+              type="button"
+              className="button"
+              disabled={applying}
+              onClick={() => {
+                setEditing(false);
+                setCorrection(null);
+                setTraceError("");
+              }}
+            >
+              Zakończ obrysowanie
+            </button>
+          </div>
+          <label>
+            Wysokość dachu nad przyjętym poziomem gruntu (m)
+            <input
+              type="number"
+              min="0.1"
+              max="40"
+              step="0.1"
+              required
+              value={height}
+              disabled={applying}
+              onChange={(event) => setHeight(event.currentTarget.value)}
+            />
+          </label>
+          <p className="ortho-caption">
+            Powstanie szacowany dach płaski. Operacja zastępuje połacie i
+            przeszkody w bieżącej scenie. Możesz ją cofnąć.
+          </p>
+          {traceError && (
+            <p className="hole-error" role="alert">
+              {traceError}
+            </p>
+          )}
+          <button
+            type="submit"
+            className="button primary"
+            disabled={
+              outline.length < 3 || !height || !selectedSite || applying
+            }
+          >
+            {applying ? "Sprawdzam obrys…" : "Zastąp geometrię obrysem"}
+          </button>
+        </form>
+      )}
     </div>
   );
 }
 
 export default function LocationDialog({
   current,
+  previousTrace,
+  onTrace,
   onConfirm,
   onClose,
 }: {
   current?: SceneSite;
+  previousTrace?: OrthophotoTrace | null;
+  onTrace: ApplyTrace;
   onConfirm: (site: SceneSite) => void;
   onClose: () => void;
 }) {
@@ -476,6 +697,8 @@ export default function LocationDialog({
               point={point}
               selected={selected}
               onSelect={setSelected}
+              onTrace={onTrace}
+              previousTrace={previousTrace}
             />
             <fieldset className="building-options">
               <legend>Wybierz budynek</legend>

@@ -70,6 +70,14 @@ After finding an address with a building footprint, select **Pokaż ortofotomap�
 - The adapter uses the shared 14 s deadline and request budget. The raster path accepts at most 1.5 MB upstream. PNG dimensions and integrity of its chunks are checked on the server. The browser handles undecodable or transparent images and preserves the selected EGiB building on failure.
 - The preview and two-point measurement live in the location dialog. The saved project still records the selected site only. Source kind is `orthophoto`, separate from the satellite-only tender scenario. [GUGiK ORTO and terms of use](https://www.geoportal.gov.pl/pl/dane/ortofotomapa-orto/)
 
+## P12 · trace to an estimated roof
+
+Select the building, show its orthophoto and open **Obrysuj dach**. Add the corners in perimeter order. Select a numbered point and click the replacement position, or use **Usuń punkt**. Enter the assumed height and apply the outline. This replaces the current roof surfaces and obstacles as one undoable scene change. It preserves the product and layout clearances.
+
+- `POST /api/scene/from-orthophoto` creates a Scene v2. The backend rejects invalid rings, repeated vertices, out-of-raster coordinates, an unrelated building and excess area. It converts EPSG:2180 offsets into the WGS84 local east/north tangent frame anchored at the outline midpoint. The specified height is relative to the assumed local ground level. OBJ exports the evaluated plane in the usual metric axes.
+- The estimated surface carries the image SHA-256, retrieval time, building ID, grid origin, original clicked points and entered elevation in `surface_evidence[].orthophoto_trace`. The PNG itself stays in the dialog. Reopening the same building with the same extent and image SHA can restore the editable points.
+- The output is a single horizontal roof surface. Automatic detection, measured heights, roof slope, facade tracing and the satellite-only acceptance run are separate milestones. The Scene v2 schema accepts older records. A rollback to code that predates this optional field requires compatibility for projects already saved with trace provenance.
+
 ## Pick up the work
 
 1. Named-user access. Design account ownership alongside guest ownership. Add an explicit one-time claim to an authenticated account and test two accounts, two guest keys, repeat claims and revocation. Keep guest support until migration UX passes.

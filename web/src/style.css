@@ -2188,6 +2188,30 @@ p {
   cursor: crosshair;
 }
 
+.trace-outline {
+  fill: #f7ca5250;
+  stroke: #ffcf5c;
+  stroke-width: 0.8;
+  pointer-events: none;
+}
+
+.trace-vertex {
+  fill: #ffcf5c;
+  stroke: #282720;
+  stroke-width: 0.35;
+  pointer-events: none;
+}
+
+.roof-trace label {
+  display: grid;
+  gap: 4px;
+  font-size: 12px;
+}
+
+.roof-trace input {
+  width: 100px;
+}
+
 .building-options {
   min-width: 0;
   max-height: 320px;

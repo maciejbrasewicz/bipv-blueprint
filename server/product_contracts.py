@@ -7,7 +7,7 @@ from uuid import UUID
 
 from pydantic import AwareDatetime, Field, model_validator
 
-from .geo_contracts import SceneSite
+from .geo_contracts import OrthophotoTrace, SceneSite
 from .models import Scene, StrictModel, SurfaceId
 
 Sha256 = Annotated[str, Field(pattern=r"^[a-f0-9]{64}$")]
@@ -26,6 +26,7 @@ class SurfaceEvidence(StrictModel):
     surface_id: SurfaceId
     status: Literal["estimated", "measured", "unverified"]
     source_asset_ids: list[UUID] = Field(default_factory=list, max_length=8)
+    orthophoto_trace: OrthophotoTrace | None = Field(default=None, exclude_if=lambda trace: trace is None)
 
     @model_validator(mode="after")
     def validate_sources(self) -> SurfaceEvidence:
@@ -33,6 +34,8 @@ class SurfaceEvidence(StrictModel):
             raise ValueError("Source asset IDs must be unique")
         if self.status == "measured" and not self.source_asset_ids:
             raise ValueError("Measured geometry requires a source asset")
+        if self.status == "measured" and self.orthophoto_trace is not None:
+            raise ValueError("Manual orthophoto trace does not qualify as measured geometry")
         return self
 
 

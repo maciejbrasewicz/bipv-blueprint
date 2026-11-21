@@ -14,6 +14,7 @@ from starlette.middleware.gzip import GZipMiddleware
 
 from .cloud import CLOUD, db, project_access
 from .geo import router as geo_router
+from .geo_trace import TraceSceneInput, scene_from_orthophoto
 from .geometry import CATALOG, ENGINE_VERSION, compute
 from .model_export import export_obj
 from .models import ModelExport, Scene
@@ -106,6 +107,14 @@ def validate_scene(scene: Scene):
 @app.post("/api/scene/v2/validate", response_model=SceneV2, response_model_exclude_none=True)
 def validate_scene_v2(scene: SceneV2):
     return scene
+
+
+@app.post("/api/scene/from-orthophoto", response_model=SceneV2, response_model_exclude_none=True)
+def trace_scene(body: TraceSceneInput):
+    try:
+        return scene_from_orthophoto(body)
+    except ValueError as exc:
+        raise HTTPException(422, str(exc)) from exc
 
 
 @app.post("/api/model.obj", response_class=PlainTextResponse)

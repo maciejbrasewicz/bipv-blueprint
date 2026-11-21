@@ -20,7 +20,7 @@ from shapely import Point, Polygon
 from shapely.errors import GEOSException
 from shapely.ops import unary_union
 
-from .geo_contracts import AddressPoint, AddressText, GridPoint, SceneSite
+from .geo_contracts import ORTHOPHOTO_RADIUS_M, AddressPoint, AddressText, GridPoint, SceneSite
 from .models import StrictModel
 
 router = APIRouter(prefix="/api/geo")
@@ -55,7 +55,7 @@ NS = {
 }
 MAX_FEATURES = 32
 MAX_BYTES = 512 * 1024
-RADIUS_M = 60
+RADIUS_M = ORTHOPHOTO_RADIUS_M
 IMAGE_SIZE_PX = 600
 MAX_IMAGE_BYTES = 1_500_000
 geo_requests: deque[float] = deque()
