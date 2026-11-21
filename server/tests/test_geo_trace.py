@@ -140,3 +140,15 @@ def test_trace_rejects_unrelated_source_and_preserves_provenance_on_validation(c
         status="measured", source_asset_ids=["00000000-0000-0000-0000-000000000001"]
     )
     assert client.post("/api/scene/v2/validate", json=document).status_code == 422
+
+
+def test_seed_suggestion_method_survives_scene_round_trip(client):
+    body = inputs()
+    body["trace"]["suggestion_method"] = "seed-rgb-v1"
+    response = client.post("/api/scene/from-orthophoto", json=body)
+    assert response.status_code == 200
+    document = response.json()
+    row = document["surface_evidence"][0]
+    assert row["status"] == "estimated"
+    assert row["orthophoto_trace"]["suggestion_method"] == "seed-rgb-v1"
+    assert client.post("/api/scene/v2/validate", json=document).json() == document

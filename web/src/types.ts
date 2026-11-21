@@ -56,6 +56,7 @@ export type OrthophotoTrace = {
   outline_en_m: PointUV[];
   roof_height_m: number;
   building_id: string;
+  suggestion_method?: "seed-rgb-v1";
 };
 export type SceneV2 = {
   schema_version: "2.0.0";

@@ -39,3 +39,6 @@ class OrthophotoTrace(StrictModel):
     outline_en_m: Annotated[list[tuple[TraceCoordinate, TraceCoordinate]], Field(min_length=3, max_length=48)]
     roof_height_m: float = Field(gt=0, le=40)
     building_id: BuildingId
+    suggestion_method: Literal["seed-rgb-v1"] | None = Field(
+        default=None, exclude_if=lambda method: method is None
+    )

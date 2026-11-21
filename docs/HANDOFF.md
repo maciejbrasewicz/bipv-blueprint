@@ -78,6 +78,14 @@ Select the building, show its orthophoto and open **Obrysuj dach**. Add the corn
 - The estimated surface carries the image SHA-256, retrieval time, building ID, grid origin, original clicked points and entered elevation in `surface_evidence[].orthophoto_trace`. The PNG itself stays in the dialog. Reopening the same building with the same extent and image SHA can restore the editable points.
 - The output is a single horizontal roof surface. Automatic detection, measured heights, roof slope, facade tracing and the satellite-only acceptance run are separate milestones. The Scene v2 schema accepts older records. A rollback to code that predates this optional field requires compatibility for projects already saved with trace provenance.
 
+## P14 · seed-based contour suggestion
+
+With an orthophoto and a selected building, choose **Obrysuj dach → Zaproponuj obrys** and point inside the visible roof. The suggested ring goes into the existing editable draft. The estimated scene still requires the operator's height and explicit application. The saved trace records `suggestion_method=seed-rgb-v1`, including after vertex corrections.
+
+The browser runs two bounded connected-region passes on the existing raster and compares their size. The search uses the building's EGiB envelope plus 8 m, bounded to 320 × 320 pixels. The extracted exterior ring must be stable and cover 60–160% of the EGiB area within the 250 m² scene limit. This is a heuristic check on a single ring. No-data, unstable, clipped or materially incomplete proposals fall back to manual drawing.
+
+Automated replay uses generated rectangles, a concave roof and a rotated roof, with independent polygon IoU and boundary-distance checks. In a separate exploratory run on six manually outlined roofs from three GUGiK captures, one proposal went through (IoU 0.808, sampled maximum boundary difference 1.23 m at the requested 0.2 m/pixel); five were declined. The exploratory run used the reference polygon envelope and area as proxies for EGiB and took 0.02–5.21 ms per detector call on the local test machine, with image fetch and decode excluded. The outlines are visual annotations and the small convenience sample does not estimate field accuracy. The satellite-only acceptance scenario requires its own data, worker and validation.
+
 ## Pick up the work
 
 1. Named-user access. Design account ownership alongside guest ownership. Add an explicit one-time claim to an authenticated account and test two accounts, two guest keys, repeat claims and revocation. Keep guest support until migration UX passes.

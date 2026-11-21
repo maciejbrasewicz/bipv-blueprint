@@ -145,6 +145,19 @@
           "pattern": "^[\\w./-]{1,96}$",
           "title": "Building Id",
           "type": "string"
+        },
+        "suggestion_method": {
+          "anyOf": [
+            {
+              "const": "seed-rgb-v1",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Suggestion Method"
         }
       },
       "required": [
