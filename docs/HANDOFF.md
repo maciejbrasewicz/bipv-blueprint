@@ -74,9 +74,15 @@ After finding an address with a building footprint, select **Pokaż ortofotomap�
 
 Select the building, show its orthophoto and open **Obrysuj dach**. Add the corners in perimeter order. Select a numbered point and click the replacement position, or use **Usuń punkt**. Enter the assumed height and apply the outline. This replaces the current roof surfaces and obstacles as one undoable scene change. It preserves the product and layout clearances.
 
-- `POST /api/scene/from-orthophoto` creates a Scene v2. The backend rejects invalid rings, repeated vertices, out-of-raster coordinates, an unrelated building and excess area. It converts EPSG:2180 offsets into the WGS84 local east/north tangent frame anchored at the outline midpoint. The specified height is relative to the assumed local ground level. OBJ exports the evaluated plane in the usual metric axes.
+- `POST /api/scene/from-orthophoto` creates a Scene v2. The backend rejects invalid rings, repeated vertices, out-of-raster coordinates, an unrelated building and excess area. It converts EPSG:2180 offsets into the WGS84 local east/north tangent frame anchored at the outline midpoint. The specified height is relative to the assumed local ground level. OBJ exports the evaluated planes in the usual metric axes.
 - The estimated surface carries the image SHA-256, retrieval time, building ID, grid origin, original clicked points and entered elevation in `surface_evidence[].orthophoto_trace`. The PNG itself stays in the dialog. Reopening the same building with the same extent and image SHA can restore the editable points.
-- The output is a single horizontal roof surface. Automatic detection, measured heights, roof slope, facade tracing and the satellite-only acceptance run are separate milestones. The Scene v2 schema accepts older records. A rollback to code that predates this optional field requires compatibility for projects already saved with trace provenance.
+- Flat traces still produce one horizontal surface. The Scene v2 schema accepts older records. A rollback to code that predates this optional field requires compatibility for projects already saved with trace provenance.
+
+## P13 · two roof planes from a traced ridge
+
+After preparing the outline, choose **Dwuspadowy**, click two points on the ridge line, and enter the ridge height and one pitch for both sides. The line is extended to the outline. An off-centre ridge can produce different eave heights. The server checks that it divides the outline into two roof planes with an unbroken common edge, each at least 0.25 m wide perpendicular to the ridge, and that both stay above the assumed ground.
+
+The scene stores both planes with stable IDs, their source trace and the operator's ridge assumptions. Studio calculates PV layout on their sloping areas. Automated references cover east–west and north–south orientation, off-centre ridges, OBJ seam height, invariant geometry after reversing the input points, and invalid inputs. Complex roofs, tracing a facade from a photograph, GLB export and automatic recovery of pitch and height remain separate work.
 
 ## P14 · seed-based contour suggestion
 

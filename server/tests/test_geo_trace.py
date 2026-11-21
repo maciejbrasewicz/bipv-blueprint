@@ -152,3 +152,97 @@ def test_seed_suggestion_method_survives_scene_round_trip(client):
     assert row["status"] == "estimated"
     assert row["orthophoto_trace"]["suggestion_method"] == "seed-rgb-v1"
     assert client.post("/api/scene/v2/validate", json=document).json() == document
+
+
+def with_gable(body, ridge=((-4, 0), (4, 0)), pitch=30):
+    body["trace"]["gable"] = {"ridge_en_m": [list(p) for p in ridge], "pitch_deg": pitch}
+    return body
+
+
+def vertices_by_group(text):
+    groups, vertices = {}, []
+    for line in text.splitlines():
+        if line.startswith("g "):
+            current = groups.setdefault(line[2:], set())
+        elif line.startswith("v "):
+            coordinates = tuple(map(float, line.split()[1:]))
+            vertices.append(coordinates)
+        elif line.startswith("f "):
+            for index in line.split()[1:]:
+                current.add(vertices[int(index) - 1])
+    return groups
+
+
+@pytest.mark.parametrize(
+    ("ridge", "rise_span", "dimensions"),
+    [
+        ([[-4, 0], [4, 0]], 2.5, (10, 5)),
+        ([[0, -2], [0, 2]], 5, (10, 5)),
+        ([[-4, 1], [4, 1]], 3.5, (10, 5)),
+    ],
+    ids=["east-west", "north-south", "offset"],
+)
+def test_gable_layout_and_obj_have_shared_ridge_and_true_sloping_area(client, ridge, rise_span, dimensions):
+    body = with_gable(inputs(), ridge)
+    response = client.post("/api/scene/from-orthophoto", json=body)
+    assert response.status_code == 200, response.text
+    document = response.json()
+    assert [e["surface_id"] for e in document["surface_evidence"]] == ["trace-gable-a", "trace-gable-b"]
+    assert all(e["status"] == "estimated" for e in document["surface_evidence"])
+    assert all(e["orthophoto_trace"]["gable"] == body["trace"]["gable"] for e in document["surface_evidence"])
+    assert client.post("/api/scene/v2/validate", json=document).json() == document
+
+    geometry = document["geometry"]
+    layout = client.post("/api/layout", json=geometry)
+    assert layout.status_code == 200
+    angle = math.pi / 6
+    a, b = dimensions
+    area = a * b / (0.9993**2 * math.cos(angle))
+    assert all(v["roof_area_m2"] == pytest.approx(area, abs=0.001) for v in layout.json()["variants"])
+    assert all(s["normal"][2] == pytest.approx(math.cos(angle)) for s in layout.json()["surfaces"])
+    assert {p["surface_id"] for p in layout.json()["variants"][0]["placements"]} == set(geometry["surfaces"])
+
+    obj = client.post("/api/model.obj", json={"scene": geometry})
+    assert obj.status_code == 200
+    groups = vertices_by_group(obj.text)
+    assert set(groups) == {"surface_trace-gable-a", "surface_trace-gable-b"}
+    first, second = groups.values()
+    shared = first & second
+    assert len(shared) == 2
+    assert all(up == 6.4 for _, up, _ in shared)
+    assert min(v[1] for v in first | second) == pytest.approx(
+        6.4 - rise_span / 0.9993 * math.tan(angle), abs=1e-5
+    )
+
+    body["trace"]["outline_en_m"].reverse()
+    body["trace"]["gable"]["ridge_en_m"].reverse()
+    reversed_scene = client.post("/api/scene/from-orthophoto", json=body)
+    assert reversed_scene.status_code == 200
+    reversed_obj = client.post("/api/model.obj", json={"scene": reversed_scene.json()["geometry"]})
+    assert vertices_by_group(reversed_obj.text) == groups
+
+
+@pytest.mark.parametrize(
+    ("ridge", "pitch", "height", "message"),
+    [
+        ([[0, 0], [0, 0]], 30, 6.4, "co najmniej 1 m"),
+        ([[-4, 3], [4, 3]], 30, 6.4, "dokładnie dwie połacie"),
+        ([[-4, 2.4], [4, 2.4]], 30, 6.4, "zbyt blisko krawędzi"),
+        ([[-4, 0], [4, 0]], 60, 4, "poziomu gruntu"),
+        ([[-4, 0], [4, 0]], 65, 6.4, "pitch_deg"),
+    ],
+)
+def test_gable_refuses_invalid_ridge_assumptions(client, ridge, pitch, height, message):
+    body = with_gable(inputs(), ridge, pitch)
+    body["trace"]["roof_height_m"] = height
+    response = client.post("/api/scene/from-orthophoto", json=body)
+    assert response.status_code == 422
+    assert message in response.text
+
+
+def test_gable_refuses_outline_split_into_three_separate_pieces(client):
+    # At the chosen northing, a U-shaped footprint has two disjoint ridge segments.
+    body = with_gable(inputs([[-5, -4], [5, -4], [5, 4], [2, 4], [2, -1], [-2, -1], [-2, 4], [-5, 4]]))
+    response = client.post("/api/scene/from-orthophoto", json=body)
+    assert response.status_code == 422
+    assert "dokładnie dwie połacie" in response.text

@@ -31,6 +31,11 @@ class SceneSite(StrictModel):
     retrieved_at: AwareDatetime
 
 
+class TraceGable(StrictModel):
+    ridge_en_m: tuple[tuple[TraceCoordinate, TraceCoordinate], tuple[TraceCoordinate, TraceCoordinate]]
+    pitch_deg: float = Field(ge=5, le=60)
+
+
 class OrthophotoTrace(StrictModel):
     source: Literal["gugik-orto-wms"]
     image_sha256: Annotated[str, Field(pattern=r"^[a-f0-9]{64}$")]
@@ -42,3 +47,4 @@ class OrthophotoTrace(StrictModel):
     suggestion_method: Literal["seed-rgb-v1"] | None = Field(
         default=None, exclude_if=lambda method: method is None
     )
+    gable: TraceGable | None = Field(default=None, exclude_if=lambda gable: gable is None)

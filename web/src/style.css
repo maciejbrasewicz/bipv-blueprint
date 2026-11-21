@@ -2202,6 +2202,21 @@ p {
   pointer-events: none;
 }
 
+.building-map .trace-ridge {
+  pointer-events: none;
+}
+
+.trace-ridge line {
+  stroke: #6bd9ff;
+  stroke-width: 0.9;
+}
+
+.trace-ridge circle {
+  fill: #6bd9ff;
+  stroke: #153a49;
+  stroke-width: 0.3;
+}
+
 .roof-trace label {
   display: grid;
   gap: 4px;
