@@ -28,9 +28,44 @@ jobs:
         with:
           node-version: '24'
       - run: uv sync --frozen --dev
-      - run: uv run ruff check server
-      - run: uv run ruff format --check server
-      - run: uv run pytest -q
+      - run: uv run ruff check server scripts/check_electrotile_run.py
+      - run: uv run ruff format --check server scripts/check_electrotile_run.py
+      - name: Record Studio test scope and run Python regression tests
+        run: |
+          mkdir -p "$RUNNER_TEMP/studio-python-evidence"
+          uv run --frozen python - <<'PY'
+          import hashlib
+          import json
+          import os
+          import platform
+          import subprocess
+          from pathlib import Path
+
+          evidence = Path(os.environ["RUNNER_TEMP"]) / "studio-python-evidence"
+          paths = (
+              "uv.lock",
+              "scripts/check_electrotile_run.py",
+              "server/tests/test_electrotile_run.py",
+              "server/tests/test_geometry_regression.py",
+          )
+          manifest = {
+              "scope": "studio-fixture",
+              "tested_commit": subprocess.check_output(["git", "rev-parse", "HEAD"], text=True).strip(),
+              "run_id": os.environ["GITHUB_RUN_ID"],
+              "run_attempt": os.environ["GITHUB_RUN_ATTEMPT"],
+              "python": platform.python_version(),
+              "platform": platform.platform(),
+              "sha256": {path: hashlib.sha256(Path(path).read_bytes()).hexdigest() for path in paths},
+          }
+          (evidence / "run.json").write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
+          PY
+          uv run --frozen pytest -q --junitxml "$RUNNER_TEMP/studio-python-evidence/python-tests.xml"
+      - uses: actions/upload-artifact@v7.0.2
+        if: always()
+        with:
+          name: studio-python-evidence
+          path: ${{ runner.temp }}/studio-python-evidence/
+          retention-days: 90
       - name: Verify organization migration preserves guest projects
         timeout-minutes: 4
         run: |
