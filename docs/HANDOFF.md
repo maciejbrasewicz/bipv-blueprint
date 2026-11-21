@@ -62,6 +62,14 @@ Open **Lokalizacja budynku**, search for the Polish address, select an address p
 - Input validation, a 14 s deadline, a 512 KiB bound, at most two concurrent upstream lookups and 30 lookups per minute limit the impact on the existing service. The UI distinguishes empty coverage, a partial set and provider failure. `BIPV_GEODATA_ENABLED=0` disables outward geodata lookups while preserving local editing and import.
 - EGiB building IDs and geometry are covered by the access provision in Art. 40a(2)(1)(j). The adapter queries those public attributes. This path uses no aerial or satellite imagery. [GUGiK UUG](https://services.gugik.gov.pl/uug/opis.html) · [GUGiK WFS EGiB](https://mapy.geoportal.gov.pl/wss/service/PZGIK/EGIB/WFS/UslugaZbiorcza) · [Dz.U. 2026 poz. 1389](https://www.dziennikustaw.gov.pl/D2026000138901.pdf)
 
+## P11 · georeferenced orthophoto preview
+
+After finding an address with a building footprint, select **Pokaż ortofotomapę**. The overlay shares the EGiB coordinate frame. **Zmierz odległość** calculates the horizontal grid distance between two points on the map. The displayed pixel spacing is the nominal spacing of the requested raster, independent of provider ground resolution and roof accuracy.
+
+- `POST /api/geo/orthophoto` accepts the selected EPSG:2180 grid point. It requests a 600 × 600 PNG for the surrounding 120 × 120 m square. WMS 1.3.0 uses northing/easting in BBOX. The JSON contract names the west, south, east and north bounds explicitly. It reports the provider, CRS, grid spacing, retrieval time and SHA-256 of the original PNG.
+- The adapter uses the shared 14 s deadline and request budget. The raster path accepts at most 1.5 MB upstream. PNG dimensions and integrity of its chunks are checked on the server. The browser handles undecodable or transparent images and preserves the selected EGiB building on failure.
+- The preview and two-point measurement live in the location dialog. The saved project still records the selected site only. Source kind is `orthophoto`, separate from the satellite-only tender scenario. [GUGiK ORTO and terms of use](https://www.geoportal.gov.pl/pl/dane/ortofotomapa-orto/)
+
 ## Pick up the work
 
 1. Named-user access. Design account ownership alongside guest ownership. Add an explicit one-time claim to an authenticated account and test two accounts, two guest keys, repeat claims and revocation. Keep guest support until migration UX passes.

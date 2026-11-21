@@ -1,4 +1,10 @@
-import { useEffect, useRef, useState, type FormEvent } from "react";
+import {
+  useEffect,
+  useRef,
+  useState,
+  type FormEvent,
+  type MouseEvent,
+} from "react";
 import { MapPin, Search, X } from "lucide-react";
 import { api } from "./api";
 import type { PointUV, SceneSite } from "./types";
@@ -16,89 +22,267 @@ type Building = {
   area_m2: number;
 };
 type Nearby = { radius_m: number; partial: boolean; candidates: Building[] };
+type Orthophoto = {
+  bounds_m: { west: number; south: number; east: number; north: number };
+  width_px: number;
+  height_px: number;
+  grid_m_per_pixel: number;
+  image_base64: string;
+};
+
+async function decodedOrthophoto(raster: Orthophoto) {
+  const image = new Image();
+  image.src = `data:image/png;base64,${raster.image_base64}`;
+  try {
+    await image.decode();
+  } catch {
+    throw new Error("Nie udało się odczytać obrazu ortofotomapy.");
+  }
+  if (
+    image.naturalWidth !== raster.width_px ||
+    image.naturalHeight !== raster.height_px
+  ) {
+    throw new Error("Rozmiar obrazu nie zgadza się z metadanymi ortofotomapy.");
+  }
+  const canvas = document.createElement("canvas");
+  canvas.width = image.naturalWidth;
+  canvas.height = image.naturalHeight;
+  const context = canvas.getContext("2d");
+  context?.drawImage(image, 0, 0);
+  const pixels = context?.getImageData(0, 0, canvas.width, canvas.height).data;
+  if (pixels && !pixels.some((alpha, i) => i % 4 === 3 && alpha > 0)) {
+    throw new Error("Brak pokrycia ortofotomapą w tym miejscu.");
+  }
+  return image.src;
+}
 
 function BuildingMap({
   buildings,
   radius,
+  point,
   selected,
   onSelect,
 }: {
   buildings: Building[];
   radius: number;
+  point: AddressPoint;
   selected: string;
   onSelect: (id: string) => void;
 }) {
   const side = radius * 2;
+  const pending = useRef<AbortController | null>(null);
+  const [photo, setPhoto] = useState<{
+    raster: Orthophoto;
+    url: string;
+  } | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [photoError, setPhotoError] = useState("");
+  const [measuring, setMeasuring] = useState(false);
+  const [measurement, setMeasurement] = useState<PointUV[]>([]);
+
+  useEffect(() => () => pending.current?.abort(), []);
+
+  async function toggleOrthophoto() {
+    if (photo) {
+      setPhoto(null);
+      setMeasuring(false);
+      setMeasurement([]);
+      return;
+    }
+    const controller = new AbortController();
+    pending.current = controller;
+    setPhotoError("");
+    setLoading(true);
+    try {
+      const raster = await api<Orthophoto>(
+        "geo/orthophoto",
+        "POST",
+        { easting_m: point.easting_m, northing_m: point.northing_m },
+        undefined,
+        controller.signal,
+      );
+      const url = await decodedOrthophoto(raster);
+      if (!controller.signal.aborted) setPhoto({ raster, url });
+    } catch (error) {
+      if (!controller.signal.aborted) setPhotoError((error as Error).message);
+    } finally {
+      if (!controller.signal.aborted) setLoading(false);
+    }
+  }
+
+  function pickMeasurement(event: MouseEvent<SVGSVGElement>) {
+    if (!measuring) return;
+    const matrix = event.currentTarget.getScreenCTM();
+    if (!matrix) return;
+    const { x, y } = new DOMPoint(event.clientX, event.clientY).matrixTransform(
+      matrix.inverse(),
+    );
+    if (Math.abs(x) > radius || Math.abs(y) > radius) return;
+    setMeasurement((points) =>
+      points.length === 1 ? [...points, [x, y]] : [[x, y]],
+    );
+  }
+
+  const bounds = photo?.raster.bounds_m;
   return (
-    <svg
-      className="building-map"
-      role="img"
-      aria-label="Obrysy EGiB wokół punktu adresowego, północ u góry"
-      viewBox={`${-radius} ${-radius} ${side} ${side}`}
-    >
-      <defs>
-        <pattern
-          id="location-grid"
-          width="20"
-          height="20"
-          patternUnits="userSpaceOnUse"
+    <div className="location-map-panel">
+      <div className="location-map-controls">
+        <button
+          type="button"
+          className="button"
+          onClick={() => void toggleOrthophoto()}
+          disabled={loading}
+          aria-pressed={!!photo}
         >
-          <path
-            d="M 20 0 H 0 V 20"
-            fill="none"
-            stroke="#adbbb6"
-            strokeWidth=".35"
-          />
-        </pattern>
-      </defs>
-      <rect
-        x={-radius}
-        y={-radius}
-        width={side}
-        height={side}
-        fill="url(#location-grid)"
-      />
-      {buildings.map((building, index) => {
-        const id = building.site.building_id;
-        const rings = building.rings_m.flat();
-        const path = rings
-          .map(
-            (ring) =>
-              ring
-                .map(([east, north], i) => `${i ? "L" : "M"}${east},${-north}`)
-                .join(" ") + " Z",
-          )
-          .join(" ");
-        const [east, north] = rings[0][0];
-        return (
-          <g
-            key={id}
-            className={selected === id ? "chosen-building" : ""}
-            onClick={() => onSelect(id)}
+          {photo ? "Ukryj ortofotomapę" : "Pokaż ortofotomapę"}
+        </button>
+        {photo && (
+          <button
+            type="button"
+            className="button"
+            aria-pressed={measuring}
+            onClick={() => {
+              if (!measuring) setMeasurement([]);
+              setMeasuring(!measuring);
+            }}
           >
-            <path d={path} fillRule="evenodd" />
-            <text x={east + 1} y={-north - 1}>
-              {index + 1}
-            </text>
-          </g>
-        );
-      })}
-      <circle r="2" fill="#a34e25" stroke="white" strokeWidth=".6" />
-      <text className="map-address" x="4" y="-1">
-        Adres
-      </text>
-      <text x={radius - 8} y={-radius + 8}>
-        N ↑
-      </text>
-      <path
-        d={`M ${-radius + 5} ${radius - 6} h 20`}
-        stroke="#455d56"
-        strokeWidth=".7"
-      />
-      <text x={-radius + 5} y={radius - 8}>
-        20 m
-      </text>
-    </svg>
+            Zmierz odległość
+          </button>
+        )}
+      </div>
+      {loading && <p role="status">Pobieram ortofotomapę GUGiK…</p>}
+      {photoError && (
+        <p className="hole-error" role="alert">
+          {photoError}
+        </p>
+      )}
+      <svg
+        className={`building-map${photo ? " with-ortho" : ""}${measuring ? " measuring" : ""}`}
+        role="img"
+        aria-label="Obrysy EGiB wokół punktu adresowego, północ u góry"
+        viewBox={`${-radius} ${-radius} ${side} ${side}`}
+        onClick={pickMeasurement}
+      >
+        <defs>
+          <pattern
+            id="location-grid"
+            width="20"
+            height="20"
+            patternUnits="userSpaceOnUse"
+          >
+            <path
+              d="M 20 0 H 0 V 20"
+              fill="none"
+              stroke="#adbbb6"
+              strokeWidth=".35"
+            />
+          </pattern>
+        </defs>
+        <rect
+          x={-radius}
+          y={-radius}
+          width={side}
+          height={side}
+          fill="url(#location-grid)"
+        />
+        {photo && bounds && (
+          <image
+            href={photo.url}
+            x={bounds.west - point.easting_m}
+            y={point.northing_m - bounds.north}
+            width={bounds.east - bounds.west}
+            height={bounds.north - bounds.south}
+            preserveAspectRatio="none"
+          />
+        )}
+        {buildings.map((building, index) => {
+          const id = building.site.building_id;
+          const rings = building.rings_m.flat();
+          const path = rings
+            .map(
+              (ring) =>
+                ring
+                  .map(
+                    ([east, north], i) => `${i ? "L" : "M"}${east},${-north}`,
+                  )
+                  .join(" ") + " Z",
+            )
+            .join(" ");
+          const [east, north] = rings[0][0];
+          return (
+            <g
+              key={id}
+              className={selected === id ? "chosen-building" : ""}
+              onClick={() => {
+                if (!measuring) onSelect(id);
+              }}
+            >
+              <path d={path} fillRule="evenodd" />
+              <text x={east + 1} y={-north - 1}>
+                {index + 1}
+              </text>
+            </g>
+          );
+        })}
+        <circle r="2" fill="#a34e25" stroke="white" strokeWidth=".6" />
+        <text className="map-address" x="4" y="-1">
+          Adres
+        </text>
+        <text x={radius - 8} y={-radius + 8}>
+          N ↑
+        </text>
+        <path
+          d={`M ${-radius + 5} ${radius - 6} h 20`}
+          stroke="#455d56"
+          strokeWidth=".7"
+        />
+        <text x={-radius + 5} y={radius - 8}>
+          20 m
+        </text>
+        {measurement.length === 2 && (
+          <line
+            x1={measurement[0][0]}
+            y1={measurement[0][1]}
+            x2={measurement[1][0]}
+            y2={measurement[1][1]}
+            stroke="#ffc766"
+            strokeWidth="0.9"
+            pointerEvents="none"
+          />
+        )}
+        {measurement.map(([x, y], index) => (
+          <circle
+            key={index}
+            cx={x}
+            cy={y}
+            r="1.4"
+            fill="#ffc766"
+            stroke="#262522"
+            strokeWidth="0.35"
+            pointerEvents="none"
+          />
+        ))}
+      </svg>
+      {photo && (
+        <p className="ortho-caption">
+          GUGiK · Ortofotomapa ·{" "}
+          {photo.raster.grid_m_per_pixel.toLocaleString("pl-PL")} m/piksel
+          siatki. Pomiar w płaszczyźnie mapy.
+        </p>
+      )}
+      {(measuring || measurement.length === 2) && (
+        <p className="ortho-caption" role="status">
+          {measurement.length === 2
+            ? `Odległość: ${Math.hypot(
+                measurement[1][0] - measurement[0][0],
+                measurement[1][1] - measurement[0][1],
+              ).toLocaleString("pl-PL", { maximumFractionDigits: 1 })} m`
+            : measurement.length
+              ? "Wskaż drugi punkt na mapie."
+              : "Wskaż pierwszy punkt na mapie."}
+        </p>
+      )}
+    </div>
   );
 }
 
@@ -283,12 +467,13 @@ export default function LocationDialog({
           Brak obrysów EGiB w promieniu {nearby.radius_m} m od wybranego punktu.
         </p>
       )}
-      {!!nearby?.candidates.length && (
+      {point && !!nearby?.candidates.length && (
         <>
           <div className="location-preview">
             <BuildingMap
               buildings={nearby.candidates}
               radius={nearby.radius_m}
+              point={point}
               selected={selected}
               onSelect={setSelected}
             />
