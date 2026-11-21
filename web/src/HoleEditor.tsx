@@ -72,6 +72,7 @@ export default function HoleEditor({
             <span>{axis} otworu (m)</span>
             <div className="number-field">
               <input
+                aria-label={`${axis} otworu (m)`}
                 type="number"
                 min="-40"
                 max="40"

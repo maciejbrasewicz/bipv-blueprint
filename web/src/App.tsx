@@ -1758,7 +1758,7 @@ function Studio({
               "status-dot " + (error ? "red" : calculating ? "amber" : "")
             }
           />
-          <span data-testid="layout-status" role="status">
+          <span data-testid="layout-status" aria-live="polite">
             {error
               ? "Błąd obliczenia"
               : calculating
