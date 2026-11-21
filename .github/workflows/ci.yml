@@ -28,8 +28,8 @@ jobs:
         with:
           node-version: '24'
       - run: uv sync --frozen --dev
-      - run: uv run ruff check server
-      - run: uv run ruff format --check server
+      - run: uv run ruff check server scripts/check_electrotile_run.py
+      - run: uv run ruff format --check server scripts/check_electrotile_run.py
       - name: Record Studio test scope and run Python regression tests
         run: |
           mkdir -p "$RUNNER_TEMP/studio-python-evidence"
@@ -42,7 +42,12 @@ jobs:
           from pathlib import Path
 
           evidence = Path(os.environ["RUNNER_TEMP"]) / "studio-python-evidence"
-          paths = ("uv.lock", "server/tests/test_geometry_regression.py")
+          paths = (
+              "uv.lock",
+              "scripts/check_electrotile_run.py",
+              "server/tests/test_electrotile_run.py",
+              "server/tests/test_geometry_regression.py",
+          )
           manifest = {
               "scope": "studio-fixture",
               "tested_commit": subprocess.check_output(["git", "rev-parse", "HEAD"], text=True).strip(),
