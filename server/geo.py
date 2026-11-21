@@ -3,10 +3,14 @@
 import asyncio
 import json
 import os
+from base64 import b64encode
 from collections import deque
 from datetime import UTC, datetime
+from hashlib import sha256
+from struct import unpack_from
 from time import monotonic
 from xml.etree import ElementTree
+from zlib import crc32
 
 import httpx
 from fastapi import APIRouter, HTTPException, Request
@@ -16,7 +20,7 @@ from shapely import Point, Polygon
 from shapely.errors import GEOSException
 from shapely.ops import unary_union
 
-from .geo_contracts import AddressPoint, AddressText, SceneSite
+from .geo_contracts import AddressPoint, AddressText, GridPoint, SceneSite
 from .models import StrictModel
 
 router = APIRouter(prefix="/api/geo")
@@ -36,6 +40,14 @@ BUILDING_SOURCE = {
     "rights_url": "https://www.dziennikustaw.gov.pl/D2026000138901.pdf",
     "retention": "selected_reference",
 }
+ORTHOPHOTO_SOURCE = {
+    "id": "gugik-orto-wms",
+    "name": "GUGiK · Ortofotomapa",
+    "url": "https://mapy.geoportal.gov.pl/wss/service/PZGIK/ORTO/WMS/StandardResolution",
+    "rights_url": "https://www.geoportal.gov.pl/pl/dane/ortofotomapa-orto/",
+    "retention": "dialog_only",
+    "kind": "orthophoto",
+}
 NS = {
     "wfs": "http://www.opengis.net/wfs/2.0",
     "gml": "http://www.opengis.net/gml/3.2",
@@ -44,6 +56,8 @@ NS = {
 MAX_FEATURES = 32
 MAX_BYTES = 512 * 1024
 RADIUS_M = 60
+IMAGE_SIZE_PX = 600
+MAX_IMAGE_BYTES = 1_500_000
 geo_requests: deque[float] = deque()
 geo_slots = asyncio.Semaphore(2)
 
@@ -58,10 +72,14 @@ def geography_enabled():
 
 @router.get("/sources")
 def sources():
-    return {"enabled": geography_enabled(), "crs": "EPSG:2180", "sources": [ADDRESS_SOURCE, BUILDING_SOURCE]}
+    return {
+        "enabled": geography_enabled(),
+        "crs": "EPSG:2180",
+        "sources": [ADDRESS_SOURCE, BUILDING_SOURCE, ORTHOPHOTO_SOURCE],
+    }
 
 
-async def read_source(request: Request, source: dict, params: dict) -> bytes:
+async def read_source(request: Request, source: dict, params: dict, *, max_bytes: int = MAX_BYTES) -> bytes:
     if not geography_enabled():
         raise HTTPException(503, "Wyszukiwanie w publicznych rejestrach jest wyłączone.")
     now = monotonic()
@@ -82,7 +100,7 @@ async def read_source(request: Request, source: dict, params: dict) -> bytes:
                 response.raise_for_status()
                 body = bytearray()
                 async for chunk in response.aiter_bytes():
-                    if len(body) + len(chunk) > MAX_BYTES:
+                    if len(body) + len(chunk) > max_bytes:
                         raise HTTPException(502, "Odpowiedź rejestru jest za duża.")
                     body.extend(chunk)
                 return bytes(body)
@@ -242,3 +260,64 @@ async def buildings(point: AddressPoint, request: Request):
         return parse_buildings(body, point, datetime.now(UTC))
     except (ElementTree.ParseError, KeyError, TypeError, ValueError) as exc:
         raise HTTPException(502, "Nie udało się odczytać obrysów budynków z EGiB.") from exc
+
+
+def valid_png(body: bytes) -> bool:
+    # Validate the bounded payload and dimensions before it is handed to the browser decoder.
+    if len(body) < 57 or body[:16] != b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR":
+        return False
+    if unpack_from(">II", body, 16) != (IMAGE_SIZE_PX, IMAGE_SIZE_PX):
+        return False
+    offset = 8
+    has_data = False
+    while offset + 12 <= len(body):
+        size, kind = unpack_from(">I4s", body, offset)
+        chunk_end = offset + 8 + size
+        if chunk_end + 4 > len(body):
+            return False
+        if crc32(body[offset + 4 : chunk_end]) != unpack_from(">I", body, chunk_end)[0]:
+            return False
+        if kind == b"IEND":
+            return has_data and size == 0 and chunk_end + 4 == len(body)
+        has_data |= kind == b"IDAT" and size > 0
+        offset = chunk_end + 4
+    return False
+
+
+@router.post("/orthophoto")
+async def orthophoto(point: GridPoint, request: Request):
+    west, east = point.easting_m - RADIUS_M, point.easting_m + RADIUS_M
+    south, north = point.northing_m - RADIUS_M, point.northing_m + RADIUS_M
+    # WMS 1.3.0 uses the formal northing/easting order of EPSG:2180.
+    body = await read_source(
+        request,
+        ORTHOPHOTO_SOURCE,
+        {
+            "SERVICE": "WMS",
+            "REQUEST": "GetMap",
+            "VERSION": "1.3.0",
+            "LAYERS": "Raster",
+            "STYLES": "",
+            "CRS": "EPSG:2180",
+            "BBOX": f"{south},{west},{north},{east}",
+            "WIDTH": IMAGE_SIZE_PX,
+            "HEIGHT": IMAGE_SIZE_PX,
+            "FORMAT": "image/png",
+            "EXCEPTIONS": "XML",
+            "TRANSPARENT": "TRUE",
+        },
+        max_bytes=MAX_IMAGE_BYTES,
+    )
+    if not valid_png(body):
+        raise HTTPException(502, "GUGiK zwrócił nieprawidłowy obraz ortofotomapy.")
+    return {
+        "source": ORTHOPHOTO_SOURCE,
+        "crs": "EPSG:2180",
+        "bounds_m": {"west": west, "south": south, "east": east, "north": north},
+        "width_px": IMAGE_SIZE_PX,
+        "height_px": IMAGE_SIZE_PX,
+        "grid_m_per_pixel": 2 * RADIUS_M / IMAGE_SIZE_PX,
+        "retrieved_at": datetime.now(UTC),
+        "sha256": sha256(body).hexdigest(),
+        "image_base64": b64encode(body).decode("ascii"),
+    }
