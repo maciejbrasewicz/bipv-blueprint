@@ -1,7 +1,6 @@
 import { expect, test } from "@playwright/test";
 import { readFile } from "node:fs/promises";
 import { randomBytes } from "node:crypto";
-import examplePlanes from "../src/example-planes.json";
 
 test("studio renders, edits, undoes, exports and imports", async ({ page }) => {
   const errors: string[] = [];
@@ -440,6 +439,12 @@ test("Scene v2 hole correction invalidates old results and undo restores provena
   // Synthetic source ID exercises the measured-data contract.
   const sourceId = "f945ff7a-6a3e-4848-a321-07f60530b25d";
   const origin = { latitude_deg: 53.43, longitude_deg: 14.55 };
+  const examplePlanes = JSON.parse(
+    await readFile(
+      new URL("../src/example-planes.json", import.meta.url),
+      "utf8",
+    ),
+  );
   const scene = {
     schema_version: "2.0.0",
     geometry: examplePlanes,
