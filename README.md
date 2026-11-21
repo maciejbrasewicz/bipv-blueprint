@@ -2,7 +2,7 @@
 
 **Live:** https://bipv-studio-production.up.railway.app
 
-[Quality gates](https://github.com/maciejbrasewicz/bipv-blueprint/actions/runs/44883788038) · [Production verification](https://github.com/maciejbrasewicz/bipv-blueprint/actions/runs/44891454000)
+[Quality gates](https://github.com/maciejbrasewicz/bipv-blueprint/actions/runs/44896489024) · [Production verification](https://github.com/maciejbrasewicz/bipv-blueprint/actions/runs/44913416525)
 
 BIPV design software for installers and planners. The current release includes roof and facade geometry, an interactive 3D editor, layout variants, exports and private revision history. See the roadmap for the address-to-offer workflow.
 
@@ -16,6 +16,7 @@ BIPV design software for installers and planners. The current release includes r
 
 ## Implemented
 
+- Polish address search and explicit building selection using GUGiK UUG and EGiB footprints. The confirmed reference is part of the project revision.
 - Named organization workspaces with private project history and an explicit guest-to-organization transfer.
 
 - Metric 2D plan and 3D editor with validated opening corrections, undo and versioned Scene v1/v2 project documents.

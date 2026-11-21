@@ -1,5 +1,13 @@
 # Release history
 
+## P09 · Polish address and building selection · 21 November 2026
+
+- [Application commit](https://github.com/maciejbrasewicz/bipv-blueprint/commit/8432f18e49f94c087881cceb03edc76b608d7d35) reached SUCCESS on Railway deployment `2f9399aa-5e67-4472-bd93-85b3a667e8ef`. The live health endpoint reported the same commit.
+- Choose an address from GUGiK UUG, then confirm an EGiB building on the footprint plan or in the list. Scene v2 saves the confirmed building reference and retrieval timestamp. The footprint overlay stays in the selection dialog. Measuring the actual roof shape and adding a georeferenced image are P11.
+- [Production verification](https://github.com/maciejbrasewicz/bipv-blueprint/actions/runs/44913416525) passed six Chromium journeys and one API scenario verifying a confirmed site in a new revision, previous v1 history, stale revision rejection and guest workspace isolation. The public Marki lookup returned one address candidate and 17 nearby footprints. A separate check for the public Stargard city hall address returned 16 footprints and a footprint containing the address point. The release SQL check found zero P09 test projects remaining.
+- [Quality gates](https://github.com/maciejbrasewicz/bipv-blueprint/actions/runs/44896489024) passed 57 Python tests, eight Chromium scenarios and the resource-limited container smoke. The Docker check sampled 58.33 MiB after a layout call. The local roof-test package was re-extracted and tested by CI.
+- The sources and project-save boundary are in [the P09 handoff](HANDOFF.md#p09--address-and-building-selection). GUGiK coverage and response times vary by address. The UI reports empty or partial results and times out a single lookup after 14 seconds.
+
 ## P08 · Scene v2 foundation acceptance · 21 November 2026
 
 - [Application commit](https://github.com/maciejbrasewicz/bipv-blueprint/commit/ff9f87fda0d8966d66284ed590a21eb03065d5f6) is live on Railway deployment `ac2779e7-f699-4bbc-a73e-879afd171ac6`. Railway reached SUCCESS and the production health endpoint reported the same commit. The deployment uses one replica with 250 MB RAM, 0.1 vCPU and sleep mode.
