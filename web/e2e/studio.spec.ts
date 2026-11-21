@@ -195,12 +195,30 @@ test("live cloud isolates guest workspaces and rejects stale revisions", async (
       (await request.get("/api/projects/" + id, { headers: ha })).status(),
     ).toBe(200);
     expect((await request.get("/api/projects")).status()).toBe(401);
+    const preservedEvidence = {
+      surface_id: "south",
+      status: "unverified",
+      source_asset_ids: ["ed31462d-3212-4c3c-b00b-ac396c1ade2f"],
+    };
+    const sceneV2 = {
+      schema_version: "2.0.0",
+      geometry: { name: "CI revision fixture" },
+      surface_evidence: [preservedEvidence],
+    };
     const updated = await request.patch("/api/projects/" + id, {
       headers: ha,
-      data: { scene: { name: "CI revision fixture" }, expected_revision: 1 },
+      data: { scene: sceneV2, expected_revision: 1 },
     });
     expect(updated.status()).toBe(200);
-    expect((await updated.json()).revision).toBe(2);
+    expect(await updated.json()).toMatchObject({
+      name: "CI revision fixture",
+      revision: 2,
+      scene: {
+        schema_version: "2.0.0",
+        geometry: { schema_version: "1.0.0", name: "CI revision fixture" },
+        surface_evidence: [preservedEvidence],
+      },
+    });
     expect(
       (
         await request.patch("/api/projects/" + id, {
@@ -216,11 +234,26 @@ test("live cloud isolates guest workspaces and rejects stale revisions", async (
     expect(revisions.map((r) => r.revision)).toEqual([2, 1]);
     const original = await request.get(historyPath + "/1", { headers: ha });
     expect(original.status()).toBe(200);
-    expect((await original.json()).scene.name).toBe("CI isolation fixture");
+    expect((await original.json()).scene).toMatchObject({
+      schema_version: "1.0.0",
+      name: "CI isolation fixture",
+    });
+    const latest = await request.get(historyPath + "/2", { headers: ha });
+    expect(latest.status()).toBe(200);
+    const saved = (await latest.json()).scene;
+    expect(saved).toMatchObject({
+      schema_version: "2.0.0",
+      surface_evidence: [preservedEvidence],
+    });
+    const computed = await request.post("/api/layout", {
+      data: saved.geometry,
+    });
+    expect(computed.status()).toBe(200);
+    expect((await computed.json()).variants[0].module_count).toBeGreaterThan(0);
     const foreignHistory = await request.get(historyPath, { headers: hb });
     expect((await foreignHistory.json()).revisions).toEqual([]);
     expect(
-      (await request.get(historyPath + "/1", { headers: hb })).status(),
+      (await request.get(historyPath + "/2", { headers: hb })).status(),
     ).toBe(404);
   } finally {
     if (id) {

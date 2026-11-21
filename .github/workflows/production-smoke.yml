@@ -44,15 +44,15 @@ jobs:
           print(json.dumps({"live_commit":expected,"cloud_configured":True,"status":"ok"}))
           PY
       - run: npm ci --prefix web --no-audit --no-fund
-      - name: Verify live cloud isolation before browser setup
+      - name: Verify live v1/v2 revisions and workspace isolation
         run: npx playwright test --grep "live cloud isolates"
         working-directory: web
       - name: Install only the headless browser
         timeout-minutes: 3
         run: npx playwright install --only-shell chromium
         working-directory: web
-      - name: Verify the live studio and UI save
-        run: npx playwright test --grep "studio renders"
+      - name: Verify the live studio, UI save and Scene v2 editing
+        run: npx playwright test --grep "studio renders|Scene v2 hole correction"
         working-directory: web
       - uses: actions/upload-artifact@v7.0.2
         if: always()
