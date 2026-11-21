@@ -7,6 +7,7 @@ import {
 } from "react";
 import { MapPin, Search, X } from "lucide-react";
 import { api } from "./api";
+import { ROOF_CONTOUR_METHOD, roofContour } from "./roofContour";
 import type { OrthophotoTrace, PointUV, SceneSite } from "./types";
 
 type AddressPoint = {
@@ -56,11 +57,63 @@ async function decodedOrthophoto(raster: Orthophoto) {
   canvas.height = image.naturalHeight;
   const context = canvas.getContext("2d");
   context?.drawImage(image, 0, 0);
-  const pixels = context?.getImageData(0, 0, canvas.width, canvas.height).data;
-  if (pixels && !pixels.some((alpha, i) => i % 4 === 3 && alpha > 0)) {
+  const pixels = context?.getImageData(0, 0, canvas.width, canvas.height);
+  if (pixels && !pixels.data.some((alpha, i) => i % 4 === 3 && alpha > 0)) {
     throw new Error("Brak pokrycia ortofotomapą w tym miejscu.");
   }
-  return image.src;
+  return { url: image.src, pixels };
+}
+
+function suggestOutline(
+  pixels: ImageData,
+  raster: Orthophoto,
+  address: AddressPoint,
+  building: Building,
+  click: PointUV,
+): PointUV[] {
+  const { west, east, north, south } = raster.bounds_m;
+  const sx = (east - west) / pixels.width;
+  const sy = (north - south) / pixels.height;
+  const leftEdge = west - address.easting_m;
+  const topEdge = north - address.northing_m;
+  const toPixel = ([e, n]: PointUV): PointUV => [
+    (e - leftEdge) / sx,
+    (topEdge - n) / sy,
+  ];
+  const vertices = building.rings_m.flat(2).map(toPixel);
+  const xs = vertices.map(([x]) => x);
+  const ys = vertices.map(([, y]) => y);
+  const padding = 8;
+  const proposal = roofContour(
+    pixels,
+    toPixel(click),
+    {
+      left: Math.min(...xs) - padding / sx,
+      right: Math.max(...xs) + padding / sx,
+      top: Math.min(...ys) - padding / sy,
+      bottom: Math.max(...ys) + padding / sy,
+    },
+    { areaPx: building.area_m2 / (sx * sy), maximumPx: 250 / (sx * sy) },
+  );
+  if ("reason" in proposal) {
+    if (proposal.reason === "no-data" || proposal.reason === "outside") {
+      throw new Error(
+        "Wskaż punkt na dachu wybranego budynku, w granicach obrazu.",
+      );
+    }
+    if (proposal.reason === "area-mismatch") {
+      throw new Error(
+        "Znaleziona powierzchnia znacznie odbiega od obrysu budynku. Sprawdź punkt lub obrysuj dach ręcznie.",
+      );
+    }
+    throw new Error(
+      "Nie znaleziono wyraźnego obrysu. Wskaż inny punkt dachu lub narysuj obrys ręcznie.",
+    );
+  }
+  return proposal.outline.map(([x, y]) => [
+    Math.round((leftEdge + x * sx) * 100) / 100,
+    Math.round((topEdge - y * sy) * 100) / 100,
+  ]);
 }
 
 function BuildingMap({
@@ -86,6 +139,7 @@ function BuildingMap({
   const [photo, setPhoto] = useState<{
     raster: Orthophoto;
     url: string;
+    pixels?: ImageData;
   } | null>(null);
   const [loading, setLoading] = useState(false);
   const [photoError, setPhotoError] = useState("");
@@ -96,6 +150,8 @@ function BuildingMap({
   const tracing = editing && traceBuilding === selected;
   const [outline, setOutline] = useState<PointUV[]>([]);
   const [correction, setCorrection] = useState<number | null>(null);
+  const [seeding, setSeeding] = useState(false);
+  const [suggested, setSuggested] = useState(false);
   const [height, setHeight] = useState("");
   const [traceError, setTraceError] = useState("");
   const [applying, setApplying] = useState(false);
@@ -109,6 +165,8 @@ function BuildingMap({
       setMeasuring(false);
       setEditing(false);
       setOutline([]);
+      setSeeding(false);
+      setSuggested(false);
       setCorrection(null);
       setMeasurement([]);
       return;
@@ -125,8 +183,8 @@ function BuildingMap({
         undefined,
         controller.signal,
       );
-      const url = await decodedOrthophoto(raster);
-      if (!controller.signal.aborted) setPhoto({ raster, url });
+      const decoded = await decodedOrthophoto(raster);
+      if (!controller.signal.aborted) setPhoto({ raster, ...decoded });
     } catch (error) {
       if (!controller.signal.aborted) setPhotoError((error as Error).message);
     } finally {
@@ -143,17 +201,36 @@ function BuildingMap({
     );
     if (Math.abs(x) > radius || Math.abs(y) > radius) return;
     if (tracing) {
-      const point: PointUV = [
+      if (seeding && photo?.pixels && selectedBuilding) {
+        setSeeding(false);
+        try {
+          setOutline(
+            suggestOutline(
+              photo.pixels,
+              photo.raster,
+              point,
+              selectedBuilding,
+              [x, -y],
+            ),
+          );
+          setSuggested(true);
+          setTraceError("");
+        } catch (error) {
+          setTraceError((error as Error).message);
+        }
+        return;
+      }
+      const vertex: PointUV = [
         Math.round(x * 10) / 10,
         Math.round(-y * 10) / 10,
       ];
       setOutline((points) =>
         correction === null
           ? points.length < 48
-            ? [...points, point]
+            ? [...points, vertex]
             : points
-          : points.map((vertex, index) =>
-              index === correction ? point : vertex,
+          : points.map((previous, index) =>
+              index === correction ? vertex : previous,
             ),
       );
       setCorrection(null);
@@ -165,9 +242,10 @@ function BuildingMap({
     );
   }
 
-  const selectedSite = buildings.find(
+  const selectedBuilding = buildings.find(
     ({ site }) => site.building_id === selected,
-  )?.site;
+  );
+  const selectedSite = selectedBuilding?.site;
   function startTrace() {
     setMeasuring(false);
     setMeasurement([]);
@@ -181,7 +259,9 @@ function BuildingMap({
         previousTrace.center.northing_m === point.northing_m;
       setOutline(matchingTrace ? previousTrace.outline_en_m : []);
       setHeight(matchingTrace ? String(previousTrace.roof_height_m) : "");
+      setSuggested(Boolean(matchingTrace && previousTrace.suggestion_method));
     }
+    setSeeding(false);
     setCorrection(null);
     setTraceError("");
     setApplying(false);
@@ -207,6 +287,7 @@ function BuildingMap({
           outline_en_m: outline,
           roof_height_m: Number(height),
           building_id: selectedSite.building_id,
+          suggestion_method: suggested ? ROOF_CONTOUR_METHOD : undefined,
         },
         controller.signal,
       );
@@ -414,10 +495,30 @@ function BuildingMap({
           onSubmit={(event) => void submitTrace(event)}
         >
           <p className="ortho-caption" role="status">
-            {correction === null
-              ? `Wskaż narożniki kolejno po obwodzie. Punkty: ${outline.length}/48.`
-              : `Wskaż nowe położenie punktu ${correction + 1}.`}
+            {seeding
+              ? "Wskaż punkt wewnątrz dachu na obrazie."
+              : correction === null
+                ? `Wskaż narożniki kolejno po obwodzie. Punkty: ${outline.length}/48.`
+                : `Wskaż nowe położenie punktu ${correction + 1}.`}
           </p>
+          {!outline.length && photo?.pixels && (
+            <button
+              type="button"
+              className="button"
+              aria-pressed={seeding}
+              onClick={() => {
+                setSeeding(!seeding);
+                setTraceError("");
+              }}
+            >
+              {seeding ? "Anuluj wskazywanie" : "Zaproponuj obrys"}
+            </button>
+          )}
+          {suggested && outline.length > 0 && (
+            <p className="ortho-caption">
+              Sprawdź i popraw zaproponowany obrys przed utworzeniem modelu.
+            </p>
+          )}
           <div className="location-map-controls">
             {outline.map(([e, n], index) => (
               <button
@@ -442,6 +543,7 @@ function BuildingMap({
               className="button"
               disabled={!outline.length || applying}
               onClick={() => {
+                if (outline.length === 1) setSuggested(false);
                 setOutline((points) =>
                   points.filter(
                     (_, index) => index !== (correction ?? points.length - 1),
@@ -459,6 +561,7 @@ function BuildingMap({
               disabled={applying}
               onClick={() => {
                 setEditing(false);
+                setSeeding(false);
                 setCorrection(null);
                 setTraceError("");
               }}

@@ -192,7 +192,7 @@ test("orthophoto retries, measures, corrects a trace and exports estimated geome
     ctx.fillStyle = "#6f8565";
     ctx.fillRect(0, 0, 600, 600);
     ctx.fillStyle = "#def4ca";
-    ctx.fillRect(310, 270, 24, 30);
+    ctx.fillRect(310, 270, 32, 30);
     return [blank, canvas.toDataURL("image/png").split(",")[1]];
   });
   let imageryRequests = 0;
@@ -337,4 +337,49 @@ test("orthophoto retries, measures, corrects a trace and exports estimated geome
   expect(second[0] - first[0]).toBeGreaterThan(11.5);
   expect(fourth[1] - first[1]).toBeGreaterThan(7.5);
   expect(third[0]).toBeGreaterThan(5.5);
+
+  await page.getByRole("button", { name: "Zmień lokalizację budynku" }).click();
+  await dialog.getByRole("button", { name: "Szukaj adresu" }).click();
+  await dialog.getByRole("button", { name: point.label }).click();
+  await selected.check();
+  // Use a fresh image ID for this assisted draft so reopening does not restore the manual trace.
+  await page.route("**/api/geo/orthophoto", (route) =>
+    route.fulfill({
+      json: {
+        bounds_m: { west: 674187, south: 483524, east: 674307, north: 483644 },
+        grid_m_per_pixel: 0.2,
+        width_px: 600,
+        height_px: 600,
+        sha256: "c".repeat(64),
+        retrieved_at: "2026-11-21T10:04:00Z",
+        image_base64: pixels[1],
+      },
+    }),
+  );
+  await imageButton.click();
+  await dialog.getByRole("button", { name: "Obrysuj dach" }).click();
+  const suggest = form.getByRole("button", { name: "Zaproponuj obrys" });
+  await suggest.click();
+  await draw(-4, -4);
+  await expect(form.getByRole("alert")).toContainText(
+    "Nie znaleziono wyraźnego obrysu",
+  );
+  await expect(svg.locator(".trace-vertex")).toHaveCount(0);
+  await suggest.click();
+  await draw(4, 3);
+  await expect(form.getByText(/Sprawdź i popraw/)).toBeVisible();
+  await expect(svg.locator(".trace-vertex")).toHaveCount(4);
+  await form.getByRole("button", { name: "Przesuń punkt 1" }).click();
+  await draw(2.5, 6);
+  await form.getByRole("spinbutton").fill("5");
+  const applied = page.waitForResponse((response) =>
+    response.url().endsWith("/scene/from-orthophoto"),
+  );
+  await submit.click();
+  const result = await applied;
+  expect(result.status()).toBe(200);
+  const updated = (await result.json()).surface_evidence[0];
+  expect(updated.orthophoto_trace.suggestion_method).toBe("seed-rgb-v1");
+  expect(updated.orthophoto_trace.outline_en_m[0][0]).toBeCloseTo(2.5, 0);
+  await expect(dialog).toBeHidden();
 });
