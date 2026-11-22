@@ -72,6 +72,23 @@ class SceneV2(StrictModel):
         return cls(schema_version="2.0.0", geometry=scene)
 
 
+class ModelExport(StrictModel):
+    scene: Scene | SceneV2
+    variant: Literal["landscape", "portrait"] | None = None
+
+    @property
+    def geometry(self) -> Scene:
+        return self.scene.geometry if isinstance(self.scene, SceneV2) else self.scene
+
+    @property
+    def footprint_surface_ids(self) -> set[str]:
+        if isinstance(self.scene, SceneV2):
+            return {
+                row.surface_id for row in self.scene.surface_evidence if row.egib_assumed_height_m is not None
+            }
+        return set()
+
+
 class SaveProject(StrictModel):
     scene: Scene | SceneV2
     expected_revision: int | None = Field(default=None, ge=1, le=1_000_000)

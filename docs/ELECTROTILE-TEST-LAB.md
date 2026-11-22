@@ -6,7 +6,13 @@ Podstawa to załącznik 2, s. 9–13 oraz warunki zdolności z zapytania, s. 3. 
 
 Górna nawigacja prowadzi do **Studia projektowego** oraz **Testów Electrotile** pod adresem `/testy`. Studio umożliwia samodzielne wskazanie adresu i budynku. Formularz osobno przyjmuje miejscowość oraz ulicę i numer, aby zapytanie miało format obsługiwany przez UUG. Użytkownik może wstawić przykładowy adres i wykonać rzeczywiste wyszukiwanie.
 
-Zakładka testów umożliwia uruchomienie czterech przygotowanych scenariuszy i pobranie raportu JSON. Wynik pokazuje źródło danych, czas, wersję środowiska, wartości oczekiwane i uzyskane rozbieżności. Scenariusz adresu używa działających usług GUGiK UUG i EGiB. PV i OBJ wykonują obliczenia Studio na zamrożonych danych testowych. Próba eTile ponownie ocenia dwie zapisane odpowiedzi kontrolne, w tym zapis z celowo wprowadzonymi usterkami. Przebieg odbiorczy Electrotile ma odrębny protokół i wymaga danych zamawiającego.
+Zakładka testów umożliwia uruchomienie pięciu scenariuszy i pobranie raportu JSON. Wynik pokazuje źródło danych, czas, wersję środowiska, wartości oczekiwane i uzyskane rozbieżności. Scenariusz adresu używa działających usług GUGiK UUG i EGiB. PV i OBJ wykonują obliczenia Studio na zamrożonych danych testowych. Próba eTile ponownie ocenia zapisane odpowiedzi z kontrolowanymi usterkami. Pod wynikami widoczne są osobne statusy czterech prób odbiorczych §E oraz brakujące wejścia do ich wykonania.
+
+### Retest eksportu ścian EGiB
+
+Usterkę z audytu odtworzono na publicznym Studio `b2613e70` przy użyciu zamrożonego syntetycznego obrysu z dziedzińcem. Eksport OBJ i GLB zawierał połać i moduły PV oraz zero trójkątów ścian. `tests/fixtures/electrotile-lab/footprint-export/baseline.json` przechowuje SHA wydania, wejścia oraz obu pobranych plików.
+
+Przycisk **Uruchom** w scenariuszu **Ściany budynku w OBJ i GLB** buduje scenę z tego samego wejścia, generuje oba pliki i odczytuje wierzchołki. Wzorzec przyjmuje cztery krawędzie obrysu i cztery krawędzie dziedzińca. Pokrycie każdej krawędzi wymaga dwóch trójkątów od lokalnego gruntu do założonych 6 m. Porównanie wykorzystuje współrzędne oryginalnego wejścia i skalę EPSG:2180 w południku centralnym. Raport zawiera wynik historyczny oraz wynik i SHA aktualnych eksportów. W dwóch próbach kontrolnych regresji osobno odtwarza się utratę metadanych w OBJ i GLB, sprawdzając, czy laboratorium zgłasza niezaliczony retest.
 
 ## Karty scenariuszy
 

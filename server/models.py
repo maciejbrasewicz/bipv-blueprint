@@ -118,8 +118,3 @@ class Scene(StrictModel):
         if area > MAX_LAYOUT_AREA_M2:
             raise ValueError("Limit demonstratora: 250 m² wybranych połaci")
         return self
-
-
-class ModelExport(StrictModel):
-    scene: Scene
-    variant: Literal["landscape", "portrait"] | None = None

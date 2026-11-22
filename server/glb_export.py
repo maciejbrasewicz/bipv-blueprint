@@ -6,8 +6,9 @@ from math import hypot
 from struct import Struct, pack
 
 from .geometry import compute
-from .model_export import rectangle, render_point, surface_faces
-from .models import ModelExport, Obstacle
+from .model_export import footprint_wall_faces, rectangle, render_point, surface_faces
+from .models import Obstacle
+from .product_contracts import ModelExport
 
 VEC3 = Struct("<3f")
 MATERIALS = {
@@ -146,13 +147,21 @@ class Glb:
 
 
 def export_glb(body: ModelExport) -> bytes:
-    result = compute(body.scene)
+    result = compute(body.geometry)
+    footprint_ids = body.footprint_surface_ids
     glb = Glb(result, body.variant)
     planes = {s["id"]: s for s in result["surfaces"]}
     for id_, plane in planes.items():
         triangles = (tuple(render_point(plane, u, v) for u, v in points) for points in surface_faces(plane))
         glb.add_mesh(f"surface_{id_}", plane["kind"], triangles, {"surfaceId": id_, "role": "surface"})
-    for obstacle in body.scene.obstacles:
+        if id_ in footprint_ids:
+            glb.add_mesh(
+                f"walls_{id_}",
+                "facade",
+                footprint_wall_faces(plane),
+                {"surfaceId": id_, "role": "estimated_footprint_walls"},
+            )
+    for obstacle in body.geometry.obstacles:
         glb.add_mesh(
             f"obstacle_{obstacle.id}",
             obstacle.kind,

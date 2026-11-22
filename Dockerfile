@@ -12,7 +12,8 @@ COPY requirements.txt ./
 RUN pip install --no-cache-dir -r requirements.txt && useradd --create-home --uid 10001 studio
 COPY --from=web /build/web/dist ./web/dist
 COPY server ./server
-COPY scripts/check_electrotile_run.py scripts/electrotile_checks.py scripts/electrotile_geometry.py scripts/electrotile_product.py scripts/electrotile_studio_adapter.py ./scripts/
+COPY scripts/check_electrotile_run.py scripts/electrotile_checks.py scripts/electrotile_footprint_export.py scripts/electrotile_geometry.py scripts/electrotile_product.py scripts/electrotile_studio_adapter.py ./scripts/
+COPY tests/fixtures/electrotile-lab/footprint-export ./tests/fixtures/electrotile-lab/footprint-export
 COPY tests/fixtures/electrotile-lab/studio-pv ./tests/fixtures/electrotile-lab/studio-pv
 COPY tests/fixtures/electrotile-lab/studio-geometry ./tests/fixtures/electrotile-lab/studio-geometry
 COPY tests/fixtures/electrotile-lab/product-replay ./tests/fixtures/electrotile-lab/product-replay
