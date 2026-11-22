@@ -9,6 +9,7 @@ import type {
   Obstacle,
   Placement,
   Scene,
+  SceneSite,
   Surface,
   Vec3,
   Variant,
@@ -25,10 +26,12 @@ function RoofSurface({
   s,
   active,
   wire,
+  footprint,
 }: {
   s: Surface;
   active: boolean;
   wire: boolean;
+  footprint: boolean;
 }) {
   const rings = useMemo(
     () =>
@@ -47,8 +50,41 @@ function RoofSurface({
     return mesh;
   }, [s, rings]);
   useEffect(() => () => geometry.dispose(), [geometry]);
+  const walls = useMemo(() => {
+    if (!footprint) return null;
+    const positions = [];
+    for (const ring of rings) {
+      for (let index = 0; index < ring.length; index++) {
+        const a = ring[index],
+          b = ring[(index + 1) % ring.length];
+        const topA = uv(s, a.x, a.y),
+          topB = uv(s, b.x, b.y);
+        const groundA = topA.clone().setY(0),
+          groundB = topB.clone().setY(0);
+        for (const point of [topA, groundA, topB, topB, groundA, groundB])
+          positions.push(point.x, point.y, point.z);
+      }
+    }
+    const mesh = new THREE.BufferGeometry();
+    mesh.setAttribute(
+      "position",
+      new THREE.Float32BufferAttribute(positions, 3),
+    );
+    mesh.computeVertexNormals();
+    return mesh;
+  }, [footprint, rings, s]);
+  useEffect(() => () => walls?.dispose(), [walls]);
   return (
     <group>
+      {walls && (
+        <mesh geometry={walls} castShadow receiveShadow>
+          <meshStandardMaterial
+            color="#c5c4b3"
+            roughness={0.9}
+            side={THREE.DoubleSide}
+          />
+        </mesh>
+      )}
       <mesh geometry={geometry} receiveShadow castShadow>
         <meshStandardMaterial
           color={active ? "#343d3c" : "#606a65"}
@@ -399,6 +435,8 @@ export type ViewProps = {
   onSelect: (id: string) => void;
   onPanel: (p: Placement) => void;
   sunMode: boolean;
+  site?: SceneSite;
+  footprintIds: string[];
 };
 function World(p: ViewProps) {
   const {
@@ -414,6 +452,8 @@ function World(p: ViewProps) {
     onSelect,
     onPanel,
     sunMode,
+    site,
+    footprintIds,
   } = p;
   const selectedSurface = result.surfaces.find(
     (surface) => surface.id === hole?.surfaceId,
@@ -430,10 +470,10 @@ function World(p: ViewProps) {
             (sunHour % 1 ? "30" : "00") +
             ":00+01:00",
         ),
-        53.4285,
-        14.5528,
+        site?.latitude_deg ?? 53.4285,
+        site?.longitude_deg ?? 14.5528,
       ),
-    [sunDate, sunHour],
+    [sunDate, sunHour, site],
   );
   const alt = solar.altitude;
   const sun: Vec3 = [
@@ -490,6 +530,7 @@ function World(p: ViewProps) {
           s={s}
           active={scene.surfaces.includes(s.id)}
           wire={showGrid}
+          footprint={footprintIds.includes(s.id)}
         />
       ))}
       {selectedSurface && ring && (

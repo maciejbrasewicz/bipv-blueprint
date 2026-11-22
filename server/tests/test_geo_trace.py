@@ -154,6 +154,47 @@ def test_seed_suggestion_method_survives_scene_round_trip(client):
     assert client.post("/api/scene/v2/validate", json=document).json() == document
 
 
+def test_two_egib_footprints_at_one_address_yield_different_models(client):
+    original = inputs()
+    original.pop("trace")
+    original["center"] = {"easting_m": 500000, "northing_m": 500000}
+    roof_areas = []
+    captures = []
+    for width in (8, 14):
+        body = {
+            **original,
+            "rings_m": [[[[-1, -6], [width - 1, -6], [width - 1, 6], [-1, 6], [-1, -6]]]],
+        }
+        response = client.post("/api/scene/from-footprint", json=body)
+        assert response.status_code == 200, response.text
+        document = response.json()
+        assert document["surface_evidence"][0]["egib_assumed_height_m"] == 6
+        assert document["surface_evidence"][0]["status"] == "estimated"
+        assert document["geometry"]["obstacles"] == []
+        geometry = document["geometry"]
+        assert client.post("/api/scene/v2/validate", json=document).json() == document
+        result = client.post("/api/layout", json=geometry).json()
+        roof_areas.append(result["variants"][0]["roof_area_m2"])
+        captures.append(client.post("/api/model.obj", json={"scene": geometry}).text)
+    assert roof_areas == pytest.approx([96, 168], rel=0.01)
+    assert captures[0] != captures[1]
+
+
+def test_large_egib_footprint_keeps_geometry_while_skipping_pv(client):
+    body = inputs()
+    body.pop("trace")
+    body["center"] = {"easting_m": 500000, "northing_m": 500000}
+    body["rings_m"] = [[[[-20, -10], [20, -10], [20, 10], [-20, 10], [-20, -10]]]]
+    response = client.post("/api/scene/from-footprint", json=body)
+    assert response.status_code == 200, response.text
+    geometry = response.json()["geometry"]
+    assert geometry["surfaces"] == []
+    layout = client.post("/api/layout", json=geometry).json()
+    assert layout["surfaces"][0]["width_m"] == pytest.approx(40, abs=0.1)
+    assert all(variant["module_count"] == 0 for variant in layout["variants"])
+    assert client.post("/api/layout", json={**geometry, "surfaces": ["egib-roof-1"]}).status_code == 422
+
+
 def with_gable(body, ridge=((-4, 0), (4, 0)), pitch=30):
     body["trace"]["gable"] = {"ridge_en_m": [list(p) for p in ridge], "pitch_deg": pitch}
     return body

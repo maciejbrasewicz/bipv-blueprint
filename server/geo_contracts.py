@@ -9,6 +9,7 @@ from .models import StrictModel
 AddressText = Annotated[str, StringConstraints(strip_whitespace=True, min_length=3, max_length=160)]
 BuildingId = Annotated[str, Field(pattern=r"^[\w./-]{1,96}$")]
 ORTHOPHOTO_RADIUS_M = 60
+MapRadius = Literal[60, 120, 240]
 TraceCoordinate = Annotated[float, Field(ge=-ORTHOPHOTO_RADIUS_M, le=ORTHOPHOTO_RADIUS_M)]
 
 

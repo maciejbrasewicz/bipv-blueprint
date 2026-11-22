@@ -11,7 +11,7 @@ from scripts.electrotile_geometry import GeometryEvidence, GeometryReference, ch
 from scripts.electrotile_product import ProductEvidence, ProductReference, check_product
 from scripts.electrotile_studio_adapter import checked_layout, geometry_evidence
 
-from .geo import AddressSearch, addresses, buildings
+from .geo import AddressSearch, BuildingSearch, addresses, buildings
 from .geo_contracts import AddressPoint
 from .geometry import compute
 from .model_export import export_obj
@@ -57,7 +57,7 @@ async def check_address(request: Request) -> list[dict]:
             compare("Punkt adresowy UUG", ADDRESS, point.label if point else [p.label for p in points])
         ]
         if isinstance(point, AddressPoint):
-            nearby = await buildings(point, request)
+            nearby = await buildings(BuildingSearch(**point.model_dump()), request)
             count = len(nearby["candidates"])
             results.append(compare("Obrysy EGiB w promieniu 60 m", "co najmniej 1", count, passed=count > 0))
         return results

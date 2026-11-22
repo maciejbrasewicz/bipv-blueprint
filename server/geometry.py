@@ -206,6 +206,10 @@ def _compute_cached(serialized_scene: str) -> dict:
         "Katalog demonstracyjny; parametry nie pochodzą od producenta.",
         "Moc STC jest sumą mocy modułów. Roczny uzysk i dobór elektryczny nie są wyliczane.",
     ]
+    if not selected:
+        warnings.insert(
+            0, "Podgląd geometrii. Wydziel powierzchnię w granicach limitu, aby obliczyć układ PV."
+        )
     for o in scene.obstacles:
         s = next(s for s in resolved if s["id"] == o.surface_id)
         if not surface_polygon(s).covers(box(o.u, o.v, o.u + o.width_m, o.v + o.depth_m)):

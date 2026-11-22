@@ -15,7 +15,7 @@ from starlette.middleware.gzip import GZipMiddleware
 from . import demo_lab
 from .cloud import CLOUD, db, project_access
 from .geo import router as geo_router
-from .geo_trace import TraceSceneInput, scene_from_orthophoto
+from .geo_trace import FootprintSceneInput, TraceSceneInput, scene_from_footprint, scene_from_orthophoto
 from .geometry import CATALOG, ENGINE_VERSION, compute
 from .glb_export import export_glb
 from .model_export import export_obj
@@ -144,6 +144,14 @@ def validate_scene_v2(scene: SceneV2):
 def trace_scene(body: TraceSceneInput):
     try:
         return scene_from_orthophoto(body)
+    except ValueError as exc:
+        raise HTTPException(422, str(exc)) from exc
+
+
+@app.post("/api/scene/from-footprint", response_model=SceneV2, response_model_exclude_none=True)
+def build_footprint_scene(body: FootprintSceneInput):
+    try:
+        return scene_from_footprint(body)
     except ValueError as exc:
         raise HTTPException(422, str(exc)) from exc
 

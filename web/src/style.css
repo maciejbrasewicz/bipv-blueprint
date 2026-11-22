@@ -2086,6 +2086,31 @@ p {
   margin: 0;
 }
 
+.location-area {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 14px;
+  margin-top: 14px;
+  font-size: 12px;
+}
+
+.location-area label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 650;
+}
+.location-area select,
+.location-demo-row select {
+  min-height: 32px;
+  padding: 3px 7px;
+  color: #253e30;
+  border: 1px solid #c1cec2;
+  border-radius: 5px;
+  background: #fff;
+}
+
 .portal-nav {
   display: flex;
   flex-shrink: 0;

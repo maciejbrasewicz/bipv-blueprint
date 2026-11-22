@@ -3,7 +3,7 @@ import { readFile } from "node:fs/promises";
 import { Box3 } from "three";
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
 
-test("location waits for address and building choices and saves only the selected reference", async ({
+test("location waits for address and building choices and creates the selected EGiB model", async ({
   page,
 }) => {
   const addresses = [
@@ -24,16 +24,16 @@ test("location waits for address and building choices and saves only the selecte
     {
       address: addresses[1].label,
       building_id: "FIXTURE_FIRST",
-      latitude_deg: 52.42,
-      longitude_deg: 20.18,
+      latitude_deg: 52.8063342,
+      longitude_deg: 20.4840025,
       source: "gugik-egib-wfs",
       retrieved_at: "2026-11-21T10:00:00Z",
     },
     {
       address: addresses[1].label,
       building_id: "FIXTURE_SECOND",
-      latitude_deg: 52.4204,
-      longitude_deg: 20.1804,
+      latitude_deg: 52.8063101,
+      longitude_deg: 20.485931,
       source: "gugik-egib-wfs",
       retrieved_at: "2026-11-21T10:00:00Z",
     },
@@ -50,27 +50,33 @@ test("location waits for address and building choices and saves only the selecte
   let footprintRequests = 0;
   await page.route("**/api/geo/buildings", (route) => {
     footprintRequests++;
-    expect(route.request().postDataJSON()).toEqual(addresses[1]);
+    const request = route.request().postDataJSON();
+    const radius = request.radius_m ?? 60;
+    expect(request).toEqual(
+      radius === 60 ? addresses[1] : { ...addresses[1], radius_m: 240 },
+    );
     return route.fulfill({
       json: {
-        radius_m: 60,
+        radius_m: radius,
         partial: true,
-        candidates: sites.map((site, index) => ({
-          site,
-          distance_m: index * 20,
-          area_m2: 48,
-          rings_m: [
-            [
+        candidates: sites
+          .slice(0, radius === 60 ? 1 : 2)
+          .map((site, index) => ({
+            site,
+            distance_m: index * 130,
+            area_m2: 48,
+            rings_m: [
               [
-                [index * 20, 0],
-                [8 + index * 20, 0],
-                [8 + index * 20, 6],
-                [index * 20, 6],
-                [index * 20, 0],
+                [
+                  [index * 130, 0],
+                  [8 + index * 130, 0],
+                  [8 + index * 130, 6],
+                  [index * 130, 6],
+                  [index * 130, 0],
+                ],
               ],
             ],
-          ],
-        })),
+          })),
       },
     });
   });
@@ -92,8 +98,12 @@ test("location waits for address and building choices and saves only the selecte
   const confirm = dialog.getByRole("button", { name: "Potwierdź budynek" });
   await expect(confirm).toBeDisabled();
   await expect(
-    dialog.getByText("Rejestr zwrócił ograniczony zestaw obrysów."),
+    dialog.getByText(/Rejestr zwrócił ograniczony zestaw obrysów/),
   ).toBeVisible();
+  await expect(dialog.getByRole("radio", { name: /Budynek 2/ })).toHaveCount(0);
+  await dialog
+    .getByRole("combobox", { name: "Zasięg mapy" })
+    .selectOption("240");
   await dialog.getByRole("radio", { name: /Budynek 2/ }).check();
   await expect(dialog.locator(".chosen-building")).toHaveCount(1);
   await confirm.click();
@@ -110,7 +120,12 @@ test("location waits for address and building choices and saves only the selecte
   );
   expect(data.scene.site).toEqual(sites[1]);
   expect(data.scene.geometry.schema_version).toBe("1.0.0");
-  expect(data.scene.geometry.custom_surfaces ?? null).toBeNull();
+  expect(data.scene.geometry.custom_surfaces[0].id).toBe("egib-roof-1");
+  expect(data.scene.geometry.custom_surfaces[0].origin).toEqual([0, 0, 6]);
+  expect(data.scene.surface_evidence[0]).toMatchObject({
+    status: "estimated",
+    egib_assumed_height_m: 6,
+  });
 });
 
 test("location lets the user retry provider failure and handles lack of coverage", async ({

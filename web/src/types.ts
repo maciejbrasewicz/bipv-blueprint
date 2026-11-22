@@ -76,6 +76,7 @@ export type SceneV2 = {
     status: "estimated" | "measured" | "unverified";
     source_asset_ids: string[];
     orthophoto_trace?: OrthophotoTrace | null;
+    egib_assumed_height_m?: number | null;
   }[];
 };
 export type SceneDocument = Scene | SceneV2;

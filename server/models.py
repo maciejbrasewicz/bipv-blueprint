@@ -4,6 +4,9 @@ from typing import Annotated, Literal
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 from shapely import Polygon
 
+MAX_LAYOUT_AREA_M2 = 250
+MAX_LAYOUT_BOUNDS_M2 = 600
+
 
 class StrictModel(BaseModel):
     model_config = ConfigDict(extra="forbid", allow_inf_nan=False)
@@ -75,7 +78,7 @@ class Scene(StrictModel):
     setback_m: float = Field(default=0.25, ge=0.05, le=1)
     gap_m: float = Field(default=0.015, ge=0.005, le=0.1)
     clearance_m: float = Field(default=0.2, ge=0, le=1)
-    surfaces: list[SurfaceId] = Field(default_factory=lambda: ["south"], min_length=1, max_length=6)
+    surfaces: list[SurfaceId] = Field(default_factory=lambda: ["south"], max_length=6)
     custom_surfaces: list[PlanarSurface] | None = Field(default=None, min_length=1, max_length=6)
 
     @model_validator(mode="after")
@@ -86,6 +89,8 @@ class Scene(StrictModel):
             raise ValueError("Surface IDs must be unique")
         available = {surface.id for surface in self.custom_surfaces or []}
         if self.custom_surfaces is None:
+            if not self.surfaces:
+                raise ValueError("Wybierz połać w modelu parametrycznym.")
             available = {"south", "north"}
         elif len(available) != len(self.custom_surfaces):
             raise ValueError("Identyfikatory powierzchni muszą być unikatowe")
@@ -108,9 +113,9 @@ class Scene(StrictModel):
                 area += polygon.area
                 x0, y0, x1, y1 = polygon.bounds
                 search_area += (x1 - x0) * (y1 - y0)
-            if search_area > 600:
+            if search_area > MAX_LAYOUT_BOUNDS_M2:
                 raise ValueError("Obszar przeszukiwania przekracza 600 m²")
-        if area > 250:
+        if area > MAX_LAYOUT_AREA_M2:
             raise ValueError("Limit demonstratora: 250 m² wybranych połaci")
         return self
 

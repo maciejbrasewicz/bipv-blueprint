@@ -27,6 +27,9 @@ class SurfaceEvidence(StrictModel):
     status: Literal["estimated", "measured", "unverified"]
     source_asset_ids: list[UUID] = Field(default_factory=list, max_length=8)
     orthophoto_trace: OrthophotoTrace | None = Field(default=None, exclude_if=lambda trace: trace is None)
+    egib_assumed_height_m: PositiveMeters | None = Field(
+        default=None, exclude_if=lambda height: height is None
+    )
 
     @model_validator(mode="after")
     def validate_sources(self) -> SurfaceEvidence:
@@ -36,6 +39,10 @@ class SurfaceEvidence(StrictModel):
             raise ValueError("Measured geometry requires a source asset")
         if self.status == "measured" and self.orthophoto_trace is not None:
             raise ValueError("Manual orthophoto trace does not qualify as measured geometry")
+        if self.egib_assumed_height_m is not None and (self.status == "measured" or self.orthophoto_trace):
+            raise ValueError(
+                "An assumed footprint height is separate from a measured surface or orthophoto trace"
+            )
         return self
 
 
@@ -54,6 +61,10 @@ class SceneV2(StrictModel):
         evidence_ids = [entry.surface_id for entry in self.surface_evidence]
         if len(set(evidence_ids)) != len(evidence_ids) or not set(evidence_ids) <= available:
             raise ValueError("Evidence must reference distinct surfaces in the geometry")
+        if self.site is None and any(
+            entry.egib_assumed_height_m is not None for entry in self.surface_evidence
+        ):
+            raise ValueError("EGiB footprint evidence requires a building reference")
         return self
 
     @classmethod
