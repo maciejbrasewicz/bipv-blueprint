@@ -84,6 +84,16 @@ def test_address_candidates_have_distinct_projected_points_and_no_cache(api_clie
     assert "selected" not in result.json()
 
 
+@pytest.mark.parametrize("kind", ["street", "city"])
+def test_uug_non_address_result_is_a_search_miss(api_client, monkeypatch, kind):
+    upstream_transport(
+        monkeypatch, lambda _: httpx.Response(200, json={"type": kind, "found objects": 0, "results": None})
+    )
+    response = api_client.post("/api/geo/addresses", json={"address": "Szczecińska 1, Stargard"})
+    assert response.status_code == 200
+    assert response.json() == {"candidates": []}
+
+
 def test_wfs_axes_sorting_reference_and_truncation(api_client, monkeypatch):
     marker = {**MARKER, "northing_m": 500002}
     far = FEATURE.format(crs=geo.CRS, west=500020, east=500026, id="TEST_FAR")
@@ -119,6 +129,24 @@ def test_wfs_axes_sorting_reference_and_truncation(api_client, monkeypatch):
     assert saved.status_code == 200
     assert saved.json()["site"] == first["site"]
     assert "rings_m" not in saved.json()["site"]
+
+
+def test_expanded_map_changes_provider_bounds_and_returns_distant_footprints(api_client, monkeypatch):
+    feature = FEATURE.format(crs=geo.CRS, west=500170, east=500184, id="DISTANT")
+
+    def handler(request):
+        assert request.url.params["bbox"] == f"499760.0,499760.0,500240.0,500240.0,{geo.CRS}"
+        assert request.url.params["count"] == str(geo.MAX_OVERVIEW_FEATURES)
+        return httpx.Response(200, text=feature_collection(feature))
+
+    upstream_transport(monkeypatch, handler)
+    result = api_client.post("/api/geo/buildings", json={**MARKER, "radius_m": 240})
+    assert result.status_code == 200
+    data = result.json()
+    assert data["radius_m"] == 240
+    assert data["candidates"][0]["site"]["building_id"] == "DISTANT"
+    assert data["candidates"][0]["distance_m"] > 160
+    assert api_client.post("/api/geo/buildings", json={**MARKER, "radius_m": 1000}).status_code == 422
 
 
 @pytest.mark.parametrize(

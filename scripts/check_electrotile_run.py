@@ -208,6 +208,17 @@ def timing(criterion: Criterion, duration: int | None) -> dict:
     }
 
 
+def pv_reference_errors(expected: PVReference, output: PVOutput) -> list[str]:
+    count = sum(output.modules_by_type.values())
+    errors = []
+    # Multiplication keeps the inclusive 20% boundary exact even for large counts.
+    if abs(count - expected.module_count) * 5 > expected.module_count:
+        errors.append("count_deviation_over_20_percent")
+    if set(output.modules_by_type) not in [set(types) for types in expected.accepted_type_sets]:
+        errors.append("pv_types_mismatch")
+    return errors
+
+
 def score_case(plan: TestPlan, row: CaseObservation | None, case_id: str) -> dict:
     result = {"case_id": case_id, "input_sha256": plan.inputs_sha256[case_id]}
     if row is None:
@@ -233,11 +244,7 @@ def score_case(plan: TestPlan, row: CaseObservation | None, case_id: str) -> dic
         expected = plan.references[case_id]
         count = sum(output.modules_by_type.values())
         deviation = abs(count - expected.module_count)
-        # Multiplication keeps the inclusive 20% boundary exact even for large counts.
-        if deviation * 5 > expected.module_count:
-            errors.append("count_deviation_over_20_percent")
-        if set(output.modules_by_type) not in [set(types) for types in expected.accepted_type_sets]:
-            errors.append("pv_types_mismatch")
+        errors.extend(pv_reference_errors(expected, output))
         result.update(
             reference_count=expected.module_count,
             module_count=count,

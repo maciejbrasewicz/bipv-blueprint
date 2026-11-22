@@ -443,7 +443,6 @@
             "type": "string"
           },
           "maxItems": 6,
-          "minItems": 1,
           "title": "Surfaces",
           "type": "array"
         },
@@ -589,6 +588,20 @@
             }
           ],
           "default": null
+        },
+        "egib_assumed_height_m": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "maximum": 40,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Egib Assumed Height M"
         }
       },
       "required": [

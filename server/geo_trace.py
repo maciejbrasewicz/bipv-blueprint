@@ -5,25 +5,114 @@ from typing import Annotated, Literal
 
 from pydantic import Field
 from pyproj import Geod, Transformer
-from shapely import LineString, Polygon
-from shapely.ops import split
+from shapely import LineString, Point, Polygon
+from shapely.ops import split, unary_union
 
 from .geo import TO_WGS84
-from .geo_contracts import ORTHOPHOTO_RADIUS_M, OrthophotoTrace, SceneSite
-from .models import PlanarSurface, Scene, StrictModel
+from .geo_contracts import ORTHOPHOTO_RADIUS_M, GridPoint, OrthophotoTrace, SceneSite
+from .models import MAX_LAYOUT_AREA_M2, MAX_LAYOUT_BOUNDS_M2, PlanarSurface, Scene, StrictModel
 from .product_contracts import SceneOrigin, SceneV2, SurfaceEvidence
 
 WGS84 = Geod(ellps="WGS84")
+TO_PL92 = Transformer.from_crs(4326, 2180, always_xy=True)
+EGIB_ASSUMED_HEIGHT_M = 6.0
+FootprintCoordinate = Annotated[float, Field(ge=-480, le=480)]
+FootprintRing = Annotated[
+    list[tuple[FootprintCoordinate, FootprintCoordinate]], Field(min_length=4, max_length=512)
+]
+FootprintPart = Annotated[list[FootprintRing], Field(min_length=1, max_length=5)]
 
 
-class TraceSceneInput(StrictModel):
+class LocatedSceneInput(StrictModel):
     site: SceneSite
-    trace: OrthophotoTrace
     name: str = Field(min_length=1, max_length=100)
     product_id: Literal["slate-75", "tile-32", "panel-120"]
     setback_m: Annotated[float, Field(ge=0.05, le=1)]
     gap_m: Annotated[float, Field(ge=0.005, le=0.1)]
     clearance_m: Annotated[float, Field(ge=0, le=1)]
+
+
+class TraceSceneInput(LocatedSceneInput):
+    trace: OrthophotoTrace
+
+
+class FootprintSceneInput(LocatedSceneInput):
+    center: GridPoint
+    rings_m: list[FootprintPart] = Field(min_length=1, max_length=6)
+
+
+def local_projection(lon: float, lat: float):
+    return Transformer.from_pipeline(
+        f"+proj=pipeline +step +proj=unitconvert +xy_in=deg +xy_out=rad "
+        f"+step +proj=cart +ellps=WGS84 "
+        f"+step +proj=topocentric +ellps=WGS84 +lon_0={lon} +lat_0={lat} +h_0=0"
+    )
+
+
+def scene_from_footprint(body: FootprintSceneInput) -> SceneV2:
+    parts = [Polygon(shell, holes) for shell, *holes in body.rings_m]
+    if any(not p.is_valid or p.area < 0.1 for p in parts):
+        raise ValueError("Obrys EGiB zawiera nieprawidłową geometrię.")
+    footprint = unary_union(parts)
+    x, y = body.center.easting_m, body.center.northing_m
+    sx, sy = TO_PL92.transform(body.site.longitude_deg, body.site.latitude_deg)
+    if footprint.distance(Point(sx - x, sy - y)) > 1:
+        raise ValueError("Obrys EGiB i punkt wybranego budynku nie odpowiadają sobie.")
+    west, south, east, north = footprint.bounds
+    if max(east - west, north - south) > 79:
+        raise ValueError("Obrys przekracza zasięg modelu 3D Studio: 79 m rozpiętości.")
+    lon, lat = TO_WGS84.transform(x + (west + east) / 2, y + (south + north) / 2)
+    projection = local_projection(lon, lat)
+
+    def ring_to_enu(ring):
+        coordinates = []
+        for de, dn in ring.coords[:-1]:
+            p_lon, p_lat = TO_WGS84.transform(x + de, y + dn)
+            u, v, _ = projection.transform(p_lon, p_lat, 0, errcheck=True)
+            coordinates.append((round(u, 6), round(v, 6)))
+        return coordinates
+
+    roofs = []
+    polygons = [footprint] if isinstance(footprint, Polygon) else footprint.geoms
+    for index, polygon in enumerate(sorted(polygons, key=lambda part: part.bounds), start=1):
+        polygon = polygon.simplify(0.05, preserve_topology=True)
+        roofs.append(
+            PlanarSurface(
+                id=f"egib-roof-{index}",
+                name=f"Obrys EGiB · część {index}",
+                kind="roof",
+                origin=(0, 0, EGIB_ASSUMED_HEIGHT_M),
+                u=(1, 0, 0),
+                v=(0, 1, 0),
+                boundary_uv_m=ring_to_enu(polygon.exterior),
+                holes_uv_m=[ring_to_enu(r) for r in polygon.interiors],
+            )
+        )
+    shapes = [roof.polygon() for roof in roofs]
+    area = sum(shape.area for shape in shapes)
+    bounds_area = sum((x1 - x0) * (y1 - y0) for x0, y0, x1, y1 in (shape.bounds for shape in shapes))
+    selected = (
+        [roof.id for roof in roofs]
+        if area <= MAX_LAYOUT_AREA_M2 and bounds_area <= MAX_LAYOUT_BOUNDS_M2
+        else []
+    )
+    scene = Scene(
+        **body.model_dump(exclude={"site", "center", "rings_m"}),
+        surfaces=selected,
+        custom_surfaces=roofs,
+    )
+    return SceneV2(
+        schema_version="2.0.0",
+        geometry=scene,
+        origin=SceneOrigin(latitude_deg=lat, longitude_deg=lon),
+        site=body.site,
+        surface_evidence=[
+            SurfaceEvidence(
+                surface_id=roof.id, status="estimated", egib_assumed_height_m=EGIB_ASSUMED_HEIGHT_M
+            )
+            for roof in roofs
+        ],
+    )
 
 
 def gable_surfaces(
@@ -95,11 +184,7 @@ def scene_from_orthophoto(body: TraceSceneInput) -> SceneV2:
     if selected_distance > 2 * hypot(ORTHOPHOTO_RADIUS_M, ORTHOPHOTO_RADIUS_M):
         raise ValueError("Obrys i wybrany budynek znajdują się w różnych obszarach.")
 
-    local = Transformer.from_pipeline(
-        f"+proj=pipeline +step +proj=unitconvert +xy_in=deg +xy_out=rad "
-        f"+step +proj=cart +ellps=WGS84 "
-        f"+step +proj=topocentric +ellps=WGS84 +lon_0={anchor_lon} +lat_0={anchor_lat} +h_0=0"
-    )
+    local = local_projection(anchor_lon, anchor_lat)
 
     def local_point(du: float, dv: float) -> tuple[float, float]:
         lon, lat = TO_WGS84.transform(x + du, y + dv)

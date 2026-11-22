@@ -20,7 +20,7 @@ from shapely import Point, Polygon
 from shapely.errors import GEOSException
 from shapely.ops import unary_union
 
-from .geo_contracts import ORTHOPHOTO_RADIUS_M, AddressPoint, AddressText, GridPoint, SceneSite
+from .geo_contracts import ORTHOPHOTO_RADIUS_M, AddressPoint, AddressText, GridPoint, MapRadius, SceneSite
 from .models import StrictModel
 
 router = APIRouter(prefix="/api/geo")
@@ -54,6 +54,7 @@ NS = {
     "ms": "http://mapserver.gis.umn.edu/mapserver",
 }
 MAX_FEATURES = 32
+MAX_OVERVIEW_FEATURES = 96
 MAX_BYTES = 512 * 1024
 RADIUS_M = ORTHOPHOTO_RADIUS_M
 IMAGE_SIZE_PX = 600
@@ -64,6 +65,14 @@ geo_slots = asyncio.Semaphore(2)
 
 class AddressSearch(StrictModel):
     address: AddressText
+
+
+class BuildingSearch(AddressPoint):
+    radius_m: MapRadius = RADIUS_M
+
+
+class OrthophotoWindow(GridPoint):
+    radius_m: MapRadius = RADIUS_M
 
 
 def geography_enabled():
@@ -112,6 +121,9 @@ async def read_source(request: Request, source: dict, params: dict, *, max_bytes
 
 def parse_address_points(body: bytes) -> list[AddressPoint]:
     data = json.loads(body)
+    # UUG also returns locality and street matches for incomplete addresses.
+    if data["type"] in ("city", "street") and type(data.get("found objects")) is int:
+        return []
     returned = data["returned objects"]
     if type(returned) is not int or returned < 0 or data["type"] != "address":
         raise ValueError("Unexpected address response")
@@ -155,7 +167,9 @@ def read_ring(element):
     return pairs
 
 
-def parse_buildings(body: bytes, point: AddressPoint, retrieved_at: datetime):
+def parse_buildings(
+    body: bytes, point: AddressPoint, retrieved_at: datetime, radius=RADIUS_M, limit=MAX_FEATURES
+):
     # Decode before parsing so declarations cannot hide behind a different XML encoding.
     xml = body.decode("utf-8-sig")
     if "<!DOCTYPE" in xml or "<!ENTITY" in xml:
@@ -164,9 +178,14 @@ def parse_buildings(body: bytes, point: AddressPoint, retrieved_at: datetime):
     if root.tag != "{http://www.opengis.net/wfs/2.0}FeatureCollection":
         raise ValueError("Unexpected WFS document")
     members = root.findall("wfs:member", NS)
-    if len(members) > MAX_FEATURES or int(root.attrib["numberReturned"]) != len(members):
+    if len(members) > limit or int(root.attrib["numberReturned"]) != len(members):
         raise ValueError("Unexpected feature count")
-    truncated = "next" in root.attrib or len(members) == MAX_FEATURES
+    matched = root.get("numberMatched", "unknown")
+    truncated = (
+        "next" in root.attrib
+        or len(members) == limit
+        or (matched.isdecimal() and int(matched) > len(members))
+    )
     origin = Point(point.easting_m, point.northing_m)
     candidates = []
     seen = set()
@@ -193,7 +212,7 @@ def parse_buildings(body: bytes, point: AddressPoint, retrieved_at: datetime):
                 raise ValueError("Missing building footprint")
             footprint = unary_union(parts)
             distance = footprint.distance(origin)
-            if distance > RADIUS_M:
+            if distance > radius:
                 continue
             anchor = footprint.representative_point()
             lon, lat = TO_WGS84.transform(anchor.x, anchor.y, errcheck=True)
@@ -221,7 +240,7 @@ def parse_buildings(body: bytes, point: AddressPoint, retrieved_at: datetime):
         raise ValueError("No usable footprints in provider response")
     candidates.sort(key=lambda item: (item[0], item[1].building_id))
     return {
-        "radius_m": RADIUS_M,
+        "radius_m": radius,
         "partial": bool(truncated or unavailable),
         "candidates": [
             {"site": site, "distance_m": round(distance, 1), "rings_m": rings, "area_m2": round(area, 1)}
@@ -240,9 +259,11 @@ async def addresses(query: AddressSearch, request: Request):
 
 
 @router.post("/buildings")
-async def buildings(point: AddressPoint, request: Request):
+async def buildings(point: BuildingSearch, request: Request):
     north, east = point.northing_m, point.easting_m
-    bbox = f"{north - RADIUS_M},{east - RADIUS_M},{north + RADIUS_M},{east + RADIUS_M},{CRS}"
+    radius = point.radius_m
+    limit = MAX_FEATURES if radius == RADIUS_M else MAX_OVERVIEW_FEATURES
+    bbox = f"{north - radius},{east - radius},{north + radius},{east + radius},{CRS}"
     body = await read_source(
         request,
         BUILDING_SOURCE,
@@ -251,13 +272,13 @@ async def buildings(point: AddressPoint, request: Request):
             "version": "2.0.0",
             "request": "GetFeature",
             "typeNames": "budynki",
-            "count": MAX_FEATURES,
+            "count": limit,
             "srsName": CRS,
             "bbox": bbox,
         },
     )
     try:
-        return parse_buildings(body, point, datetime.now(UTC))
+        return parse_buildings(body, point, datetime.now(UTC), radius, limit)
     except (ElementTree.ParseError, KeyError, TypeError, ValueError) as exc:
         raise HTTPException(502, "Nie udało się odczytać obrysów budynków z EGiB.") from exc
 
@@ -285,9 +306,10 @@ def valid_png(body: bytes) -> bool:
 
 
 @router.post("/orthophoto")
-async def orthophoto(point: GridPoint, request: Request):
-    west, east = point.easting_m - RADIUS_M, point.easting_m + RADIUS_M
-    south, north = point.northing_m - RADIUS_M, point.northing_m + RADIUS_M
+async def orthophoto(point: OrthophotoWindow, request: Request):
+    radius = point.radius_m
+    west, east = point.easting_m - radius, point.easting_m + radius
+    south, north = point.northing_m - radius, point.northing_m + radius
     # WMS 1.3.0 uses the formal northing/easting order of EPSG:2180.
     body = await read_source(
         request,
@@ -316,7 +338,7 @@ async def orthophoto(point: GridPoint, request: Request):
         "bounds_m": {"west": west, "south": south, "east": east, "north": north},
         "width_px": IMAGE_SIZE_PX,
         "height_px": IMAGE_SIZE_PX,
-        "grid_m_per_pixel": 2 * RADIUS_M / IMAGE_SIZE_PX,
+        "grid_m_per_pixel": 2 * radius / IMAGE_SIZE_PX,
         "retrieved_at": datetime.now(UTC),
         "sha256": sha256(body).hexdigest(),
         "image_base64": b64encode(body).decode("ascii"),

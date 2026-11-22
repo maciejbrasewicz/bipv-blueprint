@@ -1,0 +1,5 @@
+{
+  "scenario": "workflow",
+  "operation": "publish-order-book",
+  "slot_id": "fixture-slot"
+}

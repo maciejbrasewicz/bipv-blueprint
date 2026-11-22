@@ -12,9 +12,10 @@ from fastapi.staticfiles import StaticFiles
 from starlette.concurrency import run_in_threadpool
 from starlette.middleware.gzip import GZipMiddleware
 
+from . import demo_lab
 from .cloud import CLOUD, db, project_access
 from .geo import router as geo_router
-from .geo_trace import TraceSceneInput, scene_from_orthophoto
+from .geo_trace import FootprintSceneInput, TraceSceneInput, scene_from_footprint, scene_from_orthophoto
 from .geometry import CATALOG, ENGINE_VERSION, compute
 from .glb_export import export_glb
 from .model_export import export_obj
@@ -94,6 +95,35 @@ def catalog():
     return {"revision": "demo/1", "is_manufacturer_data": False, "products": CATALOG}
 
 
+@app.get("/api/demo/tests")
+def demo_tests():
+    return demo_lab.catalog()
+
+
+@app.post("/api/demo/tests/{test_id}")
+async def run_demo_test(test_id: str, request: Request):
+    if test_id not in demo_lab.TESTS:
+        raise HTTPException(404, "Nieznany scenariusz testowy.")
+    started = time.perf_counter()
+    if test_id == "address":
+        checks = await demo_lab.check_address(request)
+    else:
+        async with compute_slots:
+            checks = await (
+                run_in_threadpool(demo_lab.replay_product)
+                if test_id == "product"
+                else run_in_threadpool(demo_lab.check_studio, test_id)
+            )
+    return {
+        "id": test_id,
+        "source": demo_lab.TESTS[test_id][2],
+        "version": os.getenv("RAILWAY_GIT_COMMIT_SHA", "local"),
+        "elapsed_ms": round((time.perf_counter() - started) * 1000),
+        "passed": all(row["passed"] for row in checks),
+        "checks": checks,
+    }
+
+
 @app.post("/api/layout")
 async def layout(scene: Scene):
     async with compute_slots:
@@ -114,6 +144,14 @@ def validate_scene_v2(scene: SceneV2):
 def trace_scene(body: TraceSceneInput):
     try:
         return scene_from_orthophoto(body)
+    except ValueError as exc:
+        raise HTTPException(422, str(exc)) from exc
+
+
+@app.post("/api/scene/from-footprint", response_model=SceneV2, response_model_exclude_none=True)
+def build_footprint_scene(body: FootprintSceneInput):
+    try:
+        return scene_from_footprint(body)
     except ValueError as exc:
         raise HTTPException(422, str(exc)) from exc
 

@@ -1,0 +1,192 @@
+{
+  "version": 1,
+  "dataset_id": "studio-survey-geometry-v1",
+  "cases": [
+    {
+      "id": "survey-pitched-opening",
+      "criterion": "I-03-geometry",
+      "input_sha256": "5868bf5de343a58b9626aaefb2e1a21c7ccf4f1925103b67a620d92e8598f1d8",
+      "reference": {
+        "planes": {
+          "roof": {
+            "origin_enu_m": [
+              12,
+              -9,
+              3
+            ],
+            "u_enu": [
+              1,
+              0,
+              0
+            ],
+            "v_enu": [
+              0,
+              0.8,
+              0.6
+            ],
+            "outline_uv_m": [
+              [
+                0,
+                0
+              ],
+              [
+                3.2,
+                0
+              ],
+              [
+                3.2,
+                2.1
+              ],
+              [
+                0,
+                2.1
+              ]
+            ],
+            "openings_uv_m": [
+              [
+                [
+                  1.25,
+                  0.65
+                ],
+                [
+                  1.825,
+                  0.65
+                ],
+                [
+                  1.825,
+                  1.45
+                ],
+                [
+                  1.25,
+                  1.45
+                ]
+              ]
+            ],
+            "placement_uv_m": [
+              [
+                0.25,
+                0.25
+              ],
+              [
+                2.95,
+                0.25
+              ],
+              [
+                2.95,
+                1.85
+              ],
+              [
+                0.25,
+                1.85
+              ]
+            ],
+            "exclusions_uv_m": [
+              [
+                [
+                  1.0,
+                  0.4
+                ],
+                [
+                  2.075,
+                  0.4
+                ],
+                [
+                  2.075,
+                  1.7
+                ],
+                [
+                  1.0,
+                  1.7
+                ]
+              ]
+            ],
+            "module_count": 6
+          }
+        },
+        "position_tolerance_m": 1e-05,
+        "area_tolerance_m2": 0.0001,
+        "module_size_uv_m": [
+          0.6,
+          0.4
+        ],
+        "module_offset_m": 0.045,
+        "module_wp": 32,
+        "power_tolerance_kwp": 1e-06
+      }
+    },
+    {
+      "id": "survey-facade",
+      "criterion": "I-03-geometry",
+      "input_sha256": "e5934c7244511e188f92c3c6e91248f0c7ef789f7e4d866600efb1b6b7e50301",
+      "reference": {
+        "planes": {
+          "wall": {
+            "origin_enu_m": [
+              -6,
+              5,
+              2
+            ],
+            "u_enu": [
+              0,
+              -1,
+              0
+            ],
+            "v_enu": [
+              0,
+              0,
+              1
+            ],
+            "outline_uv_m": [
+              [
+                0,
+                0
+              ],
+              [
+                1.15,
+                0
+              ],
+              [
+                1.15,
+                1.34
+              ],
+              [
+                0,
+                1.34
+              ]
+            ],
+            "openings_uv_m": [],
+            "placement_uv_m": [
+              [
+                0.25,
+                0.25
+              ],
+              [
+                0.9,
+                0.25
+              ],
+              [
+                0.9,
+                1.09
+              ],
+              [
+                0.25,
+                1.09
+              ]
+            ],
+            "exclusions_uv_m": [],
+            "module_count": 2
+          }
+        },
+        "position_tolerance_m": 1e-05,
+        "area_tolerance_m2": 0.0001,
+        "module_size_uv_m": [
+          0.6,
+          0.4
+        ],
+        "module_offset_m": 0.045,
+        "module_wp": 32,
+        "power_tolerance_kwp": 1e-06
+      }
+    }
+  ]
+}

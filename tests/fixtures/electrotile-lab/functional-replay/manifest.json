@@ -1,0 +1,101 @@
+{
+  "version": 1,
+  "dataset_id": "synthetic-functional-replay-v1",
+  "cases": [
+    {
+      "id": "profiles-kerf",
+      "criterion": "II-01",
+      "input_sha256": "6883ee04931a0b764d196d067e24e278b92c74cf4a6170d4ab38ce6d5fa3df6b",
+      "reference": {
+        "profiles": {
+          "ALU": {
+            "stock_lengths_mm": [
+              6000
+            ],
+            "kerf_mm": 3,
+            "passes_per_piece": 1
+          }
+        },
+        "cuts": {
+          "cut-A": {
+            "id": "cut-A",
+            "profile": "ALU",
+            "length_mm": 3000,
+            "angle_a_mdeg": 0,
+            "angle_b_mdeg": 45000
+          },
+          "cut-B": {
+            "id": "cut-B",
+            "profile": "ALU",
+            "length_mm": 2500,
+            "angle_a_mdeg": 45000,
+            "angle_b_mdeg": 0
+          }
+        },
+        "bom": {
+          "ALU": 1,
+          "CLAMP": 4
+        }
+      }
+    },
+    {
+      "id": "pattern-unbuildable",
+      "criterion": "II-01-rejection",
+      "input_sha256": "e28ef8dc3b1bf2b206dfe2c5a4c4399a2219a1d0c9d0e1b2f28d325c82424f32",
+      "reference": {
+        "rejection_codes": [
+          "pattern_outside_range"
+        ]
+      }
+    },
+    {
+      "id": "wiring-route",
+      "criterion": "II-02",
+      "input_sha256": "77d98259ec081803edfe6cd6f2fe4d5798f4f7263b507c015b3ea5b2f70d41f3",
+      "reference": {
+        "segments": {
+          "edge-1": {
+            "start": "A",
+            "end": "B",
+            "length_mm": 2500
+          },
+          "edge-2": {
+            "start": "B",
+            "end": "C",
+            "length_mm": 3500
+          }
+        },
+        "wires": {
+          "wire-A": {
+            "start": "A",
+            "end": "C",
+            "cable_sku": "PV-CABLE",
+            "connector_start": "M",
+            "connector_end": "F",
+            "reserve_mm": 200,
+            "approved_routes": [
+              [
+                "edge-1",
+                "edge-2"
+              ]
+            ]
+          }
+        },
+        "length_tolerance_mm": 10
+      }
+    },
+    {
+      "id": "offer-audit-race",
+      "criterion": "III-01",
+      "input_sha256": "603d36f376ba10e2aad1530cfdb178ad83a94688c9f3d01811208b9e5b7f5b2b",
+      "reference": {
+        "published_offer_revision": "offer-r1",
+        "published_offer_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "amount_minor": 235400,
+        "currency": "PLN",
+        "replacement_media_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "slot_id": "fixture-slot"
+      }
+    }
+  ]
+}

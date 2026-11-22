@@ -23,6 +23,11 @@ type Building = {
   area_m2: number;
 };
 type Nearby = { radius_m: number; partial: boolean; candidates: Building[] };
+const SAMPLES = [
+  ["Stargard", "Szczecińska 1"],
+  ["Szczecin", "Księcia Bogusława X 1"],
+  ["Warszawa", "Marszałkowska 1"],
+] as const;
 type Orthophoto = {
   bounds_m: { west: number; south: number; east: number; north: number };
   width_px: number;
@@ -120,6 +125,7 @@ function BuildingMap({
   buildings,
   radius,
   point,
+  addressPoint,
   selected,
   onSelect,
   onTrace,
@@ -128,6 +134,7 @@ function BuildingMap({
   buildings: Building[];
   radius: number;
   point: AddressPoint;
+  addressPoint: AddressPoint;
   selected: string;
   onSelect: (id: string) => void;
   onTrace: ApplyTrace;
@@ -186,7 +193,11 @@ function BuildingMap({
       const raster = await api<Orthophoto>(
         "geo/orthophoto",
         "POST",
-        { easting_m: point.easting_m, northing_m: point.northing_m },
+        {
+          easting_m: point.easting_m,
+          northing_m: point.northing_m,
+          ...(radius === 60 ? {} : { radius_m: radius }),
+        },
         undefined,
         controller.signal,
       );
@@ -322,6 +333,8 @@ function BuildingMap({
   }
 
   const bounds = photo?.raster.bounds_m;
+  const addressX = addressPoint.easting_m - point.easting_m;
+  const addressY = point.northing_m - addressPoint.northing_m;
   return (
     <div className="location-map-panel">
       <div className="location-map-controls">
@@ -347,7 +360,7 @@ function BuildingMap({
             Zmierz odległość
           </button>
         )}
-        {photo && !tracing && (
+        {photo && !tracing && radius === 60 && (
           <button
             type="button"
             className="button"
@@ -433,8 +446,15 @@ function BuildingMap({
             </g>
           );
         })}
-        <circle r="2" fill="#a34e25" stroke="white" strokeWidth=".6" />
-        <text className="map-address" x="4" y="-1">
+        <circle
+          cx={addressX}
+          cy={addressY}
+          r="2"
+          fill="#a34e25"
+          stroke="white"
+          strokeWidth=".6"
+        />
+        <text className="map-address" x={addressX + 4} y={addressY - 1}>
           Adres
         </text>
         <text x={radius - 8} y={-radius + 8}>
@@ -726,14 +746,22 @@ export default function LocationDialog({
   current?: SceneSite;
   previousTrace?: OrthophotoTrace | null;
   onTrace: ApplyTrace;
-  onConfirm: (site: SceneSite) => void;
+  onConfirm: (
+    site: SceneSite,
+    center: AddressPoint,
+    rings: Building["rings_m"],
+    signal: AbortSignal,
+  ) => Promise<void>;
   onClose: () => void;
 }) {
   const dialog = useRef<HTMLDialogElement>(null);
   const activeRequest = useRef<AbortController | null>(null);
   const [enabled, setEnabled] = useState<boolean | null>(null);
-  const [query, setQuery] = useState(current?.address ?? "");
+  const previousAddress = current?.address.split(", ") ?? [];
+  const [city, setCity] = useState(previousAddress.slice(0, -1).join(", "));
+  const [street, setStreet] = useState(previousAddress.at(-1) ?? "");
   const [addresses, setAddresses] = useState<AddressPoint[] | null>(null);
+  const [addressPoint, setAddressPoint] = useState<AddressPoint | null>(null);
   const [point, setPoint] = useState<AddressPoint | null>(null);
   const [nearby, setNearby] = useState<Nearby | null>(null);
   const [selected, setSelected] = useState("");
@@ -787,28 +815,100 @@ export default function LocationDialog({
 
   async function search(event: FormEvent) {
     event.preventDefault();
+    const buildingNumber = /^\d+[a-z]?(?:[/-]\d+[a-z]?)?$/iu.test(
+      street.trim(),
+    );
+    const address = `${city.trim()}${buildingNumber ? " " : ", "}${street.trim()}`;
+    if (city.trim().length < 2 || !street.trim() || address.length > 160)
+      return;
     setAddresses(null);
     setPoint(null);
     setNearby(null);
     setSelected("");
     const result = await fetchCandidates<{ candidates: AddressPoint[] }>(
       "addresses",
-      { address: query.trim() },
+      { address },
     );
     if (result) setAddresses(result.candidates);
   }
 
-  async function chooseAddress(next: AddressPoint) {
+  async function lookupArea(
+    next: AddressPoint,
+    radius = 60,
+    keepSelected = "",
+  ) {
+    const result = await fetchCandidates<Nearby>(
+      "buildings",
+      radius === 60 ? next : { ...next, radius_m: radius },
+    );
+    if (!result) return;
     setPoint(next);
+    setNearby(result);
+    setSelected(
+      result.candidates.some(({ site }) => site.building_id === keepSelected)
+        ? keepSelected
+        : "",
+    );
+  }
+
+  async function chooseAddress(next: AddressPoint) {
+    setAddressPoint(next);
+    setPoint(null);
     setNearby(null);
     setSelected("");
-    const result = await fetchCandidates<Nearby>("buildings", next);
-    if (result) setNearby(result);
+    await lookupArea(next);
   }
 
   const building = nearby?.candidates.find(
     ({ site }) => site.building_id === selected,
   );
+
+  async function confirmBuilding() {
+    if (!point || !building || busy) return;
+    const controller = new AbortController();
+    activeRequest.current = controller;
+    setBusy("model");
+    setError("");
+    try {
+      await onConfirm(
+        building.site,
+        point,
+        building.rings_m,
+        controller.signal,
+      );
+    } catch (error) {
+      if (!controller.signal.aborted) setError((error as Error).message);
+    } finally {
+      if (!controller.signal.aborted) setBusy("");
+    }
+  }
+
+  function focusBuilding() {
+    if (!point || !building) return;
+    const ring = building.rings_m.flat(2);
+    const east = ring.map(([e]) => e);
+    const north = ring.map(([, n]) => n);
+    void lookupArea(
+      {
+        ...point,
+        easting_m:
+          point.easting_m + (Math.min(...east) + Math.max(...east)) / 2,
+        northing_m:
+          point.northing_m + (Math.min(...north) + Math.max(...north)) / 2,
+      },
+      60,
+      selected,
+    );
+  }
+
+  function clearSearch() {
+    setAddresses(null);
+    setAddressPoint(null);
+    setPoint(null);
+    setNearby(null);
+    setSelected("");
+    setError("");
+  }
 
   return (
     <dialog
@@ -829,34 +929,78 @@ export default function LocationDialog({
       </div>
       <form className="location-search" onSubmit={search}>
         <label>
-          Adres w Polsce
+          Miejscowość
           <input
             type="search"
-            placeholder="Miejscowość, ulica i numer"
+            autoComplete="address-level2"
+            placeholder="np. Stargard"
             required
-            minLength={3}
-            maxLength={160}
-            value={query}
+            minLength={2}
+            maxLength={70}
+            value={city}
             disabled={!!busy}
             onChange={(event) => {
-              setQuery(event.currentTarget.value);
-              setAddresses(null);
-              setPoint(null);
-              setNearby(null);
-              setSelected("");
-              setError("");
+              setCity(event.currentTarget.value);
+              clearSearch();
+            }}
+          />
+        </label>
+        <label>
+          Ulica i numer budynku
+          <input
+            type="search"
+            autoComplete="address-line1"
+            placeholder="np. Szczecińska 1"
+            required
+            maxLength={88}
+            value={street}
+            disabled={!!busy}
+            onChange={(event) => {
+              setStreet(event.currentTarget.value);
+              clearSearch();
             }}
           />
         </label>
         <button
           type="submit"
           className="button primary"
-          disabled={!enabled || !!busy || query.trim().length < 3}
+          disabled={
+            enabled === false ||
+            !!busy ||
+            city.trim().length < 2 ||
+            !street.trim()
+          }
         >
           <Search size={15} /> Szukaj adresu
         </button>
       </form>
-      <p>Adres wyszuka publiczna usługa GUGiK.</p>
+      <div className="location-demo-row">
+        <p>
+          Adresy z całej Polski. W miejscowości bez ulic wpisz sam numer
+          budynku.
+        </p>
+        <select
+          aria-label="Przykładowe okolice"
+          value=""
+          disabled={!!busy}
+          onChange={(event) => {
+            const sample = SAMPLES[Number(event.currentTarget.value)];
+            if (!sample) return;
+            clearSearch();
+            setCity(sample[0]);
+            setStreet(sample[1]);
+          }}
+        >
+          <option value="" disabled>
+            Przykładowe okolice
+          </option>
+          {SAMPLES.map(([town, address], index) => (
+            <option value={index} key={town}>
+              {town}, {address}
+            </option>
+          ))}
+        </select>
+      </div>
       {enabled === false && (
         <p className="info-note">
           Wyszukiwanie w publicznych rejestrach jest wyłączone.
@@ -864,7 +1008,11 @@ export default function LocationDialog({
       )}
       {busy && (
         <p aria-live="polite">
-          {busy === "addresses" ? "Szukam adresów…" : "Pobieram obrysy EGiB…"}
+          {busy === "addresses"
+            ? "Szukam adresów…"
+            : busy === "model"
+              ? "Tworzę model z obrysu EGiB…"
+              : "Pobieram obrysy EGiB…"}
         </p>
       )}
       {error && (
@@ -873,7 +1021,10 @@ export default function LocationDialog({
         </p>
       )}
       {addresses?.length === 0 && (
-        <p>Brak punktów adresowych. Doprecyzuj miejscowość, ulicę i numer.</p>
+        <p role="status">
+          Brak punktów adresowych w GUGiK. Sprawdź miejscowość, ulicę i numer
+          budynku.
+        </p>
       )}
       {!!addresses?.length && (
         <section aria-label="Wyniki adresów" className="address-results">
@@ -883,7 +1034,7 @@ export default function LocationDialog({
               className="location-option"
               key={index}
               type="button"
-              aria-pressed={address === point}
+              aria-pressed={address === addressPoint}
               disabled={!!busy}
               onClick={() => void chooseAddress(address)}
             >
@@ -901,13 +1052,54 @@ export default function LocationDialog({
           Brak obrysów EGiB w promieniu {nearby.radius_m} m od wybranego punktu.
         </p>
       )}
-      {point && !!nearby?.candidates.length && (
+      {point && addressPoint && nearby && (
+        <div className="location-area">
+          <label>
+            Zasięg mapy
+            <select
+              value={nearby.radius_m}
+              disabled={!!busy}
+              onChange={(e) =>
+                void lookupArea(
+                  addressPoint,
+                  Number(e.currentTarget.value),
+                  selected,
+                )
+              }
+            >
+              <option value={60}>120 × 120 m</option>
+              <option value={120}>240 × 240 m</option>
+              <option value={240}>480 × 480 m</option>
+            </select>
+          </label>
+          <span>{nearby.candidates.length} obrysów EGiB</span>
+          {building && (nearby.radius_m > 60 || point !== addressPoint) && (
+            <button
+              type="button"
+              className="button"
+              disabled={!!busy}
+              onClick={
+                nearby.radius_m > 60
+                  ? focusBuilding
+                  : () => void lookupArea(addressPoint, 240, selected)
+              }
+            >
+              {nearby.radius_m > 60
+                ? "Zbliż na wybrany budynek"
+                : "Wróć do okolicy adresu"}
+            </button>
+          )}
+        </div>
+      )}
+      {point && addressPoint && !!nearby?.candidates.length && (
         <>
           <div className="location-preview">
             <BuildingMap
+              key={`${point.easting_m}:${point.northing_m}:${nearby.radius_m}`}
               buildings={nearby.candidates}
               radius={nearby.radius_m}
               point={point}
+              addressPoint={addressPoint}
               selected={selected}
               onSelect={setSelected}
               onTrace={onTrace}
@@ -921,6 +1113,7 @@ export default function LocationDialog({
                     type="radio"
                     name="building"
                     checked={selected === site.building_id}
+                    disabled={!!busy}
                     onChange={() => setSelected(site.building_id)}
                   />
                   <span>
@@ -935,19 +1128,20 @@ export default function LocationDialog({
           </div>
           {nearby.partial && (
             <p className="info-note">
-              Rejestr zwrócił ograniczony zestaw obrysów.
+              Rejestr zwrócił ograniczony zestaw obrysów. Zmniejsz zasięg lub
+              wyszukaj bliższy adres.
             </p>
           )}
           <div className="location-confirm">
             <p>
-              GUGiK · UUG i EGiB. Wybór zapisuje lokalizację projektu. Geometrię
-              połaci ustalasz osobno.
+              Studio zastąpi bieżącą geometrię bryłą z obrysu EGiB. Na start
+              przyjmie 6 m wysokości i dach płaski.
             </p>
             <button
               type="button"
               className="button primary"
-              disabled={!building}
-              onClick={() => building && onConfirm(building.site)}
+              disabled={!building || !!busy}
+              onClick={() => void confirmBuilding()}
             >
               Potwierdź budynek
             </button>

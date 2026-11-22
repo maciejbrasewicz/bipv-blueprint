@@ -1,0 +1,51 @@
+{
+  "variant": "landscape",
+  "scene": {
+    "product_id": "tile-32",
+    "setback_m": 0.25,
+    "gap_m": 0.015,
+    "surfaces": [
+      "roof"
+    ],
+    "custom_surfaces": [
+      {
+        "id": "roof",
+        "name": "Fixture roof",
+        "kind": "roof",
+        "origin": [
+          0,
+          0,
+          3
+        ],
+        "u": [
+          1,
+          0,
+          0
+        ],
+        "v": [
+          0,
+          1,
+          0
+        ],
+        "boundary_uv_m": [
+          [
+            0,
+            0
+          ],
+          [
+            3.56,
+            0
+          ],
+          [
+            3.56,
+            2.145
+          ],
+          [
+            0,
+            2.145
+          ]
+        ]
+      }
+    ]
+  }
+}

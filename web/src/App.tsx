@@ -50,6 +50,7 @@ import AccountDialog from "./AccountDialog";
 import SurfacePlan from "./SurfacePlan";
 import HoleEditor from "./HoleEditor";
 import LocationDialog from "./LocationDialog";
+import PortalNav from "./PortalNav";
 import examplePlanes from "./example-planes.json";
 import {
   INITIAL,
@@ -311,7 +312,9 @@ function Studio({
     obstacle?.surface_id ?? hole?.surfaceId ?? planSurface;
   const activeSurfaceId =
     surfaceChoices.find((surface) => surface.id === requestedSurface)?.id ??
-    scene.surfaces[0];
+    scene.surfaces[0] ??
+    surfaceChoices[0].id;
+  const footprintPreview = scene.surfaces.length === 0;
   const inspectedSurface = scene.custom_surfaces?.find(
     (surface) => surface.id === activeSurfaceId,
   );
@@ -340,19 +343,60 @@ function Studio({
     setFuture([]);
     setDocument(next);
   }, []);
-  function confirmSite(site: SceneSite) {
-    const next: SceneV2 =
-      document.schema_version === "2.0.0"
-        ? { ...document, site }
-        : {
-            schema_version: "2.0.0",
-            geometry: document,
-            surface_evidence: [],
-            site,
-          };
+  function applyLocatedModel(next: SceneV2, notice: string) {
     changed(next);
+    setSelected(null);
+    setHole(null);
+    setPlanSurface(
+      next.geometry.surfaces[0] ??
+        next.geometry.custom_surfaces?.[0]?.id ??
+        null,
+    );
+    setMode("project");
     setLocationOpen(false);
-    setToast("Zapisano lokalizację budynku w projekcie.");
+    setToast(notice);
+  }
+  async function confirmSite(
+    chosenSite: SceneSite,
+    center: { easting_m: number; northing_m: number },
+    rings: PointUV[][][],
+    signal: AbortSignal,
+  ) {
+    const current = documentRef.current;
+    const { name, product_id, setback_m, gap_m, clearance_m } =
+      geometry(current);
+    const next = await api<SceneV2>(
+      "scene/from-footprint",
+      "POST",
+      {
+        name:
+          name === INITIAL.name ||
+          (current.schema_version === "2.0.0" && name === current.site?.address)
+            ? chosenSite.address.slice(0, 100)
+            : name,
+        product_id,
+        setback_m,
+        gap_m,
+        clearance_m,
+        site: chosenSite,
+        center: { easting_m: center.easting_m, northing_m: center.northing_m },
+        rings_m: rings,
+      },
+      undefined,
+      signal,
+    );
+    if (signal.aborted) return;
+    if (documentRef.current !== current)
+      throw new Error(
+        "Scena zmieniła się podczas tworzenia bryły. Wybierz budynek ponownie.",
+      );
+    if (!webglUnavailable) setView("orbit");
+    applyLocatedModel(
+      next,
+      next.geometry.surfaces.length
+        ? "Utworzono szacowaną bryłę z obrysu wybranego budynku EGiB."
+        : "Wyświetlono bryłę EGiB. Obrys przekracza limit obliczeń układu PV.",
+    );
   }
   async function applyOrthophotoTrace(
     chosenSite: SceneSite,
@@ -380,13 +424,8 @@ function Studio({
     if (signal.aborted) return;
     if (documentRef.current !== current)
       throw new Error("Scena zmieniła się podczas walidacji. Ponów edycję.");
-    changed(next);
-    setSelected(null);
-    setHole(null);
-    setPlanSurface(next.geometry.surfaces[0]);
-    setMode("project");
-    setLocationOpen(false);
-    setToast(
+    applyLocatedModel(
+      next,
       trace.gable
         ? "Utworzono szacowany dach dwuspadowy z obrysu."
         : "Utworzono szacowany dach płaski z obrysu.",
@@ -694,7 +733,7 @@ function Studio({
       return;
     }
     const id = kind + "-" + crypto.randomUUID().slice(0, 8);
-    const surfaceId = scene.surfaces[0];
+    const surfaceId = scene.surfaces[0] ?? activeSurfaceId;
     const exterior = scene.custom_surfaces?.find(
       (s) => s.id === surfaceId,
     )?.boundary_uv_m;
@@ -851,6 +890,7 @@ function Studio({
             : "Energia wpisana w architekturę.";
   return (
     <div className="studio">
+      <PortalNav current="studio" />
       <header className="header">
         <a className="brand" href="/" aria-label="Registry9 BIPV Studio">
           <span className="brand-icon">
@@ -1002,7 +1042,12 @@ function Studio({
                 : "Budynek mieszkalny"}
               <small>
                 {scene.custom_surfaces
-                  ? "Geometria z importu"
+                  ? document.schema_version === "2.0.0" &&
+                    document.surface_evidence.some(
+                      (item) => item.egib_assumed_height_m,
+                    )
+                    ? "Skala z obrysu EGiB"
+                    : "Geometria z importu"
                   : "Model parametryczny"}
               </small>
             </span>
@@ -1020,6 +1065,7 @@ function Studio({
                 <input
                   type="checkbox"
                   checked={scene.surfaces.includes(id)}
+                  disabled={footprintPreview}
                   onChange={(e) => {
                     if (!e.target.checked && scene.surfaces.length === 1) {
                       setToast("Wybierz co najmniej jedną powierzchnię.");
@@ -1044,6 +1090,12 @@ function Studio({
               </label>
             ))}
           </div>
+          {footprintPreview && (
+            <p className="info-note">
+              Podgląd obrysu. Aby policzyć PV, wydziel mniejszą część dachu na
+              ortofotomapie.
+            </p>
+          )}
           <div className="section-label">
             PRZESZKODY{" "}
             <button
@@ -1197,6 +1249,9 @@ function Studio({
                   Status geometrii <strong>{geometryStatus}</strong>
                   {provenance?.orthophoto_trace
                     ? " · obrys z ortofotomapy"
+                    : ""}
+                  {provenance?.egib_assumed_height_m
+                    ? ` · obrys EGiB · wysokość założona ${provenance.egib_assumed_height_m} m`
                     : ""}
                   {provenance?.source_asset_ids.length
                     ? ` · źródła: ${provenance.source_asset_ids.length}`
@@ -1371,7 +1426,7 @@ function Studio({
                 {webglUnavailable
                   ? "Podgląd 3D niedostępny · rzut i edycja są aktywne"
                   : mode === "sun"
-                    ? "Kierunek słońca i cień · Szczecin · CET"
+                    ? `Kierunek słońca i cień · ${site?.address ?? "Szczecin"} · CET`
                     : mode === "variants"
                       ? "Deterministyczne przeszukiwanie siatki modułów"
                       : mode === "quality"
@@ -1492,6 +1547,14 @@ function Studio({
                     sunHour={sunHour}
                     sunDate={sunDate}
                     sunMode={mode === "sun"}
+                    site={site}
+                    footprintIds={
+                      document.schema_version === "2.0.0"
+                        ? document.surface_evidence
+                            .filter((s) => s.egib_assumed_height_m)
+                            .map((s) => s.surface_id)
+                        : []
+                    }
                   />
                 </Suspense>
               </ViewportBoundary>
