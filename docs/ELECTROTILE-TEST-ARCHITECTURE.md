@@ -50,7 +50,8 @@ flowchart TB
 | Etap | Praca i warunek zamknięcia |
 |---|---|
 | A · gotowość przed startem | Wykonaj próbkę lokalnie na dostępnym API Studio i potwierdź czułość kontroli na celowo błędnych odpowiedziach. Zachowaj pierwszy wynik, wartości oczekiwane i rzeczywiste oraz retest tych samych przypadków. |
-| A · następna praca własna | Rozszerz niezależną ocenę I-01 i I-03 o eksport geometrii oraz odtworzenie obliczeń energii na zamrożonych danych. Przygotuj obserwację zdarzeń do pomiarów całej partii i pełnej oferty. |
+| A · geometria i moc STC | Uruchom niezależny odczyt OBJ i porównanie z zatwierdzoną geometrią oraz mocą modułów. Zweryfikuj czułość kontroli na dachu i fasadzie przez celową zmianę eksportu lub danych układu, a następnie wykonaj retest. Próby lokalne zakończone. |
+| A · kolejne prace własne | Przygotuj porównanie rocznego uzysku na identycznym pliku pogody i konfiguracji oraz obserwację zdarzeń do pomiaru pełnej partii i oferty. |
 | B · dni 1–2 od startu z klientem | Inwentaryzacja trzech modułów, pomiar bazowy w środowisku odbiorczym. Potwierdzenie danych satelitarnych i licencji, listy adresów, historycznych wycen, katalogu i pomiarów. Uzgodnienie kryteriów jakości, zdarzeń start/stop i reguły braków. Pierwsza próba importu oraz odczytu eksportu. |
 | C · dni 3–7 | Funkcjonalne i graniczne testy I–III oraz testy awarii i współbieżności. Najpierw ścieżki grożące przerwaniem projektu oraz błędnym materiałem, geometrią lub ofertą. Każdy błąd ma wejście, wynik oczekiwany i rzeczywisty, priorytet oraz test regresyjny. |
 | D · dni 8–11 | Naprawy, retesty na pierwotnych i sąsiednich przypadkach, pełne pomiary 10 adresów, wycen, kolejki 20 i oferty 6 h. Powtórzenie z przypiętym kodem, danymi i limitami, wraz z odchyleniami i nieudanymi próbami. |
@@ -58,6 +59,6 @@ flowchart TB
 
 ## 5. Stan wykonania
 
-Instrukcja laboratorium zawiera 17 procedur. Próba doboru PV na API Studio wykonała trzy przypadki ze zgodnym wynikiem. Próba na kontrolowanych danych wykazała dziewięć wprowadzonych rozbieżności i potwierdziła ich usunięcie w retescie. Automaty porównują obecnie I-02, listy cięć, BOM, trasy wiązek oraz stan mediów, ofert, zamówień i rezerwacji. Kryteria czasowe mają osobny protokół oceny.
+Instrukcja laboratorium zawiera 17 procedur. Na API Studio zgodnie ze wzorcami przeszły trzy przypadki doboru PV oraz dwie próby geometrii i mocy STC. Sześć celowych zmian w kopiach wyników geometrycznych zostało wykrytych. Retest na ponownie pobranych wynikach zamknął wszystkie wskazane rozbieżności. Próba materiałów i konfiguratora wykazała dziewięć wprowadzonych rozbieżności oraz potwierdziła ich usunięcie w retescie. Automaty porównują dobór PV, eksport geometrii, moc STC, listy cięć, BOM, trasy wiązek oraz stan mediów, ofert, zamówień i rezerwacji. Kryteria czasowe mają osobny protokół oceny.
 
 Prace B–E wymagają środowiska testowego Electrotile, dostępu do interfejsów i eksportów, danych referencyjnych oraz odpowiednich licencji. Wyniki odbiorcze oczekują na przebieg na wersji klienta i decyzję QA.

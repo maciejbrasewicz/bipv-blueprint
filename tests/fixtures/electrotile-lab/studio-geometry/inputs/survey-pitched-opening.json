@@ -1,0 +1,71 @@
+{
+  "scene": {
+    "product_id": "tile-32",
+    "setback_m": 0.25,
+    "gap_m": 0.015,
+    "surfaces": [
+      "roof"
+    ],
+    "custom_surfaces": [
+      {
+        "id": "roof",
+        "kind": "roof",
+        "name": "Analytical roof",
+        "origin": [
+          12,
+          -9,
+          3
+        ],
+        "u": [
+          1,
+          0,
+          0
+        ],
+        "v": [
+          0,
+          0.8,
+          0.6
+        ],
+        "boundary_uv_m": [
+          [
+            0,
+            0
+          ],
+          [
+            3.2,
+            0
+          ],
+          [
+            3.2,
+            2.1
+          ],
+          [
+            0,
+            2.1
+          ]
+        ],
+        "holes_uv_m": [
+          [
+            [
+              1.25,
+              0.65
+            ],
+            [
+              1.825,
+              0.65
+            ],
+            [
+              1.825,
+              1.45
+            ],
+            [
+              1.25,
+              1.45
+            ]
+          ]
+        ]
+      }
+    ]
+  },
+  "variant": "landscape"
+}

@@ -38,6 +38,7 @@ from .electrotile_checks import (
     check_materials,
     check_workflow,
 )
+from .electrotile_geometry import GeometryEvidence, GeometryReference, check_geometry
 
 Scope = Literal["studio-fixture", "replay", "client-live"]
 
@@ -50,6 +51,11 @@ class Scenario(Record):
 class PVCase(Scenario):
     criterion: Literal["I-02"]
     reference: PVReference
+
+
+class GeometryCase(Scenario):
+    criterion: Literal["I-03-geometry"]
+    reference: GeometryReference
 
 
 class MaterialsCase(Scenario):
@@ -73,7 +79,8 @@ class RejectionCase(Scenario):
 
 
 Case = Annotated[
-    PVCase | MaterialsCase | HarnessCase | WorkflowCase | RejectionCase, Field(discriminator="criterion")
+    PVCase | GeometryCase | MaterialsCase | HarnessCase | WorkflowCase | RejectionCase,
+    Field(discriminator="criterion"),
 ]
 
 
@@ -158,6 +165,7 @@ def observation_defects(case: Case, observation: Observation, artifact_dir: Path
     if digest(raw) != observation.output_sha256:
         return failure("artifact_digest_mismatch", observation.output_sha256, digest(raw))
     methods = {
+        "I-03-geometry": (GeometryEvidence, check_geometry),
         "II-01": (MaterialsObserved, check_materials),
         "II-02": (HarnessObserved, check_harness),
         "III-01": (WorkflowObserved, check_workflow),

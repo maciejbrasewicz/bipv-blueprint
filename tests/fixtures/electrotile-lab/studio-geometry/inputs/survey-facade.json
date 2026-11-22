@@ -1,0 +1,52 @@
+{
+  "scene": {
+    "product_id": "tile-32",
+    "setback_m": 0.25,
+    "gap_m": 0.015,
+    "surfaces": [
+      "wall"
+    ],
+    "custom_surfaces": [
+      {
+        "id": "wall",
+        "kind": "facade",
+        "name": "Analytical facade",
+        "origin": [
+          -6,
+          5,
+          2
+        ],
+        "u": [
+          0,
+          -1,
+          0
+        ],
+        "v": [
+          0,
+          0,
+          1
+        ],
+        "boundary_uv_m": [
+          [
+            0,
+            0
+          ],
+          [
+            1.15,
+            0
+          ],
+          [
+            1.15,
+            1.34
+          ],
+          [
+            0,
+            1.34
+          ]
+        ],
+        "holes_uv_m": []
+      }
+    ]
+  },
+  "variant": "landscape"
+}
