@@ -38,6 +38,25 @@ test("location waits for address and building choices and creates the selected E
       retrieved_at: "2026-11-21T10:00:00Z",
     },
   ];
+  const candidates = sites.map((site, index) => {
+    const east = index * 130;
+    return {
+      site,
+      distance_m: east,
+      area_m2: 48,
+      rings_m: [
+        [
+          [
+            [east, 0],
+            [east + 8, 0],
+            [east + 8, 6],
+            [east, 6],
+            [east, 0],
+          ],
+        ],
+      ],
+    };
+  });
   await page.route("**/api/geo/sources", (route) =>
     route.fulfill({ json: { enabled: true } }),
   );
@@ -53,30 +72,22 @@ test("location waits for address and building choices and creates the selected E
     const request = route.request().postDataJSON();
     const radius = request.radius_m ?? 60;
     expect(request).toEqual(
-      radius === 60 ? addresses[1] : { ...addresses[1], radius_m: 240 },
+      radius === 60 ? addresses[1] : { ...addresses[1], radius_m: radius },
     );
+    // The provider can omit every nearby outline when a larger window hits its limit.
+    const candidatesByRadius: Record<number, typeof candidates> = {
+      60: [candidates[0]],
+      120: [],
+      240:
+        footprintRequests < 5
+          ? [candidates[1]]
+          : [candidates[1], { ...candidates[0], area_m2: 50 }],
+    };
     return route.fulfill({
       json: {
         radius_m: radius,
-        partial: true,
-        candidates: sites
-          .slice(0, radius === 60 ? 1 : 2)
-          .map((site, index) => ({
-            site,
-            distance_m: index * 130,
-            area_m2: 48,
-            rings_m: [
-              [
-                [
-                  [index * 130, 0],
-                  [8 + index * 130, 0],
-                  [8 + index * 130, 6],
-                  [index * 130, 6],
-                  [index * 130, 0],
-                ],
-              ],
-            ],
-          })),
+        partial: radius !== 60,
+        candidates: candidatesByRadius[radius],
       },
     });
   });
@@ -97,14 +108,30 @@ test("location waits for address and building choices and creates the selected E
   await second.click();
   const confirm = dialog.getByRole("button", { name: "Potwierdź budynek" });
   await expect(confirm).toBeDisabled();
+  const narrowBuilding = dialog.getByRole("radio", { name: /FIXTURE_FIRST/ });
+  const wideBuilding = dialog.getByRole("radio", { name: /FIXTURE_SECOND/ });
+  const range = dialog.getByRole("combobox", { name: "Zasięg mapy" });
+  await expect(wideBuilding).toHaveCount(0);
+  await narrowBuilding.check();
+  await range.selectOption("120");
+  await expect(range).toHaveValue("120");
   await expect(
     dialog.getByText(/Rejestr zwrócił ograniczony zestaw obrysów/),
   ).toBeVisible();
-  await expect(dialog.getByRole("radio", { name: /Budynek 2/ })).toHaveCount(0);
-  await dialog
-    .getByRole("combobox", { name: "Zasięg mapy" })
-    .selectOption("240");
-  await dialog.getByRole("radio", { name: /Budynek 2/ }).check();
+  await expect(narrowBuilding).toBeChecked();
+  await range.selectOption("240");
+  await expect(wideBuilding).toBeVisible();
+  await expect(narrowBuilding).toBeChecked();
+  await wideBuilding.check();
+  await range.selectOption("60");
+  await expect(range).toHaveValue("60");
+  await expect(wideBuilding).toHaveCount(0);
+  await expect(confirm).toBeDisabled();
+  await range.selectOption("240");
+  await wideBuilding.check();
+  await expect(narrowBuilding).toHaveCount(1);
+  await expect(narrowBuilding).toHaveAccessibleName(/50 m²/);
+  expect(footprintRequests).toBe(5);
   await expect(dialog.locator(".chosen-building")).toHaveCount(1);
   await confirm.click();
   await expect(dialog).toBeHidden();
