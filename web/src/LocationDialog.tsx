@@ -732,7 +732,9 @@ export default function LocationDialog({
   const dialog = useRef<HTMLDialogElement>(null);
   const activeRequest = useRef<AbortController | null>(null);
   const [enabled, setEnabled] = useState<boolean | null>(null);
-  const [query, setQuery] = useState(current?.address ?? "");
+  const previousAddress = current?.address.split(", ") ?? [];
+  const [city, setCity] = useState(previousAddress.slice(0, -1).join(", "));
+  const [street, setStreet] = useState(previousAddress.at(-1) ?? "");
   const [addresses, setAddresses] = useState<AddressPoint[] | null>(null);
   const [point, setPoint] = useState<AddressPoint | null>(null);
   const [nearby, setNearby] = useState<Nearby | null>(null);
@@ -787,13 +789,19 @@ export default function LocationDialog({
 
   async function search(event: FormEvent) {
     event.preventDefault();
+    const buildingNumber = /^\d+[a-z]?(?:[/-]\d+[a-z]?)?$/iu.test(
+      street.trim(),
+    );
+    const address = `${city.trim()}${buildingNumber ? " " : ", "}${street.trim()}`;
+    if (city.trim().length < 2 || !street.trim() || address.length > 160)
+      return;
     setAddresses(null);
     setPoint(null);
     setNearby(null);
     setSelected("");
     const result = await fetchCandidates<{ candidates: AddressPoint[] }>(
       "addresses",
-      { address: query.trim() },
+      { address },
     );
     if (result) setAddresses(result.candidates);
   }
@@ -809,6 +817,14 @@ export default function LocationDialog({
   const building = nearby?.candidates.find(
     ({ site }) => site.building_id === selected,
   );
+
+  function clearSearch() {
+    setAddresses(null);
+    setPoint(null);
+    setNearby(null);
+    setSelected("");
+    setError("");
+  }
 
   return (
     <dialog
@@ -829,34 +845,66 @@ export default function LocationDialog({
       </div>
       <form className="location-search" onSubmit={search}>
         <label>
-          Adres w Polsce
+          Miejscowość
           <input
             type="search"
-            placeholder="Miejscowość, ulica i numer"
+            autoComplete="address-level2"
+            placeholder="np. Stargard"
             required
-            minLength={3}
-            maxLength={160}
-            value={query}
+            minLength={2}
+            maxLength={70}
+            value={city}
             disabled={!!busy}
             onChange={(event) => {
-              setQuery(event.currentTarget.value);
-              setAddresses(null);
-              setPoint(null);
-              setNearby(null);
-              setSelected("");
-              setError("");
+              setCity(event.currentTarget.value);
+              clearSearch();
+            }}
+          />
+        </label>
+        <label>
+          Ulica i numer budynku
+          <input
+            type="search"
+            autoComplete="address-line1"
+            placeholder="np. Szczecińska 1"
+            required
+            maxLength={88}
+            value={street}
+            disabled={!!busy}
+            onChange={(event) => {
+              setStreet(event.currentTarget.value);
+              clearSearch();
             }}
           />
         </label>
         <button
           type="submit"
           className="button primary"
-          disabled={!enabled || !!busy || query.trim().length < 3}
+          disabled={
+            enabled === false ||
+            !!busy ||
+            city.trim().length < 2 ||
+            !street.trim()
+          }
         >
           <Search size={15} /> Szukaj adresu
         </button>
       </form>
-      <p>Adres wyszuka publiczna usługa GUGiK.</p>
+      <div className="location-demo-row">
+        <p>Dla miejscowości bez ulic wpisz sam numer budynku.</p>
+        <button
+          className="button subtle"
+          type="button"
+          disabled={!!busy}
+          onClick={() => {
+            clearSearch();
+            setCity("Stargard");
+            setStreet("Szczecińska 1");
+          }}
+        >
+          Wstaw adres demonstracyjny
+        </button>
+      </div>
       {enabled === false && (
         <p className="info-note">
           Wyszukiwanie w publicznych rejestrach jest wyłączone.
@@ -873,7 +921,10 @@ export default function LocationDialog({
         </p>
       )}
       {addresses?.length === 0 && (
-        <p>Brak punktów adresowych. Doprecyzuj miejscowość, ulicę i numer.</p>
+        <p role="status">
+          Brak punktów adresowych w GUGiK. Sprawdź miejscowość, ulicę i numer
+          budynku.
+        </p>
       )}
       {!!addresses?.length && (
         <section aria-label="Wyniki adresów" className="address-results">

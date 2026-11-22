@@ -12,6 +12,7 @@ from fastapi.staticfiles import StaticFiles
 from starlette.concurrency import run_in_threadpool
 from starlette.middleware.gzip import GZipMiddleware
 
+from . import demo_lab
 from .cloud import CLOUD, db, project_access
 from .geo import router as geo_router
 from .geo_trace import TraceSceneInput, scene_from_orthophoto
@@ -92,6 +93,35 @@ def health():
 @app.get("/api/catalog")
 def catalog():
     return {"revision": "demo/1", "is_manufacturer_data": False, "products": CATALOG}
+
+
+@app.get("/api/demo/tests")
+def demo_tests():
+    return demo_lab.catalog()
+
+
+@app.post("/api/demo/tests/{test_id}")
+async def run_demo_test(test_id: str, request: Request):
+    if test_id not in demo_lab.TESTS:
+        raise HTTPException(404, "Nieznany scenariusz testowy.")
+    started = time.perf_counter()
+    if test_id == "address":
+        checks = await demo_lab.check_address(request)
+    else:
+        async with compute_slots:
+            checks = await (
+                run_in_threadpool(demo_lab.replay_product)
+                if test_id == "product"
+                else run_in_threadpool(demo_lab.check_studio, test_id)
+            )
+    return {
+        "id": test_id,
+        "source": demo_lab.TESTS[test_id][2],
+        "version": os.getenv("RAILWAY_GIT_COMMIT_SHA", "local"),
+        "elapsed_ms": round((time.perf_counter() - started) * 1000),
+        "passed": all(row["passed"] for row in checks),
+        "checks": checks,
+    }
 
 
 @app.post("/api/layout")

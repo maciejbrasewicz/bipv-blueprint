@@ -84,6 +84,16 @@ def test_address_candidates_have_distinct_projected_points_and_no_cache(api_clie
     assert "selected" not in result.json()
 
 
+@pytest.mark.parametrize("kind", ["street", "city"])
+def test_uug_non_address_result_is_a_search_miss(api_client, monkeypatch, kind):
+    upstream_transport(
+        monkeypatch, lambda _: httpx.Response(200, json={"type": kind, "found objects": 0, "results": None})
+    )
+    response = api_client.post("/api/geo/addresses", json={"address": "Szczecińska 1, Stargard"})
+    assert response.status_code == 200
+    assert response.json() == {"candidates": []}
+
+
 def test_wfs_axes_sorting_reference_and_truncation(api_client, monkeypatch):
     marker = {**MARKER, "northing_m": 500002}
     far = FEATURE.format(crs=geo.CRS, west=500020, east=500026, id="TEST_FAR")

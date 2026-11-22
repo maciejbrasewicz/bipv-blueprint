@@ -45,6 +45,7 @@ jobs:
           print(json.dumps({"live_commit":expected,"cloud_configured":True,"status":"ok"}))
           with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as output:
               print("geo=" + str(bool(target.get("geo"))).lower(), file=output)
+              print("demo_lab=" + str(bool(target.get("demo_lab"))).lower(), file=output)
           PY
       - run: npm ci --prefix web --no-audit --no-fund
       - name: Verify live v1/v2 revisions and workspace isolation
@@ -89,6 +90,12 @@ jobs:
           filter="studio renders|Scene v2 hole correction"
           if [ "$GEO_ENABLED" = true ]; then filter="$filter|location waits|location lets"; fi
           npx playwright test --grep "$filter"
+        working-directory: web
+      - name: Verify the Electrotile portal and unmocked address form
+        if: steps.deployed.outputs.demo_lab == 'true'
+        env:
+          LIVE_GEO: '1'
+        run: npx playwright test demo-lab.spec.ts
         working-directory: web
       - uses: actions/upload-artifact@v7.0.2
         if: always()

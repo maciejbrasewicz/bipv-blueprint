@@ -41,9 +41,12 @@ test("location waits for address and building choices and saves only the selecte
   await page.route("**/api/geo/sources", (route) =>
     route.fulfill({ json: { enabled: true } }),
   );
-  await page.route("**/api/geo/addresses", (route) =>
-    route.fulfill({ json: { candidates: addresses } }),
-  );
+  await page.route("**/api/geo/addresses", (route) => {
+    expect(route.request().postDataJSON()).toEqual({
+      address: "Marki testowe, Próbna 12",
+    });
+    return route.fulfill({ json: { candidates: addresses } });
+  });
   let footprintRequests = 0;
   await page.route("**/api/geo/buildings", (route) => {
     footprintRequests++;
@@ -75,8 +78,12 @@ test("location waits for address and building choices and saves only the selecte
   await page.goto("/");
   await page.getByRole("button", { name: "Ustal lokalizację budynku" }).click();
   const dialog = page.getByRole("dialog", { name: "Lokalizacja budynku" });
-  const query = dialog.getByRole("searchbox", { name: "Adres w Polsce" });
-  await query.fill("Próbna 12");
+  await dialog
+    .getByRole("searchbox", { name: "Miejscowość" })
+    .fill("Marki testowe");
+  await dialog
+    .getByRole("searchbox", { name: "Ulica i numer budynku" })
+    .fill("Próbna 12");
   await dialog.getByRole("button", { name: "Szukaj adresu" }).click();
   const second = dialog.getByRole("button", { name: /Region B/ });
   await expect(second).toBeVisible();
@@ -125,7 +132,12 @@ test("location lets the user retry provider failure and handles lack of coverage
   await page.goto("/");
   await page.getByRole("button", { name: "Ustal lokalizację budynku" }).click();
   const dialog = page.getByRole("dialog", { name: "Lokalizacja budynku" });
-  await dialog.getByRole("searchbox").fill("Adres testowy");
+  await dialog
+    .getByRole("searchbox", { name: "Miejscowość" })
+    .fill("Marki testowe");
+  await dialog
+    .getByRole("searchbox", { name: "Ulica i numer budynku" })
+    .fill("Próbna 12");
   const search = dialog.getByRole("button", { name: "Szukaj adresu" });
   await search.click();
   await expect(dialog.getByRole("alert")).toContainText("nie odpowiedział");
@@ -217,7 +229,12 @@ test("orthophoto retries, measures, corrects a trace and exports estimated geome
   });
   await page.getByRole("button", { name: "Ustal lokalizację budynku" }).click();
   const dialog = page.getByRole("dialog", { name: "Lokalizacja budynku" });
-  await dialog.getByRole("searchbox").fill("Adres testowy");
+  await dialog
+    .getByRole("searchbox", { name: "Miejscowość" })
+    .fill("Adres testowy");
+  await dialog
+    .getByRole("searchbox", { name: "Ulica i numer budynku" })
+    .fill("Próbna 20");
   await dialog.getByRole("button", { name: "Szukaj adresu" }).click();
   await dialog.getByRole("button", { name: point.label }).click();
   const imageButton = dialog.getByRole("button", {

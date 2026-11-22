@@ -50,6 +50,7 @@ import AccountDialog from "./AccountDialog";
 import SurfacePlan from "./SurfacePlan";
 import HoleEditor from "./HoleEditor";
 import LocationDialog from "./LocationDialog";
+import PortalNav from "./PortalNav";
 import examplePlanes from "./example-planes.json";
 import {
   INITIAL,
@@ -851,6 +852,7 @@ function Studio({
             : "Energia wpisana w architekturę.";
   return (
     <div className="studio">
+      <PortalNav current="studio" />
       <header className="header">
         <a className="brand" href="/" aria-label="Registry9 BIPV Studio">
           <span className="brand-icon">

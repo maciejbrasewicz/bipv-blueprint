@@ -112,6 +112,9 @@ async def read_source(request: Request, source: dict, params: dict, *, max_bytes
 
 def parse_address_points(body: bytes) -> list[AddressPoint]:
     data = json.loads(body)
+    # UUG also returns locality and street matches for incomplete addresses.
+    if data["type"] in ("city", "street") and type(data.get("found objects")) is int:
+        return []
     returned = data["returned objects"]
     if type(returned) is not int or returned < 0 or data["type"] != "address":
         raise ValueError("Unexpected address response")

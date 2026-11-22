@@ -2,6 +2,12 @@
 
 Podstawa to załącznik 2, s. 9–13 oraz warunki zdolności z zapytania, s. 3. Wykonawca testuje funkcjonalność i parametry niefunkcjonalne trzech modułów Electrotile, zgłasza i poprawia usterki oraz przedstawia wyniki retestów. Dla każdej próby zachowuje wejście, niezależną referencję, wersję badanego systemu, działania operatora, wyniki i identyfikatory dowodów. [Protokół progów i danych](ELECTROTILE-ACCEPTANCE.md)
 
+## Demonstrator dla Electrotile
+
+Górna nawigacja prowadzi do **Studia projektowego** oraz **Testów Electrotile** pod adresem `/testy`. Studio umożliwia samodzielne wskazanie adresu i budynku. Formularz osobno przyjmuje miejscowość oraz ulicę i numer, aby zapytanie miało format obsługiwany przez UUG. Użytkownik może wstawić przykładowy adres i wykonać rzeczywiste wyszukiwanie.
+
+Zakładka testów umożliwia uruchomienie czterech przygotowanych scenariuszy i pobranie raportu JSON. Wynik pokazuje źródło danych, czas, wersję środowiska, wartości oczekiwane i uzyskane rozbieżności. Scenariusz adresu używa działających usług GUGiK UUG i EGiB. PV i OBJ wykonują obliczenia Studio na zamrożonych danych testowych. Próba eTile ponownie ocenia dwie zapisane odpowiedzi kontrolne, w tym zapis z celowo wprowadzonymi usterkami. Przebieg odbiorczy Electrotile ma odrębny protokół i wymaga danych zamawiającego.
+
 ## Karty scenariuszy
 
 Do rozpoczęcia przebiegu klient przekazuje konta i bezpieczne środowisko testowe, wersję systemu, mapowanie akcji i eksportów, firmowy katalog z wersją reguł, zestaw wycen oraz dozwolone obrazy i wzorce. Ustala też warunki sieci, cache, zasoby, tolerancje porównań, regułę wyłączeń i wskazuje osobę potwierdzającą przypadki referencyjne. Brak uzgodnionego warunku to BLOCKED. Błąd lub brak wyniku po rozpoczęciu poprawnie przygotowanej próby to FAIL.
