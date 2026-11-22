@@ -100,30 +100,38 @@ def demo_tests():
     return demo_lab.catalog()
 
 
+@app.get("/api/demo/requirements")
+def demo_requirements():
+    return demo_lab.requirements()
+
+
+@app.get("/api/demo/specimens/footprint")
+def demo_footprint():
+    return demo_lab.footprint_specimen()
+
+
 @app.post("/api/demo/tests/{test_id}")
 async def run_demo_test(test_id: str, request: Request):
     if test_id not in demo_lab.TESTS:
         raise HTTPException(404, "Nieznany scenariusz testowy.")
+    version = os.getenv("RAILWAY_GIT_COMMIT_SHA", "local")
+    if test_id == "footprint-export":
+        async with compute_slots:
+            return await run_in_threadpool(demo_lab.footprint_response, version)
     started = time.perf_counter()
-    baseline = None
     if test_id == "address":
         checks = await demo_lab.check_address(request)
     else:
         async with compute_slots:
-            if test_id == "footprint-export":
-                baseline, checks = await run_in_threadpool(demo_lab.retest_footprint_export)
-            elif test_id == "product":
-                checks = await run_in_threadpool(demo_lab.replay_product)
-            else:
-                checks = await run_in_threadpool(demo_lab.check_studio, test_id)
+            checks = await run_in_threadpool(demo_lab.check_studio, test_id)
     return {
         "id": test_id,
         "source": demo_lab.TESTS[test_id][2],
-        "version": os.getenv("RAILWAY_GIT_COMMIT_SHA", "local"),
+        "version": version,
+        "scope": "live-public-data" if test_id == "address" else "studio-fixture",
         "elapsed_ms": round((time.perf_counter() - started) * 1000),
         "passed": all(row["passed"] for row in checks),
         "checks": checks,
-        **({"baseline": baseline} if baseline is not None else {}),
     }
 
 

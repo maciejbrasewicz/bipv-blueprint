@@ -6,13 +6,21 @@ Podstawa to załącznik 2, s. 9–13 oraz warunki zdolności z zapytania, s. 3. 
 
 Górna nawigacja prowadzi do **Studia projektowego** oraz **Testów Electrotile** pod adresem `/testy`. Studio umożliwia samodzielne wskazanie adresu i budynku. Formularz osobno przyjmuje miejscowość oraz ulicę i numer, aby zapytanie miało format obsługiwany przez UUG. Użytkownik może wstawić przykładowy adres i wykonać rzeczywiste wyszukiwanie.
 
-Zakładka testów umożliwia uruchomienie pięciu scenariuszy i pobranie raportu JSON. Wynik pokazuje źródło danych, czas, wersję środowiska, wartości oczekiwane i uzyskane rozbieżności. Scenariusz adresu używa działających usług GUGiK UUG i EGiB. PV i OBJ wykonują obliczenia Studio na zamrożonych danych testowych. Próba eTile ponownie ocenia zapisane odpowiedzi z kontrolowanymi usterkami. Pod wynikami widoczne są osobne statusy czterech prób odbiorczych §E oraz brakujące wejścia do ich wykonania.
+W publicznym laboratorium są cztery próby wykonywane na bieżącym wydaniu. Adres i budynek są sprawdzane przez GUGiK UUG i EGiB na żywo. Dobór PV i eksport geometrii używają zamrożonych danych kontrolnych Studio. Macierz obejmuje osiem wymagań, podaje kryteria i potrzebne dane klienta oraz wskazuje powiązane próby Studio. Wyniki prób Studio mają własny zakres w raporcie. Status odbioru produktu Electrotile pozostaje BLOCKED dla wymagań oczekujących na wejścia i dostęp.
 
-### Retest eksportu ścian EGiB
+### ET-3D-01 · Ściany budynku w OBJ i GLB
 
-Usterkę z audytu odtworzono na publicznym Studio `b2613e70` przy użyciu zamrożonego syntetycznego obrysu z dziedzińcem. Eksport OBJ i GLB zawierał połać i moduły PV oraz zero trójkątów ścian. `tests/fixtures/electrotile-lab/footprint-export/baseline.json` przechowuje SHA wydania, wejścia oraz obu pobranych plików.
+Publiczny przebieg używa zamrożonego obrysu kontrolnego z dziedzińcem, identyfikowanego przez `reference.json`. Buduje scenę i generuje oba formaty przy użyciu tych samych eksporterów, które obsługują Studio. Kontrola otwiera wygenerowane pliki i porównuje siatkę z referencją wyprowadzoną z oryginalnego obrysu oraz skali EPSG:2180 w południku centralnym. Wymaga czterech ścian zewnętrznych i czterech ścian dziedzińca, każdej złożonej z dwóch trójkątów od poziomu gruntu do zadanych 6 m. Tolerancja dopasowania wierzchołka wynosi 0,02 mm dla tego przypadku analitycznego.
 
-Przycisk **Uruchom** w scenariuszu **Ściany budynku w OBJ i GLB** buduje scenę z tego samego wejścia, generuje oba pliki i odczytuje wierzchołki. Wzorzec przyjmuje cztery krawędzie obrysu i cztery krawędzie dziedzińca. Pokrycie każdej krawędzi wymaga dwóch trójkątów od lokalnego gruntu do założonych 6 m. Porównanie wykorzystuje współrzędne oryginalnego wejścia i skalę EPSG:2180 w południku centralnym. Raport zawiera wynik historyczny oraz wynik i SHA aktualnych eksportów. W dwóch próbach kontrolnych regresji osobno odtwarza się utratę metadanych w OBJ i GLB, sprawdzając, czy laboratorium zgłasza niezaliczony retest.
+Portal pokazuje oczekiwane i odczytane wartości w jednej tabeli. Udostępnia wejście oraz dokładne bajty OBJ i GLB z bieżącego pomiaru. Raport zawiera identyfikator i czas przebiegu, wersję wydania, czas wykonania, rewizję wzorca, rozmiar oraz SHA-256 każdego pobranego pliku. Widoki Bryła i Rzut obrazują wzorzec wejściowy. Kontrole regresji narzędzia pozostają częścią zbioru inżynierskiego.
+
+Ten sam przebieg uruchamia się niezależnie od portalu, w nowym katalogu wynikowym.
+
+```sh
+uv run --frozen python -m scripts.run_electrotile_3d_case wyniki/et-3d-01
+```
+
+Runner zapisuje `input.json`, `model.obj`, `model.glb` i `report.json`. Wersję wydania odczytuje z `SOURCE_COMMIT.txt` w paczce. Przy uruchomieniu z repozytorium można przekazać `--version "$(git rev-parse HEAD)"`. Kod wyjścia 0 odpowiada zaliczonej próbie, 1 rozbieżności pomiaru.
 
 ## Karty scenariuszy
 
