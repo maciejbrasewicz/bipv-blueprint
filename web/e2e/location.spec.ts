@@ -74,17 +74,20 @@ test("location waits for address and building choices and creates the selected E
     expect(request).toEqual(
       radius === 60 ? addresses[1] : { ...addresses[1], radius_m: radius },
     );
+    // The provider can omit every nearby outline when a larger window hits its limit.
+    const candidatesByRadius: Record<number, typeof candidates> = {
+      60: [candidates[0]],
+      120: [],
+      240:
+        footprintRequests < 5
+          ? [candidates[1]]
+          : [candidates[1], { ...candidates[0], area_m2: 50 }],
+    };
     return route.fulfill({
       json: {
         radius_m: radius,
         partial: radius !== 60,
-        // The provider can omit every nearby outline when a larger window hits its limit.
-        candidates:
-          radius === 60
-            ? [candidates[0]]
-            : radius === 120
-              ? []
-              : [candidates[1]],
+        candidates: candidatesByRadius[radius],
       },
     });
   });
@@ -126,6 +129,8 @@ test("location waits for address and building choices and creates the selected E
   await expect(confirm).toBeDisabled();
   await range.selectOption("240");
   await wideBuilding.check();
+  await expect(narrowBuilding).toHaveCount(1);
+  await expect(narrowBuilding).toHaveAccessibleName(/50 m²/);
   expect(footprintRequests).toBe(5);
   await expect(dialog.locator(".chosen-building")).toHaveCount(1);
   await confirm.click();

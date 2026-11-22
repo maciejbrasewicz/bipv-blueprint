@@ -842,10 +842,31 @@ export default function LocationDialog({
       radius === 60 ? next : { ...next, radius_m: radius },
     );
     if (!result) return;
+    let candidates = result.candidates;
+    if (
+      result.partial &&
+      next === point &&
+      nearby &&
+      result.radius_m > nearby.radius_m
+    ) {
+      // The wider provider response may omit even the closest known footprints.
+      // Here both responses share the same coordinate origin.
+      const byId = new Map(
+        [...nearby.candidates, ...candidates].map((building) => [
+          building.site.building_id,
+          building,
+        ]),
+      );
+      candidates = [...byId.values()].sort(
+        (a, b) =>
+          a.distance_m - b.distance_m ||
+          a.site.building_id.localeCompare(b.site.building_id),
+      );
+    }
     setPoint(next);
-    setNearby(result);
+    setNearby({ ...result, candidates });
     setSelected(
-      result.candidates.some(({ site }) => site.building_id === keepSelected)
+      candidates.some(({ site }) => site.building_id === keepSelected)
         ? keepSelected
         : "",
     );
