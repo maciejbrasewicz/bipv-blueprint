@@ -13,6 +13,16 @@ test("Electrotile test portal runs the Studio geometry and replay and exports ev
   await expect(
     page.getByRole("heading", { name: "Testy Electrotile", level: 1 }),
   ).toBeVisible();
+  const footprint = page.getByRole("article", {
+    name: "Ściany budynku w OBJ i GLB",
+  });
+  await footprint.getByRole("button", { name: /^Uruchom/ }).click();
+  await expect(footprint.getByRole("status")).toHaveText("Zaliczony");
+  await expect(footprint.getByText(/OBJ · 0 trójkątów ścian/)).toBeVisible();
+  await expect(
+    footprint.getByRole("heading", { name: "Retest GLB OK" }),
+  ).toBeVisible();
+  await expect(page.getByText("Zablokowana", { exact: true })).toHaveCount(4);
   const geometry = page.getByRole("article", {
     name: "Dach z otworem i fasada w OBJ",
   });
@@ -33,6 +43,15 @@ test("Electrotile test portal runs the Studio geometry and replay and exports ev
     await readFile((await (await file).path())!, "utf8"),
   );
   expect(report.scope).toBe("demo");
+  expect(report.results["footprint-export"].baseline.obj.wall_triangles).toBe(
+    0,
+  );
+  expect(
+    report.results["footprint-export"].checks.map(
+      (check: { actual: Record<string, number> }) =>
+        check.actual["krawędzie z pełną ścianą"],
+    ),
+  ).toEqual([8, 8]);
   expect(report.results.obj.checks).toHaveLength(2);
   expect(report.results.product.checks[0].actual).toHaveLength(11);
   await navigation.getByRole("link", { name: "Studio projektowe" }).click();

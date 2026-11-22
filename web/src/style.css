@@ -2209,6 +2209,23 @@ p {
 .lab-scope {
   margin-top: 22px;
 }
+.lab-scope h2 {
+  color: #203628;
+  font-size: 18px;
+}
+.lab-acceptance-list {
+  margin: 12px 0 0;
+}
+.lab-acceptance-list > div {
+  padding: 10px 0;
+  border-top: 1px solid #d4dfd3;
+}
+.lab-acceptance-list dt {
+  font-weight: 650;
+}
+.lab-acceptance-list dd {
+  margin: 6px 0 0;
+}
 .lab-status {
   background: #edf1ed;
   color: #345348;

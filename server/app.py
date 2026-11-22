@@ -19,8 +19,8 @@ from .geo_trace import FootprintSceneInput, TraceSceneInput, scene_from_footprin
 from .geometry import CATALOG, ENGINE_VERSION, compute
 from .glb_export import export_glb
 from .model_export import export_obj
-from .models import ModelExport, Scene
-from .product_contracts import SaveProject, SceneV2
+from .models import Scene
+from .product_contracts import ModelExport, SaveProject, SceneV2
 
 DIST = Path(os.getenv("WEB_DIST", "web/dist"))
 compute_slots = asyncio.Semaphore(2)
@@ -105,15 +105,17 @@ async def run_demo_test(test_id: str, request: Request):
     if test_id not in demo_lab.TESTS:
         raise HTTPException(404, "Nieznany scenariusz testowy.")
     started = time.perf_counter()
+    baseline = None
     if test_id == "address":
         checks = await demo_lab.check_address(request)
     else:
         async with compute_slots:
-            checks = await (
-                run_in_threadpool(demo_lab.replay_product)
-                if test_id == "product"
-                else run_in_threadpool(demo_lab.check_studio, test_id)
-            )
+            if test_id == "footprint-export":
+                baseline, checks = await run_in_threadpool(demo_lab.retest_footprint_export)
+            elif test_id == "product":
+                checks = await run_in_threadpool(demo_lab.replay_product)
+            else:
+                checks = await run_in_threadpool(demo_lab.check_studio, test_id)
     return {
         "id": test_id,
         "source": demo_lab.TESTS[test_id][2],
@@ -121,6 +123,7 @@ async def run_demo_test(test_id: str, request: Request):
         "elapsed_ms": round((time.perf_counter() - started) * 1000),
         "passed": all(row["passed"] for row in checks),
         "checks": checks,
+        **({"baseline": baseline} if baseline is not None else {}),
     }
 
 

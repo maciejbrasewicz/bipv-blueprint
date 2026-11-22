@@ -22,7 +22,32 @@ type Result = {
   elapsed_ms: number;
   passed: boolean;
   checks: Check[];
+  baseline?: {
+    release: string;
+    input_sha256: string;
+    obj: { wall_triangles: number; sha256: string };
+    glb: { wall_triangles: number; sha256: string };
+  };
 };
+
+const ACCEPTANCE = [
+  [
+    "I-01 · 10 modeli 3D",
+    "Brakuje toru wyłącznie satelitarnego i pomiarów referencyjnych.",
+  ],
+  [
+    "I-02 · Dobór ilości i typu PV",
+    "Brakuje katalogu i historycznych wycen do porównania.",
+  ],
+  [
+    "N-01 · 20 adresów",
+    "Brakuje wykonawczego przebiegu kolejki i obróbki zdjęć satelitarnych.",
+  ],
+  [
+    "III-02 · Oferta do 6 godzin",
+    "Brakuje pełnego procesu oferty i kalkulacji opłacalności.",
+  ],
+];
 
 function Evidence({ value }: { value: unknown }) {
   return typeof value === "object" && value !== null ? (
@@ -90,7 +115,9 @@ export default function TestLab() {
           <div>
             <p className="lab-kicker">ET/2025/7</p>
             <h1>Testy Electrotile</h1>
-            <p>Uruchom scenariusz i sprawdź, czy wynik odpowiada wzorcowi.</p>
+            <p>
+              Odtwórz retest usterki i porównaj eksport z niezależnym wzorcem.
+            </p>
           </div>
           <div className="lab-actions">
             <button
@@ -176,6 +203,39 @@ export default function TestLab() {
                       Wynik i dowody · {result.elapsed_ms} ms · wersja{" "}
                       {result.version.slice(0, 12)}
                     </summary>
+                    {result.baseline && (
+                      <div className="lab-check">
+                        <h3>
+                          Usterka odtworzona na wydaniu{" "}
+                          {result.baseline.release.slice(0, 12)}
+                        </h3>
+                        <p>
+                          Eksport obejmował dach i moduły. Brakowało ścian
+                          zewnętrznych i ścian dziedzińca.
+                        </p>
+                        <dl>
+                          <div>
+                            <dt>Oczekiwano przed poprawką</dt>
+                            <dd>
+                              16 trójkątów na 8 krawędziach w każdym formacie
+                            </dd>
+                          </div>
+                          <div>
+                            <dt>Wynik przed poprawką</dt>
+                            <dd>
+                              OBJ · {result.baseline.obj.wall_triangles}{" "}
+                              trójkątów ścian
+                              <br />
+                              GLB · {result.baseline.glb.wall_triangles}{" "}
+                              trójkątów ścian
+                            </dd>
+                          </div>
+                        </dl>
+                        <p className="lab-source">
+                          Retest tworzy oba pliki od nowa na tym samym wejściu.
+                        </p>
+                      </div>
+                    )}
                     {result.checks.map((row) => (
                       <div className="lab-check" key={row.label}>
                         <h3>
@@ -209,9 +269,20 @@ export default function TestLab() {
             );
           })}
         </section>
-        <p className="lab-scope">
-          Próby odbiorcze ET/2025/7 wymagają systemu i danych Electrotile.
-        </p>
+        <section className="lab-scope" aria-labelledby="lab-acceptance">
+          <h2 id="lab-acceptance">Próby odbiorcze §E</h2>
+          <p>Do odbioru potrzebujemy środowiska i danych Electrotile.</p>
+          <dl className="lab-acceptance-list">
+            {ACCEPTANCE.map(([name, reason]) => (
+              <div key={name}>
+                <dt>
+                  {name} <span className="lab-status">Zablokowana</span>
+                </dt>
+                <dd>{reason}</dd>
+              </div>
+            ))}
+          </dl>
+        </section>
       </main>
     </div>
   );

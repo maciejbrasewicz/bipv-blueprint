@@ -107,7 +107,7 @@ def read_obj(obj: str) -> dict[str, list[list[Point3]]]:
             case "g":
                 (name,) = fields
                 if name in groups or not re.fullmatch(
-                    r"(?:surface|module)_[A-Za-z0-9][\w.-]{0,79}", name, re.ASCII
+                    r"(?:surface|module|walls)_[A-Za-z0-9][\w.-]{0,79}", name, re.ASCII
                 ):
                     raise ValueError("OBJ group is duplicated or incorrectly named")
                 faces = groups[name] = []

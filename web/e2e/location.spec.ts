@@ -126,6 +126,19 @@ test("location waits for address and building choices and creates the selected E
     status: "estimated",
     egib_assumed_height_m: 6,
   });
+
+  await page.getByRole("button", { name: "Eksport", exact: true }).click();
+  const model = page.waitForEvent("download");
+  await page.getByRole("button", { name: "Model 3D GLB" }).click();
+  const asset = await readFile((await (await model).path())!);
+  const gltf = await new GLTFLoader().parseAsync(
+    new Uint8Array(asset).buffer,
+    "",
+  );
+  const walls = gltf.scene.getObjectByName("walls_egib-roof-1");
+  expect(walls?.userData.role).toBe("estimated_footprint_walls");
+  const wallBounds = new Box3().setFromObject(walls!);
+  expect([wallBounds.min.y, wallBounds.max.y]).toEqual([0, 6]);
 });
 
 test("location lets the user retry provider failure and handles lack of coverage", async ({

@@ -830,7 +830,7 @@ function Studio({
       const response = await fetch(`/api/model.${format}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ scene, variant: variant.id }),
+        body: JSON.stringify({ scene: document, variant: variant.id }),
       });
       if (!response.ok)
         throw new Error(
