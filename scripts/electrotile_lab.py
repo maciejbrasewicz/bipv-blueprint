@@ -39,6 +39,7 @@ from .electrotile_checks import (
     check_workflow,
 )
 from .electrotile_geometry import GeometryEvidence, GeometryReference, check_geometry
+from .electrotile_product import ProductEvidence, ProductReference, check_product
 
 Scope = Literal["studio-fixture", "replay", "client-live"]
 
@@ -56,6 +57,11 @@ class PVCase(Scenario):
 class GeometryCase(Scenario):
     criterion: Literal["I-03-geometry"]
     reference: GeometryReference
+
+
+class ProductCase(Scenario):
+    criterion: Literal["I-II-III-product"]
+    reference: ProductReference
 
 
 class MaterialsCase(Scenario):
@@ -79,7 +85,7 @@ class RejectionCase(Scenario):
 
 
 Case = Annotated[
-    PVCase | GeometryCase | MaterialsCase | HarnessCase | WorkflowCase | RejectionCase,
+    PVCase | GeometryCase | ProductCase | MaterialsCase | HarnessCase | WorkflowCase | RejectionCase,
     Field(discriminator="criterion"),
 ]
 
@@ -165,6 +171,7 @@ def observation_defects(case: Case, observation: Observation, artifact_dir: Path
     if digest(raw) != observation.output_sha256:
         return failure("artifact_digest_mismatch", observation.output_sha256, digest(raw))
     methods = {
+        "I-II-III-product": (ProductEvidence, check_product),
         "I-03-geometry": (GeometryEvidence, check_geometry),
         "II-01": (MaterialsObserved, check_materials),
         "II-02": (HarnessObserved, check_harness),

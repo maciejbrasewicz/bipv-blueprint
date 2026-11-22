@@ -23,12 +23,13 @@ Do rozpoczęcia przebiegu klient przekazuje konta i bezpieczne środowisko testo
 | III-01.2 | Opublikuj ofertę, zmień dane wejściowe i odczytaj tę samą wersję. Złóż zamówienie z oferty i ponów tę samą intencję wysyłki. | Suma opublikowanego snapshotu i kwota pozostają stałe. Dwa wywołania o jednym kluczu dają jeden rekord zamówienia związany z właściwą wersją. |
 | III-01.3 | W tej samej sesji pomiarowej wypuść dwa nakładające się żądania rezerwacji tego samego terminu z dwóch kont testowych. Odczytaj zapisany stan po obu odpowiedziach. | Dokładnie jedno potwierdzenie, drugie żądanie zwraca konflikt. Jedna rezerwacja w stanie końcowym. Zapisz czasy rozpoczęcia i ukończenia obu wywołań na jednym zegarze. |
 | III-02.1 | Od przyjęcia kompletnego zgłoszenia wykonaj kalkulację, wizualizację i pełną ofertę. Zmierz czas pracy i oczekiwania oddzielnie, zachowując jeden ciągły zegar. | Maksymalnie 6 h do dostępności wyceny, kalkulacji opłacalności i wizualizacji. Sprawdź komplet dokumentów, poprawność sum i zamrożone parametry. |
+| I–II–III.1 | Dla tej samej rewizji przeprowadź dobór pełnych, połówkowych i biernych elementów, wyeksportuj BOM i schemat elektryczny oraz wygeneruj ofertę. Powtórz po zmianie strony aktywnej na krawędzi dachu. | Porównaj SKU i pozycje, liczbę arkuszy i mikropaneli, wymiary nominalne i efektywne, zatwierdzone cięcie, moc, unikalne uczestnictwo elementów aktywnych w obwodach i ilości w ofercie. |
 | N-01.1 | Wprowadź partię 20 adresów z planem napływu i zarejestruj otrzymanie ostatniego poprawnie obrobionego zdjęcia. Powtórz ze stanem zimnym i ciepłym zgodnie z protokołem. | Od pierwszego adresu do końca kompletu cel 300 s, granica 500 s. Sprawdź dokładnie 20 dopasowanych, niezdublowanych obrazów i raport czasów per adres. |
 | N-01.2 | Powtórz obciążenie z kontrolowaną awarią dostawcy, ponowieniem i utratą procesu roboczego na wydzielonym środowisku. | Przypadek pozostaje w oryginalnej partii. Mierz od pierwotnego startu. Zapisz statusy, ponowienia i ewentualną utratę zadania lub niejednoznaczny wynik. |
 
 ## Uruchomienie laboratorium niezależnie od CI
 
-`scripts.electrotile_lab` uruchamia dobór I-02.1, ocenę geometrii i mocy STC powiązaną z I-01.3, I-02.2 i I-03.1, a także II-01.2, II-02.1–2, III-01.1–3 i uzgodnione odrzucenia modułu II. Adapter dostaje na stdin plik wejściowy, a końcowe argumenty identyfikują kryterium i przypadek. Na stdout zwraca znormalizowany wynik odczytany z interfejsu, eksportu lub API. Dane odniesienia pozostają w manifeście. W środowisku klienta adapter trzeba połączyć z rzeczywistymi operacjami, odczytem stanu końcowego i śladem błędu. III-01.3 wymaga dowodu, że dwa wywołania rzeczywiście się na siebie nałożyły.
+`scripts.electrotile_lab` uruchamia dobór I-02.1, ocenę geometrii i mocy STC powiązaną z I-01.3, I-02.2 i I-03.1, a także II-01.2, II-02.1–2, III-01.1–3, I–II–III.1 oraz uzgodnione odrzucenia modułu II. Adapter dostaje na stdin plik wejściowy, a końcowe argumenty identyfikują kryterium i przypadek. Na stdout zwraca znormalizowany wynik odczytany z interfejsu, eksportu lub API. Dane odniesienia pozostają w manifeście. W środowisku klienta adapter trzeba połączyć z rzeczywistymi operacjami, odczytem stanu końcowego i śladem błędu. III-01.3 wymaga dowodu, że dwa wywołania rzeczywiście się na siebie nałożyły.
 
 Manifest zamraża identyfikatory, kryteria, skróty wejść i dane referencyjne. `run` sprawdza wejścia przed próbą, zapisuje `capture.json`, znormalizowane wyniki w `artifacts/` i `report.json`. `score` sprawdza skróty przed oceną i wykazuje wartość oczekiwaną oraz faktyczną. Nieudane uruchomienie lub timeout pozostaje w raporcie. Przebieg porównawczy z `--baseline` ponownie sprawdza oba zestawy. Oryginalną usterkę zamyka tylko zaliczony retest na tym samym manifeście, środowisku i adapterze. Zmiana wersji wydania jest identyfikowana. Komenda zwraca 0 przy zaliczeniu, 1 przy FAIL lub NOT_RUN oraz 2 przy błędzie formatu danych lub konfiguracji. W trybach `studio-fixture` i `replay` raport odbiorczy pozostaje BLOCKED.
 
@@ -94,3 +95,29 @@ uv run --frozen python -m scripts.electrotile_lab run "$base/manifest.json" "$ba
 | Przesuń pozycję modułu w raporcie o 1 cm | Raport i eksport podają różne położenia. |
 
 Na lokalnym HTTP oba eksporty Studio przeszły. Laboratorium wykryło wszystkie sześć kontrolowanych zmian i odnotowało 46 rozbieżności, licząc osobno skutki w poszczególnych płaszczyznach i panelach. Retest na dwóch świeżych eksportach zamknął wszystkie 46. Skrypt `geometry_control.py` pobiera wynik z tego samego API, po czym wprowadza wskazaną zmianę w kopii dowodu. Dla odtworzenia użyj parametrów `--adapter python tests/fixtures/electrotile-lab/geometry_control.py MODE http://127.0.0.1:8000`, z trybem `scale`, `winding`, `duplicate-face`, `opening`, `power-units` lub `layout-shift`. Powtórz z trybem `clean` do nowego katalogu i porównaj oba uruchomienia przez `score --baseline`.
+
+### Próba integracji na wzorcu eTile Classic
+
+Próba używa wymiarów nominalnych i efektywnych oraz liczby mikropaneli pełnych i połówkowych z publicznej karty eTile Classic. Identyfikatory SKU, moc 100/50/0 Wp, wartości cięć 30/40 mm, rewizje i układ są syntetyczne. Wymiar po cięciu i zasady wykonawcze należy ocenić z rysunkiem producenta. [Karta eTile Classic](https://www.electrotile.com/pl/dachy-solarne/blachodachowka-solarna-etile-classic)
+
+- `classic-mixed` obejmuje cztery fizyczne arkusze. Trzy są aktywne i zawierają razem 16 mikropaneli. Zewnętrznie identyczne lewe i prawe połówki mają inne SKU i różne dopuszczone krawędzie cięcia. Łączna moc testowa wynosi 200 Wp.
+- `classic-passive` obejmuje jeden arkusz w BOM i ofercie, 0 mikropaneli, 0 Wp oraz pustą listę stringów.
+
+Przy wdrożeniu u klienta mapuj identyfikatory arkuszy według rzeczywistych pozycji projektu i odpowiadających im identyfikatorów w schemacie. Odczytaj BOM i ofertę niezależnie od układu i zachowaj dokumenty źródłowe oraz ich rewizje. W tym teście porównuje się ilości pozycji pokrycia. Profile i przewody mają własne próby II-01 i II-02. Moc w dowodzie jest w całkowitych mWp, a wymiary i cięcie są w całkowitych mm. Wymiary efektywne i nominalne dotyczą elementu przed cięciem. Aktywny arkusz występuje w znormalizowanym schemacie raz, gdzie porty i optymalizatory mapują się na fizyczne arkusze. Odrębne próby elektryczne oceniają zgodność połączeń i dobór wiązek.
+
+```sh
+base=tests/fixtures/electrotile-lab/product-replay
+release=$(git rev-parse HEAD 2>/dev/null || cat SOURCE_COMMIT.txt)
+for mode in faulty fixed; do
+  code=0
+  uv run --frozen python -m scripts.electrotile_lab run "$base/manifest.json" "$base/inputs" "/tmp/et-classic-$mode" \
+    --run-id "classic-$mode" --scope replay --release-sha "$release" \
+    --environment-id local --adapter-id classic-replay-v1 \
+    --adapter python tests/fixtures/electrotile-lab/replay_adapter.py "$mode" || code=$?
+  if [ "$mode" = faulty ]; then test "$code" -eq 1 || exit 1; else test "$code" -eq 0 || exit 1; fi
+done
+uv run --frozen python -m scripts.electrotile_lab score "$base/manifest.json" /tmp/et-classic-fixed \
+  --baseline /tmp/et-classic-faulty
+```
+
+Pierwsze uruchomienie odrzuciło oba kontrolowane przypadki i wykazało 14 rozbieżności. Obejmowały użycie wymiaru nominalnego jako krycia, zamianę lewej i prawej połówki, cięcie po stronie aktywnej, wpięcie elementu biernego, zdublowanie aktywnego udziału w stringu oraz ofertę ze starej rewizji. Retest zaliczył 2/2 i zamknął wszystkie 14 rozbieżności w próbie kontrolnej. Do oceny instalacji producenta potrzebny jest dostęp do rzeczywistych eksportów i zatwierdzonych reguł.

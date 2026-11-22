@@ -2,6 +2,7 @@
 
 import json
 import sys
+from collections import Counter
 from concurrent.futures import ThreadPoolExecutor
 from threading import Barrier, Lock
 from time import perf_counter_ns
@@ -33,9 +34,55 @@ def book(double_book: bool) -> tuple[list[dict], list[str]]:
         return list(executor.map(attempt, ("a", "b"))), saved
 
 
+def classic_product(fixture, faulty):
+    metadata = {key: fixture[key] for key in ("design_revision", "catalog_revision")}
+    mock_catalog = {
+        "full": ("lab-classic-full", 8),
+        "half-left": ("lab-classic-half-left", 4),
+        "half-right": ("lab-classic-half-right", 4),
+        "passive": ("lab-classic-passive", 0),
+    }
+    sheets = {}
+    for zone, activity in fixture["pattern"].items():
+        sku, micropanels = mock_catalog[activity]
+        trim = {"left": 30} if activity == "half-right" else {}
+        sheets[zone] = {
+            "sku": sku,
+            "activity": activity,
+            "micropanels": micropanels,
+            "trim_mm": trim,
+            "nominal_mm": [1191, 840],
+            "effective_mm": [1157, 820],
+        }
+    quantities = Counter(sheet["sku"] for sheet in sheets.values())
+    active = [zone for zone, sheet in sheets.items() if sheet["micropanels"]]
+    nominal = sum(sheet["micropanels"] * 12_500 for sheet in sheets.values())
+    result = {
+        "design": {**metadata, "sheets": sheets, "stc_mwp": nominal},
+        "bom": {**metadata, "quantities": quantities.copy()},
+        "electrical": {**metadata, "strings": {"series-1": active} if active else {}},
+        "offer": {**metadata, "quantities": quantities.copy()},
+    }
+    if faulty and active:
+        right = sheets["edge-west"]
+        right.update(activity="half-left", sku="lab-classic-half-left", trim_mm={"right": 30})
+        sheets["central"]["effective_mm"] = [1191, 840]
+        result["bom"]["quantities"]["lab-classic-passive"] = 2
+        result["electrical"]["strings"]["series-1"] = ["central", "edge-west", "edge-west", "infill"]
+        result["offer"]["design_revision"] = "design-r1"
+        del result["offer"]["quantities"]["lab-classic-half-right"]
+    elif faulty:
+        sheets["infill"]["micropanels"] = 4
+        result["design"]["stc_mwp"] = 50_000
+        result["electrical"]["strings"] = {"series-1": ["infill"]}
+    return result
+
+
 def observed(fixture, mode):
     bad = mode == "faulty"
     stage = fixture["scenario"]
+    if stage == "classic-product":
+        return classic_product(fixture, bad)
     if stage == "materials":
         return {
             "stock": [
