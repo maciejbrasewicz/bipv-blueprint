@@ -14,6 +14,14 @@ uv run --frozen python -m scripts.benchmark_roof_tests --output roof-benchmark.j
 
 Kod wyjścia 0 oznacza zaliczenie danego polecenia. XML zawiera wynik każdego przypadku. JSON zawiera trzy pomiary każdej operacji dla każdej sceny oraz medianę, maksimum i limit. Jeżeli paczka zawiera katalog `evidence/`, są w nim wyniki przebiegu dla załączonej wersji źródeł.
 
+Aby odtworzyć próbę eksportu widoczną w portalu, wykonaj dodatkowo:
+
+```sh
+uv run --frozen python -m scripts.run_electrotile_3d_case wyniki/et-3d-01
+```
+
+Otrzymasz wejście, modele OBJ i GLB oraz raport prób z sumami SHA-256 każdego pliku. Test `test_footprint_export.py` sprawdza zgodność plików z wykonaniem przez portal i zwykłe API Studio.
+
 ## Scenariusze wykonawcze
 
 | Obszar | Wejście / wykonanie | Kryterium zaliczenia | Test |

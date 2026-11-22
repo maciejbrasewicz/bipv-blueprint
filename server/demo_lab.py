@@ -1,15 +1,18 @@
 """Run only the public Electrotile demonstration cases with fixed inputs."""
 
 import json
+import time
+from base64 import b64encode
+from datetime import UTC, datetime
 from hashlib import sha256
 from pathlib import Path
+from uuid import uuid4
 
 from fastapi import HTTPException, Request
 
 from scripts.check_electrotile_run import PVOutput, PVReference, pv_reference_errors
-from scripts.electrotile_footprint_export import wall_evidence
+from scripts.electrotile_footprint_export import ASSUMED_HEIGHT_M, wall_evidence
 from scripts.electrotile_geometry import GeometryEvidence, GeometryReference, check_geometry
-from scripts.electrotile_product import ProductEvidence, ProductReference, check_product
 from scripts.electrotile_studio_adapter import checked_layout, geometry_evidence
 
 from .geo import AddressSearch, BuildingSearch, addresses, buildings
@@ -26,13 +29,81 @@ TESTS = {
     "footprint-export": (
         "I · Geometria i eksport",
         "Ściany budynku w OBJ i GLB",
-        "Retest w Studio · syntetyczny obrys EGiB z dziedzińcem",
+        "Studio · obrys kontrolny z dziedzińcem",
     ),
     "address": ("I · Lokalizacja", "Adres i budynek z GUGiK", "Dane GUGiK na żywo"),
     "pv": ("I · Dobór PV", "Liczba i typ modułów", "Silnik Studio · dane syntetyczne"),
     "obj": ("I · Geometria i moc", "Dach z otworem i fasada w OBJ", "Silnik Studio · dane syntetyczne"),
-    "product": ("I–III · Integracja", "Arkusze eTile od projektu do oferty", "Odtworzenie kontrolne"),
 }
+
+
+REQUIREMENTS = (
+    (
+        "I-01",
+        "Model 3D z obrazu satelitarnego",
+        "10 adresów · cel 300 s, limit 900 s na adres",
+        "Obrazy i wzorce 3D dla jednego województwa.",
+        ("address", "footprint-export"),
+    ),
+    (
+        "I-02",
+        "Ilość i rodzaj modułów PV",
+        "ok. 100 wycen · odchylenie ilości ≤ 20% · cel 60 s, limit 120 s",
+        "Katalog SKU i historyczne wyceny z danymi wejściowymi.",
+        ("pv",),
+    ),
+    (
+        "N-01",
+        "Przetwarzanie zdjęć dla partii adresów",
+        "20 gotowych zdjęć · cel 300 s, limit 500 s",
+        "Partia adresów i dostęp do kolejki przetwarzania obrazów.",
+        (),
+    ),
+    (
+        "III-02",
+        "Czas kompletnej oferty",
+        "Wycena, opłacalność i wizualizacja w maks. 6 h",
+        "Kompletne zgłoszenie, system ofertowania i log przebiegu.",
+        (),
+    ),
+    (
+        "I-03",
+        "Geometria i parametry energetyczne",
+        "Porównanie dachu i fasady z niezależnym bilansem",
+        "Katalog, parametry pogody i uzgodniona tolerancja kWh.",
+        ("obj",),
+    ),
+    (
+        "II-01",
+        "Mikropanele i profile",
+        "Zgodność SKU, ilości, cięć, kątów, rzazu i odpadu",
+        "Zatwierdzone wzory, katalog i referencyjna lista cięć.",
+        (),
+    ),
+    (
+        "II-02",
+        "Schemat elektryczny i wiązki",
+        "Zgodność topologii, złączy i długości tras",
+        "Zatwierdzony schemat, trasy i normy zapasu przewodu.",
+        (),
+    ),
+    (
+        "III-01",
+        "Konfiguracja, oferta, zamówienie i pomiar",
+        "Spójność wersji i jedna rezerwacja na termin",
+        "Dostęp do konfiguratora, kont i testowego kalendarza.",
+        (),
+    ),
+)
+
+
+def requirements() -> list[dict]:
+    return [
+        dict(
+            id=key, title=title, threshold=threshold, required=required, studio_tests=tests, status="blocked"
+        )
+        for key, title, threshold, required, tests in REQUIREMENTS
+    ]
 
 
 def catalog() -> list[dict]:
@@ -48,20 +119,83 @@ def compare(label: str, expected, actual, *, passed: bool | None = None) -> dict
     }
 
 
-def retest_footprint_export() -> tuple[dict, list[dict]]:
+def footprint_reference() -> tuple[dict, bytes, FootprintSceneInput]:
     directory = FIXTURES / "footprint-export"
-    baseline = json.loads((directory / "baseline.json").read_bytes())
+    reference = json.loads((directory / "reference.json").read_bytes())
     raw = (directory / "input.json").read_bytes()
-    if sha256(raw).hexdigest() != baseline["input_sha256"]:
-        raise ValueError("Obrys retestu różni się od wejścia użytego w pierwotnym pomiarze.")
-    footprint = FootprintSceneInput.model_validate_json(raw)
+    if sha256(raw).hexdigest() != reference["input_sha256"]:
+        raise ValueError("Obrys nie odpowiada zamrożonemu wzorcowi.")
+    return reference, raw, FootprintSceneInput.model_validate_json(raw)
+
+
+def footprint_specimen() -> dict:
+    reference, _, footprint = footprint_reference()
+    return {
+        **reference,
+        "height_m": ASSUMED_HEIGHT_M,
+        "rings_m": footprint.rings_m[0],
+    }
+
+
+def run_footprint_export() -> tuple[dict, list[dict], dict[str, bytes]]:
+    reference, raw, footprint = footprint_reference()
     payload = ModelExport(scene=scene_from_footprint(footprint), variant="portrait")
+    files = {
+        "input.json": raw,
+        "model.obj": export_obj(payload).encode(),
+        "model.glb": export_glb(payload),
+    }
     checks = []
-    for format_, model in (("OBJ", export_obj(payload).encode()), ("GLB", export_glb(payload))):
-        expected, actual = wall_evidence(model, footprint.rings_m[0], is_glb=format_ == "GLB")
+    for extension in ("obj", "glb"):
+        expected, actual = wall_evidence(
+            files[f"model.{extension}"], footprint.rings_m[0], is_glb=extension == "glb"
+        )
         passed = all(actual[key] == value for key, value in expected.items())
-        checks.append(compare(f"Retest {format_}", expected, actual, passed=passed))
-    return baseline, checks
+        checks.append(compare(extension.upper(), expected, actual, passed=passed))
+    return reference, checks, files
+
+
+def footprint_report(version: str) -> tuple[dict, dict[str, bytes]]:
+    started = time.perf_counter()
+    recorded = datetime.now(UTC).isoformat()
+    reference, checks, files = run_footprint_export()
+    metadata = {
+        "input.json": ("Wejście JSON", "application/json"),
+        "model.obj": ("Model OBJ", "text/plain"),
+        "model.glb": ("Model GLB", "model/gltf-binary"),
+    }
+    report = {
+        "schema_version": 1,
+        "id": "footprint-export",
+        "run_id": str(uuid4()),
+        "recorded_at": recorded,
+        "scope": "studio-fixture",
+        "source": TESTS["footprint-export"][2],
+        "version": version,
+        "elapsed_ms": round((time.perf_counter() - started) * 1000),
+        "passed": all(row["passed"] for row in checks),
+        "reference": reference,
+        "checks": checks,
+        "artifacts": [
+            {
+                "name": name,
+                "label": metadata[name][0],
+                "media_type": metadata[name][1],
+                "bytes": len(data),
+                "sha256": sha256(data).hexdigest(),
+            }
+            for name, data in files.items()
+        ],
+    }
+    return report, files
+
+
+def footprint_response(version: str) -> dict:
+    report, files = footprint_report(version)
+    return {
+        **report,
+        "artifact_payloads": {name: b64encode(data).decode("ascii") for name, data in files.items()},
+    }
 
 
 def frozen_cases(suite: str):
@@ -134,22 +268,3 @@ def check_studio(test_id: str) -> list[dict]:
                 )
             )
     return results
-
-
-def replay_product() -> list[dict]:
-    row, _ = next(frozen_cases("product-replay"))
-    reference = ProductReference.model_validate_json(json.dumps(row["reference"]))
-    captures = FIXTURES / "product-replay/captures"
-    failed, fixed = (
-        check_product(reference, ProductEvidence.model_validate_json((captures / name).read_bytes()))
-        for name in ("classic-mixed-faulty.json", "classic-mixed-fixed.json")
-    )
-    return [
-        compare(
-            "Kontrola z wprowadzonymi usterkami",
-            "11 wykrytych rozbieżności",
-            [d.model_dump() for d in failed],
-            passed=len(failed) == 11,
-        ),
-        compare("Retest zapisanej odpowiedzi", 0, len(fixed)),
-    ]
