@@ -1,0 +1,113 @@
+REGISTRY9 RESTRICTED SOURCE EVALUATION LICENSE — VERSION 1.0
+Copyright (c) 2026 Registry9 BIPV Studio authors and respective copyright holders.
+All rights reserved.
+
+IMPORTANT: THIS SOFTWARE IS SOURCE-AVAILABLE, NOT OPEN SOURCE.
+Publication on a publicly accessible GitHub repository does not grant an
+open-source license, permission for commercial reuse, or permission to
+incorporate this software into other products.
+
+1. DEFINITIONS
+
+"Software" means the original Registry9 BIPV Studio source code, test
+harnesses, application components, sample fixtures, technical documents and
+associated materials identified as part of this repository, excluding
+third-party components and materials supplied under separate licenses.
+
+"Rights Holder" means the person or entity that lawfully owns the relevant
+copyright or has authority to grant the permissions below.
+
+"Evaluation" means internal technical inspection, review of functionality,
+and execution of demonstrative test scenarios to assess the engineering
+capabilities of Registry9 BIPV Studio, including review in connection with
+procurement ET/2025/7.
+
+2. LIMITED EVALUATION PERMISSION
+
+Subject to these terms, the Rights Holder grants you a limited,
+nonexclusive, nontransferable, nonsublicensable, royalty-free permission to:
+(a) inspect the published source and documentation;
+(b) download and make copies of the Software reasonably necessary for
+    Evaluation within your own organization;
+(c) build and run the Software and its tests solely for Evaluation; and
+(d) share the resulting technical findings within your organization solely
+    for Evaluation.
+
+No permission is granted to use the Software in operational or commercial
+production, provide a service based on the Software, or integrate its source
+code into another product. If you need such permission, obtain express
+written authorization from the Rights Holder.
+
+3. RESTRICTIONS
+
+Except as required by non-waivable applicable law, expressly permitted
+under Section 2, or permitted by the GitHub Terms of Service while using
+GitHub's platform, you may not:
+(a) redistribute, publish, sublicense, sell, lease or transfer the Software
+    to third parties;
+(b) deploy it for production use, use it to offer paid or unpaid services,
+    or exploit it commercially;
+(c) modify it, prepare derivative works, or merge its code into other
+    software, except for temporary local testing modifications reasonably
+    necessary for Evaluation;
+(d) remove or falsify ownership, copyright, license or attribution notices;
+(e) use the Software or its code, code comments or project documentation
+    as training material for machine-learning models without separate
+    written permission; or
+(f) use Registry9's names, marks or logos except as strictly necessary to
+    refer factually to the evaluated Software.
+
+4. GITHUB PLATFORM RIGHTS
+
+When the repository is public, GitHub's Terms of Service authorize certain
+uses on its platform, including viewing and forking public repositories.
+Nothing in this license purports to revoke those platform rights. Rights to
+use, modify, distribute, deploy or commercialize the Software outside those
+platform permissions remain restricted as described herein.
+
+5. THIRD-PARTY CODE AND DATA
+
+Third-party libraries, their source code, bundled fonts, external imagery,
+geospatial data and other third-party materials remain subject to their own
+licenses and terms. This license governs only rights the Rights Holder is
+authorized to grant. The presence of a dependency reference does not
+transfer ownership or vary that dependency's license.
+
+6. RESERVATION OF RIGHTS
+
+The Rights Holder retains all rights, including copyright, in the Software.
+No patent, trademark or other intellectual-property license is granted
+other than the limited copyright permission in Section 2. No right to use
+the Software for manufacture, resale, commercial integration, or
+customer-facing deployments is implied.
+
+7. TERMINATION
+
+Your evaluation permission terminates automatically upon material breach
+of these terms. Upon termination, discontinue all uses relying on this
+license and remove evaluation copies, except to the extent retention is
+required by law or a statutory recordkeeping obligation. Rights granted
+independently under the GitHub Terms of Service or applicable law are not
+affected by this Section.
+
+8. NO WARRANTY
+
+TO THE MAXIMUM EXTENT PERMITTED BY APPLICABLE LAW, THE SOFTWARE AND
+EVALUATION MATERIALS ARE PROVIDED "AS IS", WITHOUT ANY EXPRESS OR IMPLIED
+WARRANTY, INCLUDING MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE,
+NONINFRINGEMENT, ACCURACY OF TECHNICAL RESULTS OR CONTINUED AVAILABILITY.
+THE RIGHTS HOLDER IS NOT LIABLE FOR DAMAGES ARISING FROM USE OF THIS
+SOFTWARE TO THE MAXIMUM EXTENT PERMITTED BY APPLICABLE LAW.
+
+9. OTHER USES
+
+For production, integration, modification, distribution, sublicensing or
+broader commercial rights, obtain a separate written license from the Rights
+Holder.
+
+The Software is not offered under an OSI-approved open-source license.
+
+---
+Third-party acknowledgments and application dependencies are identified in
+the project package manifests and documentation. This notice does not
+replace any mandatory third-party notices or source-code obligations.
