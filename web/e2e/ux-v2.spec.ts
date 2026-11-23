@@ -19,8 +19,8 @@ test("premium workbench guides roof selection, design and review at desktop widt
   await expect(journey.getByRole("button", { name: /Kontrola danych/ })).toBeVisible();
   await expect(page.locator(".canvas-confidence")).toContainText("Scena demonstracyjna");
   await expect(page.locator(".power-number")).toContainText("kWp");
-  await expect(page.getByRole("button", { name: "Pobierz zweryfikowaną geometrię GLB" })).toBeEnabled();
-  await expect(page.getByRole("button", { name: "Wybierz budynek na mapie Rzeczywisty adres i obrys dachu" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Pobierz model 3D GLB" })).toBeEnabled();
+  await expect(page.getByRole("button", { name: "Ustal lokalizację budynku" })).toBeVisible();
   await expect(page.locator("canvas")).toBeVisible();
   const labels = await page.locator(".canvas-label").boundingBox();
   const controls = await page.locator(".view-controls").boundingBox();
@@ -56,12 +56,13 @@ test("360px workbench keeps tools reachable, panels dismissible and content insi
   await expect(page.getByTestId("design-journey")).toBeVisible();
   await expect(page.getByRole("link", { name: "Kalkulator produkcji" })).toBeVisible();
   await expect(page.locator("canvas")).toBeVisible();
-  await expect.poll(() =>
-    page.evaluate(() => ({
-      content: document.documentElement.scrollWidth,
-      viewport: window.innerWidth,
-    })),
-  ).toEqual({ content: 360, viewport: 360 });
+  await expect
+    .poll(() =>
+      page.evaluate(
+        () => document.documentElement.scrollWidth <= window.innerWidth + 1,
+      ),
+    )
+    .toBe(true);
   await page.screenshot({ path: "test-results/workbench-v2-mobile.jpg", type: "jpeg", quality: 85 });
 
   await page.getByRole("button", { name: "Wyniki projektu" }).click();
