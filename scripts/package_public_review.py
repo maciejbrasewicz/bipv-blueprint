@@ -44,6 +44,7 @@ SINGLE_FILES = (
     "docs/ELECTROTILE-TEST-LAB.md",
     "docs/ELECTROTILE-TEST-ARCHITECTURE.md",
     "docs/ROOF-TEST-PACK.md",
+    "docs/ET-2025-7-REVIEWER.md",
     "docs/ARCHITECTURE.md",
     "docs/UX-RELAUNCH-V2.md",
 )
