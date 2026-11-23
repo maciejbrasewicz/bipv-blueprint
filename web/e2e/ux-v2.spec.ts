@@ -111,6 +111,17 @@ test("360px workbench keeps tools reachable, panels dismissible and content insi
     },
   );
   await expect(page.getByTestId("design-journey")).toBeVisible();
+  const stagePositions = await page
+    .getByTestId("design-journey")
+    .locator(".journey-step")
+    .evaluateAll((elements) =>
+      elements.map((element) => {
+        const bounds = element.getBoundingClientRect();
+        return [bounds.left, bounds.right];
+      }),
+    );
+  expect(stagePositions).toHaveLength(3);
+  expect(stagePositions.every(([left, right]) => left >= 0 && right <= 360)).toBe(true);
   await expect(
     page.getByRole("link", { name: "Kalkulator produkcji" }),
   ).toBeVisible();
