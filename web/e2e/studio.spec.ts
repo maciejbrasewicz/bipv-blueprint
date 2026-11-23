@@ -597,10 +597,12 @@ test("the explicitly labeled technical scenario is discoverable and shows comput
   page,
 }) => {
   await page.goto("/");
-  await page.getByRole("button", { name: "Otwórz przykład techniczny" }).click();
-  await expect(page.getByRole("textbox", { name: "Nazwa projektu" })).toHaveValue(
-    "Przykład · dach L i fasada",
-  );
+  await page
+    .getByRole("button", { name: "Otwórz przykład techniczny" })
+    .click();
+  await expect(
+    page.getByRole("textbox", { name: "Nazwa projektu" }),
+  ).toHaveValue("Przykład · dach L i fasada");
   await expect(page.getByTestId("layout-status")).toHaveText(
     "Geometria obliczona",
     { timeout: 30_000 },
