@@ -23,11 +23,6 @@ type Building = {
   area_m2: number;
 };
 type Nearby = { radius_m: number; partial: boolean; candidates: Building[] };
-const SAMPLES = [
-  ["Stargard", "Szczecińska 1"],
-  ["Szczecin", "Księcia Bogusława X 1"],
-  ["Warszawa", "Marszałkowska 1"],
-] as const;
 type Orthophoto = {
   bounds_m: { west: number; south: number; east: number; north: number };
   width_px: number;
@@ -997,30 +992,10 @@ export default function LocationDialog({
       </form>
       <div className="location-demo-row">
         <p>
-          Adresy z całej Polski. W miejscowości bez ulic wpisz sam numer
-          budynku.
+          Wyszukaj rzeczywisty adres w Polsce i potwierdź właściwy budynek na
+          mapie. Obrys EGiB nie potwierdza kształtu połaci ani przydatności
+          dachu do montażu — zweryfikuj go przed ofertą.
         </p>
-        <select
-          aria-label="Przykładowe okolice"
-          value=""
-          disabled={!!busy}
-          onChange={(event) => {
-            const sample = SAMPLES[Number(event.currentTarget.value)];
-            if (!sample) return;
-            clearSearch();
-            setCity(sample[0]);
-            setStreet(sample[1]);
-          }}
-        >
-          <option value="" disabled>
-            Przykładowe okolice
-          </option>
-          {SAMPLES.map(([town, address], index) => (
-            <option value={index} key={town}>
-              {town}, {address}
-            </option>
-          ))}
-        </select>
       </div>
       {enabled === false && (
         <p className="info-note">
