@@ -21,6 +21,7 @@ from .glb_export import export_glb
 from .model_export import export_obj
 from .models import Scene
 from .product_contracts import ModelExport, SaveProject, SceneV2
+from .production_plan import PlanRejected, ProductionInput, build_plan
 
 DIST = Path(os.getenv("WEB_DIST", "web/dist"))
 compute_slots = asyncio.Semaphore(2)
@@ -110,29 +111,39 @@ def demo_footprint():
     return demo_lab.footprint_specimen()
 
 
+@app.get("/api/demo/specimens/production")
+def demo_production():
+    return Response(demo_lab.production_input(), media_type="application/json")
+
+
 @app.post("/api/demo/tests/{test_id}")
 async def run_demo_test(test_id: str, request: Request):
     if test_id not in demo_lab.TESTS:
         raise HTTPException(404, "Nieznany scenariusz testowy.")
     version = os.getenv("RAILWAY_GIT_COMMIT_SHA", "local")
-    if test_id == "footprint-export":
+    if test_id != "address":
         async with compute_slots:
-            return await run_in_threadpool(demo_lab.footprint_response, version)
+            return await run_in_threadpool(demo_lab.case_response, test_id, version)
     started = time.perf_counter()
-    if test_id == "address":
-        checks = await demo_lab.check_address(request)
-    else:
-        async with compute_slots:
-            checks = await run_in_threadpool(demo_lab.check_studio, test_id)
+    checks = await demo_lab.check_address(request)
     return {
         "id": test_id,
         "source": demo_lab.TESTS[test_id][2],
         "version": version,
-        "scope": "live-public-data" if test_id == "address" else "studio-fixture",
+        "scope": "live-public-data",
         "elapsed_ms": round((time.perf_counter() - started) * 1000),
-        "passed": all(row["passed"] for row in checks),
+        "passed": bool(checks) and all(row["passed"] for row in checks),
         "checks": checks,
     }
+
+
+@app.post("/api/production-plan")
+async def production_plan(job: ProductionInput):
+    async with compute_slots:
+        try:
+            return await run_in_threadpool(build_plan, job)
+        except PlanRejected as error:
+            raise HTTPException(422, str(error)) from error
 
 
 @app.post("/api/layout")

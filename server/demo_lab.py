@@ -11,6 +11,14 @@ from uuid import uuid4
 from fastapi import HTTPException, Request
 
 from scripts.check_electrotile_run import PVOutput, PVReference, pv_reference_errors
+from scripts.electrotile_checks import (
+    HarnessObserved,
+    HarnessReference,
+    MaterialsObserved,
+    MaterialsReference,
+    check_harness,
+    check_materials,
+)
 from scripts.electrotile_footprint_export import ASSUMED_HEIGHT_M, wall_evidence
 from scripts.electrotile_geometry import GeometryEvidence, GeometryReference, check_geometry
 from scripts.electrotile_studio_adapter import checked_layout, geometry_evidence
@@ -22,6 +30,7 @@ from .geometry import compute
 from .glb_export import export_glb
 from .model_export import export_obj
 from .product_contracts import ModelExport
+from .production_plan import ProductionInput, build_plan
 
 FIXTURES = Path(__file__).resolve().parents[1] / "tests/fixtures/electrotile-lab"
 ADDRESS = "Stargard, Szczecińska 1"
@@ -30,6 +39,11 @@ TESTS = {
         "I · Geometria i eksport",
         "Ściany budynku w OBJ i GLB",
         "Studio · obrys kontrolny z dziedzińcem",
+    ),
+    "production-plan": (
+        "II · Przedmiar i elektryka",
+        "Arkusze, rozkrój i trasa wiązki",
+        "Studio · katalog i projekt kontrolny",
     ),
     "address": ("I · Lokalizacja", "Adres i budynek z GUGiK", "Dane GUGiK na żywo"),
     "pv": ("I · Dobór PV", "Liczba i typ modułów", "Silnik Studio · dane syntetyczne"),
@@ -78,14 +92,14 @@ REQUIREMENTS = (
         "Mikropanele i profile",
         "Zgodność SKU, ilości, cięć, kątów, rzazu i odpadu",
         "Zatwierdzone wzory, katalog i referencyjna lista cięć.",
-        (),
+        ("production-plan",),
     ),
     (
         "II-02",
         "Schemat elektryczny i wiązki",
         "Zgodność topologii, złączy i długości tras",
         "Zatwierdzony schemat, trasy i normy zapasu przewodu.",
-        (),
+        ("production-plan",),
     ),
     (
         "III-01",
@@ -155,25 +169,26 @@ def run_footprint_export() -> tuple[dict, list[dict], dict[str, bytes]]:
     return reference, checks, files
 
 
-def footprint_report(version: str) -> tuple[dict, dict[str, bytes]]:
+def evidence_json(data: dict) -> bytes:
+    return (json.dumps(data, ensure_ascii=False, sort_keys=True, indent=2) + "\n").encode()
+
+
+def report_with_files(
+    test_id: str, version: str, run, metadata: dict[str, tuple[str, str]]
+) -> tuple[dict, dict[str, bytes]]:
     started = time.perf_counter()
     recorded = datetime.now(UTC).isoformat()
-    reference, checks, files = run_footprint_export()
-    metadata = {
-        "input.json": ("Wejście JSON", "application/json"),
-        "model.obj": ("Model OBJ", "text/plain"),
-        "model.glb": ("Model GLB", "model/gltf-binary"),
-    }
-    report = {
+    reference, checks, files = run()
+    return {
         "schema_version": 1,
-        "id": "footprint-export",
+        "id": test_id,
         "run_id": str(uuid4()),
         "recorded_at": recorded,
         "scope": "studio-fixture",
-        "source": TESTS["footprint-export"][2],
+        "source": TESTS[test_id][2],
         "version": version,
         "elapsed_ms": round((time.perf_counter() - started) * 1000),
-        "passed": all(row["passed"] for row in checks),
+        "passed": bool(checks) and all(row["passed"] for row in checks),
         "reference": reference,
         "checks": checks,
         "artifacts": [
@@ -186,12 +201,103 @@ def footprint_report(version: str) -> tuple[dict, dict[str, bytes]]:
             }
             for name, data in files.items()
         ],
+    }, files
+
+
+def footprint_report(version: str) -> tuple[dict, dict[str, bytes]]:
+    return report_with_files(
+        "footprint-export",
+        version,
+        run_footprint_export,
+        {
+            "input.json": ("Wejście JSON", "application/json"),
+            "model.obj": ("Model OBJ", "text/plain"),
+            "model.glb": ("Model GLB", "model/gltf-binary"),
+        },
+    )
+
+
+def production_input() -> bytes:
+    return (FIXTURES / "production-plan" / "input.json").read_bytes()
+
+
+def run_production_plan() -> tuple[dict, list[dict], dict[str, bytes]]:
+    raw = production_input()
+    reference_data = (FIXTURES / "production-plan" / "reference.json").read_bytes()
+    reference = json.loads(reference_data)
+    if sha256(raw).hexdigest() != reference["input_sha256"]:
+        raise ValueError("Zlecenie nie odpowiada zamrożonemu wzorcowi.")
+    result = build_plan(ProductionInput.model_validate_json(raw))
+
+    material_reference = MaterialsReference.model_validate(reference["materials"])
+    harness_reference = HarnessReference.model_validate(reference["harness"])
+    materials = MaterialsObserved.model_validate({"stock": result["stock"], "bom": result["profile_bom"]})
+    harness = HarnessObserved.model_validate({"wires": result["wires"]})
+    materials_defects = check_materials(material_reference, materials)
+    harness_defects = check_harness(harness_reference, harness)
+    labels = {
+        "design_revision": "Rewizja projektu",
+        "catalog_revision": "Rewizja katalogu",
+        "sheets": "SKU, wzór, wymiary i cięcia arkuszy",
+        "sheet_bom": "Kompletność przedmiaru arkuszy",
+        "stc_mwp": "Moc STC (mWp)",
+        "strings": "Przypisanie aktywnych arkuszy do obwodu",
     }
-    return report, files
+    checks = [compare(label, reference["layout"][key], result[key]) for key, label in labels.items()]
+    checks += [
+        compare(
+            "Profile, cięcia, rzaz i bilans materiału",
+            {
+                "Sztangi według SKU": material_reference.bom,
+                "Odpad (mm)": reference["total_scrap_mm"],
+                "Niezgodności": [],
+            },
+            {
+                "Sztangi według SKU": materials.bom,
+                "Odpad (mm)": sum(stock.scrap_mm for stock in materials.stock),
+                "Niezgodności": [defect.model_dump() for defect in materials_defects],
+            },
+        ),
+        compare(
+            "Trasa, końcówki i długość wiązki",
+            {"Długość z zapasem (mm)": reference["total_wire_mm"], "Niezgodności": []},
+            {
+                "Długość z zapasem (mm)": sum(wire.length_mm for wire in harness.wires.values()),
+                "Niezgodności": [defect.model_dump() for defect in harness_defects],
+            },
+        ),
+    ]
+    return (
+        {key: reference[key] for key in ("id", "revision", "input_sha256")}
+        | {"reference_sha256": sha256(reference_data).hexdigest()},
+        checks,
+        {
+            "zlecenie.json": raw,
+            "plan-produkcji.json": evidence_json(result),
+            "wzorzec.json": reference_data,
+        },
+    )
 
 
-def footprint_response(version: str) -> dict:
-    report, files = footprint_report(version)
+def case_report(test_id: str, version: str) -> tuple[dict, dict[str, bytes]]:
+    if test_id == "footprint-export":
+        return footprint_report(version)
+    if test_id == "production-plan":
+        return report_with_files(
+            test_id,
+            version,
+            run_production_plan,
+            {
+                "zlecenie.json": ("Zlecenie JSON", "application/json"),
+                "plan-produkcji.json": ("Przedmiar i wiązki JSON", "application/json"),
+                "wzorzec.json": ("Wzorzec JSON", "application/json"),
+            },
+        )
+    return study_report(test_id, version)
+
+
+def case_response(test_id: str, version: str) -> dict:
+    report, files = case_report(test_id, version)
     return {
         **report,
         "artifact_payloads": {name: b64encode(data).decode("ascii") for name, data in files.items()},
@@ -223,48 +329,75 @@ async def check_address(request: Request) -> list[dict]:
         return [compare("Dostęp do UUG / EGiB", "HTTP 200", f"HTTP {error.status_code} · {error.detail}")]
 
 
-def check_studio(test_id: str) -> list[dict]:
+def study_report(test_id: str, version: str) -> tuple[dict, dict[str, bytes]]:
     suite = "studio-pv" if test_id == "pv" else "studio-geometry"
-    results = []
-    for row, raw in frozen_cases(suite):
-        payload = ModelExport.model_validate_json(raw)
-        data = compute(payload.geometry)
-        layout = checked_layout(data, payload.variant)
-        if test_id == "pv":
-            count = layout["module_count"]
-            reference = PVReference.model_validate(row["reference"])
-            output = PVOutput(
-                report_sha256=sha256(json.dumps(layout).encode()).hexdigest(),
-                modules_by_type={data["product"]["id"]: count} if count else {},
+    files_meta: dict[str, tuple[str, str]] = {}
+    directory = FIXTURES / suite
+
+    def run_study():
+        results = []
+        files = {"wzorzec.json": (directory / "manifest.json").read_bytes()}
+        files_meta["wzorzec.json"] = ("Wzorce JSON", "application/json")
+        for row, raw in frozen_cases(suite):
+            case_id = row["id"]
+            payload = ModelExport.model_validate_json(raw)
+            data = compute(payload.geometry)
+            layout = checked_layout(data, payload.variant)
+            layout_bytes = evidence_json(
+                {
+                    "source_hash": data["source_hash"],
+                    "product": data["product"],
+                    "variant": layout,
+                }
             )
-            errors = pv_reference_errors(reference, output)
-            results.append(
-                compare(
-                    row["id"],
-                    reference.model_dump(),
-                    output.modules_by_type,
-                    passed=count == reference.module_count and not errors,
+            files[f"{case_id}-wejscie.json"] = raw
+            files[f"{case_id}-uklad.json"] = layout_bytes
+            files_meta[f"{case_id}-wejscie.json"] = (f"{case_id} · wejście", "application/json")
+            files_meta[f"{case_id}-uklad.json"] = (f"{case_id} · układ PV", "application/json")
+            if test_id == "pv":
+                count = layout["module_count"]
+                reference = PVReference.model_validate(row["reference"])
+                observed = PVOutput(
+                    report_sha256=sha256(layout_bytes).hexdigest(),
+                    modules_by_type={data["product"]["id"]: count} if count else {},
                 )
-            )
-        else:
-            reference = GeometryReference.model_validate_json(json.dumps(row["reference"]))
-            model = export_obj(payload).encode()
-            output = GeometryEvidence.model_validate(geometry_evidence(data, layout, model))
-            defects = check_geometry(reference, output)
-            results.append(
-                compare(
-                    row["id"],
-                    {
-                        "liczba modułów": sum(p.module_count for p in reference.planes.values()),
-                        "rozbieżności": 0,
-                    },
-                    {
-                        "liczba modułów": len(output.placements),
-                        "moc kWp": output.layout_power_kwp,
-                        "SHA-256 OBJ": output.obj_sha256,
-                        "rozbieżności": [d.model_dump() for d in defects],
-                    },
-                    passed=not defects,
+                errors = pv_reference_errors(reference, observed)
+                results.append(
+                    compare(
+                        case_id,
+                        {
+                            "Liczba modułów": reference.module_count,
+                            "Dopuszczone typy": reference.accepted_type_sets,
+                        },
+                        {"Liczba modułów": count, "Liczba według SKU": observed.modules_by_type},
+                        passed=count == reference.module_count and not errors,
+                    )
                 )
-            )
-    return results
+            else:
+                reference = GeometryReference.model_validate_json(json.dumps(row["reference"]))
+                model = export_obj(payload).encode()
+                files[f"{case_id}.obj"] = model
+                files_meta[f"{case_id}.obj"] = (f"{case_id} · model OBJ", "text/plain")
+                output = GeometryEvidence.model_validate(geometry_evidence(data, layout, model))
+                defects = check_geometry(reference, output)
+                module_count = sum(plane.module_count for plane in reference.planes.values())
+                results.append(
+                    compare(
+                        case_id,
+                        {
+                            "Liczba modułów": module_count,
+                            "Moc STC (kWp)": module_count * reference.module_wp / 1000,
+                            "Niezgodności": [],
+                        },
+                        {
+                            "Liczba modułów": len(output.placements),
+                            "Moc STC (kWp)": output.layout_power_kwp,
+                            "SHA-256 OBJ": output.obj_sha256,
+                            "Niezgodności": [d.model_dump() for d in defects],
+                        },
+                        passed=not defects,
+                    )
+                )
+        return {"id": suite, "reference_sha256": sha256(files["wzorzec.json"]).hexdigest()}, results, files
+
+    return report_with_files(test_id, version, run_study, files_meta)

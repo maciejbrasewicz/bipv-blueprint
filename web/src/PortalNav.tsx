@@ -3,7 +3,7 @@ import { Boxes, ClipboardCheck } from "lucide-react";
 export default function PortalNav({
   current,
 }: {
-  current: "studio" | "tests";
+  current: "studio" | "tests" | "production";
 }) {
   return (
     <nav className="portal-nav" aria-label="Sekcje demonstratora">

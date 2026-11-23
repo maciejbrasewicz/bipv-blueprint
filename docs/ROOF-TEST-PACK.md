@@ -22,6 +22,14 @@ uv run --frozen python -m scripts.run_electrotile_3d_case wyniki/et-3d-01
 
 Otrzymasz wejście, modele OBJ i GLB oraz raport prób z sumami SHA-256 każdego pliku. Test `test_footprint_export.py` sprawdza zgodność plików z wykonaniem przez portal i zwykłe API Studio.
 
+Próbę ET-PROD-01 dla przedmiaru, rozkroju i wiązki uruchamia:
+
+```sh
+uv run --frozen python -m scripts.run_electrotile_production_case wyniki/et-prod-01
+```
+
+Raport odczytuje rzeczywiście wyliczony plan. Sprawdza typy arkuszy i moc STC, bilans sztang z rzazem oraz końce i długość wiązki według zamrożonej referencji. Ścieżkę można też wykonać w publicznym laboratorium i zweryfikować sumy plików.
+
 ## Scenariusze wykonawcze
 
 | Obszar | Wejście / wykonanie | Kryterium zaliczenia | Test |

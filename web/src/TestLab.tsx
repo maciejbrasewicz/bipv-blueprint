@@ -136,15 +136,25 @@ function FootprintResult({ report }: { report: Result }) {
           ))}
         </tbody>
       </table>
+      <ReportFiles report={report} />
+    </div>
+  );
+}
+
+function ReportFiles({ report }: { report: Result }) {
+  if (!report.artifacts?.length || !report.artifact_payloads) return null;
+  const payloads = report.artifact_payloads;
+  return (
+    <div className="lab-artifacts">
       <div className="lab-files">
-        {report.artifacts?.map((artifact) => (
+        {report.artifacts.map((artifact) => (
           <button
             type="button"
             className="button"
             key={artifact.name}
             onClick={() => {
               const bytes = Uint8Array.from(
-                atob(report.artifact_payloads![artifact.name]),
+                atob(payloads[artifact.name]),
                 (character) => character.charCodeAt(0),
               );
               download(
@@ -161,12 +171,13 @@ function FootprintResult({ report }: { report: Result }) {
         <summary>Identyfikator przebiegu i sumy SHA-256</summary>
         <p>
           <code>{report.run_id}</code> ·{" "}
-          {new Date(report.recorded_at!).toLocaleString("pl-PL", {
-            timeZone: "Europe/Warsaw",
-          })}
+          {report.recorded_at &&
+            new Date(report.recorded_at).toLocaleString("pl-PL", {
+              timeZone: "Europe/Warsaw",
+            })}
         </p>
         <dl>
-          {report.artifacts?.map((artifact) => (
+          {report.artifacts.map((artifact) => (
             <div key={artifact.name}>
               <dt>{artifact.name}</dt>
               <dd>
@@ -419,6 +430,14 @@ export default function TestLab() {
                             <p className="lab-kicker">{scenario.criterion}</p>
                             <h3 id={`lab-${scenario.id}`}>{scenario.title}</h3>
                             <p className="lab-source">{scenario.source}</p>
+                            {scenario.id === "production-plan" && (
+                              <a
+                                href="/produkcja"
+                                className="lab-text-link lab-workbench"
+                              >
+                                Otwórz kalkulator <ArrowUpRight size={14} />
+                              </a>
+                            )}
                           </div>
                           <div className="lab-actions">
                             <ResultStatus result={result} pending={pending} />
@@ -442,6 +461,7 @@ export default function TestLab() {
                               Wynik i dowody · {result.elapsed_ms} ms · wydanie{" "}
                               {result.version.slice(0, 12)}
                             </summary>
+                            <ReportFiles report={result} />
                             {result.checks.map((row) => (
                               <div className="lab-check" key={row.label}>
                                 <h4>

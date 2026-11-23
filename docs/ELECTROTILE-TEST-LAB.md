@@ -6,7 +6,7 @@ Podstawa to załącznik 2, s. 9–13 oraz warunki zdolności z zapytania, s. 3. 
 
 Górna nawigacja prowadzi do **Studia projektowego** oraz **Testów Electrotile** pod adresem `/testy`. Studio umożliwia samodzielne wskazanie adresu i budynku. Formularz osobno przyjmuje miejscowość oraz ulicę i numer, aby zapytanie miało format obsługiwany przez UUG. Użytkownik może wstawić przykładowy adres i wykonać rzeczywiste wyszukiwanie.
 
-W publicznym laboratorium są cztery próby wykonywane na bieżącym wydaniu. Adres i budynek są sprawdzane przez GUGiK UUG i EGiB na żywo. Dobór PV i eksport geometrii używają zamrożonych danych kontrolnych Studio. Macierz obejmuje osiem wymagań, podaje kryteria i potrzebne dane klienta oraz wskazuje powiązane próby Studio. Wyniki prób Studio mają własny zakres w raporcie. Status odbioru produktu Electrotile pozostaje BLOCKED dla wymagań oczekujących na wejścia i dostęp.
+W publicznym laboratorium jest pięć prób wykonywane na bieżącym wydaniu. Adres i budynek są sprawdzane przez GUGiK UUG i EGiB na żywo. Dobór PV, eksport geometrii i kalkulacja produkcyjna używają zamrożonych danych kontrolnych Studio. Macierz obejmuje osiem wymagań, podaje kryteria i potrzebne dane klienta oraz wskazuje powiązane próby Studio. Wyniki prób Studio mają własny zakres w raporcie. Status odbioru produktu Electrotile pozostaje BLOCKED dla wymagań oczekujących na wejścia i dostęp.
 
 ### ET-3D-01 · Ściany budynku w OBJ i GLB
 
@@ -21,6 +21,20 @@ uv run --frozen python -m scripts.run_electrotile_3d_case wyniki/et-3d-01
 ```
 
 Runner zapisuje `input.json`, `model.obj`, `model.glb` i `report.json`. Wersję wydania odczytuje z `SOURCE_COMMIT.txt` w paczce. Przy uruchomieniu z repozytorium można przekazać `--version "$(git rev-parse HEAD)"`. Kod wyjścia 0 odpowiada zaliczonej próbie, 1 rozbieżności pomiaru.
+
+### ET-PROD-01 · Arkusze, rozkrój i trasa wiązki
+
+Materiał wejściowy obejmuje poprawnie skonfigurowany dach z pełnym arkuszem, połówkami lewą i prawą oraz arkuszem biernym. Wzorzec w `tests/fixtures/electrotile-lab/production-plan/reference.json` określa SKU per element, dozwolone cięcia, wymiary, przynależność do obwodu i sumę 84 Wp. Przedmiar i graf powstają w bieżącym silniku `server.production_plan`, tym samym, który obsługuje `POST /api/production-plan` oraz kalkulator `/produkcja`. Job jawnie opisuje arkusze i korytarze prowadzenia przewodu. Katalog jest syntetyczny i wersjonowany.
+
+Kontrola materiałów sprawdza każdy detal, oba kąty, liczbę przejść i bilans każdej sztangi. Dwa detale po 2998 mm z rzazem 3 mm zużyłyby 6002 mm i wymagają osobnych sztang 6000 mm. W kompletnym zleceniu trzeci detal ma 1200 mm. Bilans całej partii to 12 000 mm materiału, 7196 mm cięć, 9 mm rzazu i 4795 mm odpadu. Algorytm stosuje first-fit decreasing dla zadanej długości sztangi przypisanej do SKU. Próbka weryfikuje wykonalność i zadany bilans.
+
+W grafie test oczekuje trasy 3500 + 2000 mm i zapasu 250 mm. Ocena sprawdza kolejność odcinków, oba porty, oba złącza i SKU. Wynik wiązki wynosi 5750 mm. Kontrola przynależności arkuszy weryfikuje, że elementy aktywne występują dokładnie raz, a element bierny pozostaje bez przypisania. Regresja sprawdza również równą sumę z błędnym SKU lub trasą, styk granicy sztangi i poprawne przeliczenie po wyłączeniu korytarza. Reguły projektowania i odbioru instalacji wymagają zatwierdzenia po stronie klienta.
+
+```sh
+uv run --frozen python -m scripts.run_electrotile_production_case wyniki/et-prod-01
+```
+
+Polecenie tworzy pliki zlecenia, faktycznego planu, niezależnego wzorca i raportu. Portal udostępnia te same pliki. Karty dachu, fasady i PV udostępniają dodatkowo zamrożone wejścia, referencje i pliki z obliczeń oraz eksportu. Dopasowanie katalogu klienta i odbiór wymagań I–II pozostają osobną próbą z zatwierdzonymi danymi.
 
 ## Karty scenariuszy
 
