@@ -76,6 +76,9 @@ jobs:
           LIVE_GEO: '0'
         run: npx playwright test demo-lab.spec.ts production-plan.spec.ts
         working-directory: web
+      - name: Verify deployed UX v2 in real Chromium at desktop and mobile width
+        run: npx playwright test ux-v2.spec.ts
+        working-directory: web
       - name: Verify live GUGiK address and footprints
         if: steps.deployed.outputs.geo == 'true'
         timeout-minutes: 3
