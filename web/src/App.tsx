@@ -1052,6 +1052,19 @@ function Studio({
             <ChevronRight size={13} />
           </button>
           <button
+            type="button"
+            className="object-row"
+            aria-label="Otwórz przykład techniczny"
+            onClick={loadExample}
+          >
+            <Layers3 size={17} />
+            <span>
+              Przykład techniczny
+              <small>Sprawdzalna scena 3D · bez adresu</small>
+            </span>
+            <ChevronRight size={13} />
+          </button>
+          <button
             className={
               "object-row building " +
               (selected === null && hole === null ? "selected" : "")
