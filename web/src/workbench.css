@@ -137,8 +137,8 @@ button:not(:disabled):active {
   font-weight: 850;
 }
 .brand small {
-  color: #6c8387;
-  font-size: 8px;
+  color: #526971;
+  font-size: 9px;
   font-weight: 700;
   letter-spacing: 0.155em;
   margin-top: 3px;
@@ -323,8 +323,8 @@ button:not(:disabled):active {
   font-weight: 800;
 }
 .journey-text small {
-  color: #6b8286;
-  font-size: 10px;
+  color: #536c72;
+  font-size: 11px;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -434,8 +434,8 @@ button:not(:disabled):active {
   color: #5a7a80;
 }
 .object-row small {
-  color: #75888d;
-  font-size: 10px;
+  color: #526d73;
+  font-size: 11px;
   line-height: 1.35;
 }
 .object-row:hover {
@@ -486,7 +486,7 @@ button:not(:disabled):active {
   min-height: 37px;
 }
 .surface-row small {
-  color: #6f898b;
+  color: #526b70;
   font-size: 11px;
 }
 .surface-row.checked {
@@ -590,8 +590,8 @@ button:not(:disabled):active {
   height: 5px;
 }
 .range-field small {
-  font-size: 10px;
-  color: #638184;
+  font-size: 11px;
+  color: #526c73;
 }
 .left-footer,
 .left-footer .mono {
@@ -701,7 +701,7 @@ button:not(:disabled):active {
   line-height: 1.13;
 }
 .canvas-label p {
-  color: #61757a;
+  color: #52666d;
   font-size: 12px;
   line-height: 1.5;
   margin-top: 8px;
@@ -864,8 +864,8 @@ button:not(:disabled):active {
 }
 .power-bottom {
   border-top: 1px solid #477472;
-  color: #c4dedb;
-  font-size: 10px;
+  color: #e4f4f0;
+  font-size: 11px;
   line-height: 1.4;
   padding-top: 12px;
 }
@@ -894,7 +894,7 @@ button:not(:disabled):active {
   min-width: 0;
 }
 .metric-grid > div > span {
-  color: #5c797d;
+  color: #496970;
   font-size: 11px;
   line-height: 1.25;
   font-weight: 630;
@@ -968,7 +968,8 @@ button:not(:disabled):active {
   font-size: 14px;
 }
 .product-preview small {
-  color: #688186;
+  color: #506e73;
+  font-size: 11px;
 }
 .select-field {
   color: #4b686e;
@@ -1360,7 +1361,7 @@ button:not(:disabled):active {
     font-size: 10px;
   }
   .journey-text small {
-    font-size: 9px;
+    font-size: 10px;
     max-width: 108px;
   }
   .journey-step > svg {
@@ -1450,8 +1451,8 @@ button:not(:disabled):active {
     border-radius: 10px;
   }
   .view-controls .icon-button {
-    width: 34px;
-    height: 34px;
+    width: 40px;
+    height: 40px;
   }
   .view-controls .icon-button svg {
     width: 16px;
@@ -1483,7 +1484,7 @@ button:not(:disabled):active {
     line-height: 1.2;
   }
   .variant-dock b small {
-    font-size: 8px;
+    font-size: 9px;
     line-height: 1.25;
   }
   .variant-dock em {
@@ -1580,5 +1581,30 @@ button:not(:disabled):active {
   }
   .workbench-scrim.for-left {
     left: min(340px, 88vw);
+  }
+}
+
+/* Audit polish: small text never depends on low-contrast green-on-green;
+   the 360 px footer omits implementation hashes that otherwise clip. */
+.power-bottom > span {
+  color: #e3f3ee;
+  opacity: 1;
+}
+.label-tag {
+  font-size: 9px;
+  font-weight: 780;
+  color: #315e60;
+}
+@media (max-width: 700px) {
+  .studio .status-middle {
+    display: none;
+  }
+  .studio .status-bar > div:last-child {
+    margin-left: auto;
+    min-width: 0;
+    font-size: 9px;
+  }
+  .studio .canvas-confidence {
+    color: #3b6268;
   }
 }
