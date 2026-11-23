@@ -1566,3 +1566,19 @@ button:not(:disabled):active {
     animation-duration: 3s;
   }
 }
+
+/* The backdrop's hit region excludes the open sheet. This makes tapping
+   outside reliably dismiss the inspector and allows keyboard/mouse tests. */
+@media (min-width: 701px) and (max-width: 980px) {
+  .workbench-scrim.for-right {
+    right: min(370px, 88vw);
+  }
+}
+@media (max-width: 700px) {
+  .workbench-scrim.for-right {
+    right: min(340px, 88vw);
+  }
+  .workbench-scrim.for-left {
+    left: min(340px, 88vw);
+  }
+}
