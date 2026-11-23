@@ -1608,3 +1608,41 @@ button:not(:disabled):active {
     color: #3b6268;
   }
 }
+
+/* One-screen mobile workflow. Every stage is visible; avoid a clipped,
+   unmarked horizontal scroller that hides the validation step. */
+.journey-title-compact {
+  display: none;
+}
+@media (max-width: 700px) {
+  .project-journey {
+    overflow: visible;
+    scroll-snap-type: none;
+  }
+  .journey-steps {
+    min-width: 0;
+    width: 100%;
+    gap: 4px;
+  }
+  .journey-step {
+    min-width: 0;
+    flex: 1 1 0;
+    width: 0;
+    overflow: hidden;
+    gap: 5px;
+    padding: 6px 5px;
+  }
+  .journey-text strong {
+    font-size: 11px;
+    white-space: nowrap;
+  }
+  .journey-text small {
+    display: none;
+  }
+  .journey-title-wide {
+    display: none;
+  }
+  .journey-title-compact {
+    display: inline;
+  }
+}
