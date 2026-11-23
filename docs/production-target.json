@@ -3,7 +3,7 @@
   "url": "https://bipv-studio-production.up.railway.app",
   "quality_run": "https://github.com/maciejbrasewicz/bipv-blueprint/actions/runs/45157330862",
   "railway_deployment": "00f03655-5f96-43f2-99bc-e7a76648e22a",
-  "verification_revision": 12,
+  "verification_revision": 13,
   "geo": true,
   "demo_lab": true
 }
