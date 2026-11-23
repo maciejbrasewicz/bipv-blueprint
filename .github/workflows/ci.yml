@@ -97,6 +97,26 @@ jobs:
         working-directory: web
       - run: npm run test:e2e
         working-directory: web
+      - name: Capture candidate visuals for design review
+        if: github.event_name == 'pull_request' && github.event.pull_request.number == 23
+        run: |
+          git fetch origin evidence/r1
+          git worktree add /tmp/bipv-ux-v2-evidence origin/evidence/r1
+          mkdir -p /tmp/bipv-ux-v2-evidence/evidence/ux-v2
+          cp web/test-results/workbench-v2-desktop.jpg /tmp/bipv-ux-v2-evidence/evidence/ux-v2/desktop.jpg
+          cp web/test-results/workbench-v2-mobile.jpg /tmp/bipv-ux-v2-evidence/evidence/ux-v2/mobile.jpg
+          python - <<'PY'
+          import json, os
+          from pathlib import Path
+          Path("/tmp/bipv-ux-v2-evidence/evidence/ux-v2/run.json").write_text(
+              json.dumps({"candidate_sha": os.environ["GITHUB_SHA"], "ci_run": os.environ["GITHUB_RUN_ID"]}, indent=2)
+          )
+          PY
+          git -C /tmp/bipv-ux-v2-evidence config user.name "github-actions[bot]"
+          git -C /tmp/bipv-ux-v2-evidence config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git -C /tmp/bipv-ux-v2-evidence add evidence/ux-v2
+          git -C /tmp/bipv-ux-v2-evidence diff --cached --quiet || git -C /tmp/bipv-ux-v2-evidence commit -m "Review exact candidate UX v2 screens"
+          git -C /tmp/bipv-ux-v2-evidence push origin HEAD:evidence/r1
       - name: Verify the Docker runtime at the production resource limits
         run: |
           docker build -t bipv-studio-ci .
