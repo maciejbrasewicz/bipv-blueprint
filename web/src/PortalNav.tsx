@@ -14,7 +14,9 @@ export default function PortalNav({
       >
         <Boxes size={16} />
         <span className="nav-wide">Studio projektowe</span>
-        <span className="nav-compact" aria-hidden="true">Studio</span>
+        <span className="nav-compact" aria-hidden="true">
+          Studio
+        </span>
       </a>
       <a
         href="/testy"
@@ -23,7 +25,9 @@ export default function PortalNav({
       >
         <ClipboardCheck size={16} />
         <span className="nav-wide">Testy Electrotile</span>
-        <span className="nav-compact" aria-hidden="true">Testy</span>
+        <span className="nav-compact" aria-hidden="true">
+          Testy
+        </span>
       </a>
       <a
         href="/produkcja"
@@ -32,7 +36,9 @@ export default function PortalNav({
       >
         <Calculator size={16} />
         <span className="nav-wide">Kalkulator produkcji</span>
-        <span className="nav-compact" aria-hidden="true">Produkcja</span>
+        <span className="nav-compact" aria-hidden="true">
+          Produkcja
+        </span>
       </a>
     </nav>
   );
