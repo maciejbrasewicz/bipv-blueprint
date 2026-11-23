@@ -4,8 +4,10 @@ from typing import Annotated, Literal
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 from shapely import Polygon
 
-MAX_LAYOUT_AREA_M2 = 250
-MAX_LAYOUT_BOUNDS_M2 = 600
+# Explicit complexity budget for interactive PV layouts. Larger scenes must be rejected,
+# not silently represented as completed designs without panels.
+MAX_LAYOUT_AREA_M2 = 2000
+MAX_LAYOUT_BOUNDS_M2 = 4000
 
 
 class StrictModel(BaseModel):
@@ -114,7 +116,7 @@ class Scene(StrictModel):
                 x0, y0, x1, y1 = polygon.bounds
                 search_area += (x1 - x0) * (y1 - y0)
             if search_area > MAX_LAYOUT_BOUNDS_M2:
-                raise ValueError("Obszar przeszukiwania przekracza 600 m²")
+                raise ValueError(f"Obszar przeszukiwania przekracza {MAX_LAYOUT_BOUNDS_M2} m²")
         if area > MAX_LAYOUT_AREA_M2:
-            raise ValueError("Limit demonstratora: 250 m² wybranych połaci")
+            raise ValueError(f"Obszar połaci przekracza {MAX_LAYOUT_AREA_M2} m². Wydziel fragment dachu.")
         return self
