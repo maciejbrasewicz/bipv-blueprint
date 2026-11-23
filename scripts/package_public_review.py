@@ -27,6 +27,7 @@ TREE_FILES = {
     "supabase/tests": {".sql"},
 }
 SINGLE_FILES = (
+    ".gitignore",
     "LICENSE",
     ".github/workflows/source-evaluation.yml",
     ".github/workflows/evaluation-release.yml",
