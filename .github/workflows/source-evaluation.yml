@@ -1,0 +1,59 @@
+name: Public source evaluation
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  technical-evidence:
+    runs-on: ubuntu-latest
+    timeout-minutes: 18
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: astral-sh/setup-uv@v6
+        with:
+          version: '0.13.9'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Install locked backend dependencies
+        run: uv sync --python 3.12 --frozen --dev
+      - name: Install and build React/Three.js
+        run: |
+          npm ci --prefix web --no-audit --no-fund
+          npm run build --prefix web
+      - name: Test the actual app in headless Chromium
+        run: |
+          cd web
+          npx playwright install --with-deps --only-shell chromium
+          npm run test:e2e
+      - name: Test Python API, geometry, BIPV checks and evidence
+        run: |
+          mkdir -p dist
+          uv run --frozen pytest -q --junitxml dist/roof-test-results.xml
+          uv run --frozen python -m scripts.benchmark_roof_tests --output dist/roof-benchmark.json
+      - name: Build and independently verify source review ZIP
+        run: |
+          python scripts/package_public_review.py dist/Registry9-ET-2025-7-Source-and-Tests.zip --source-sha "$GITHUB_SHA" --evidence-dir dist
+          python scripts/verify_public_review.py dist/Registry9-ET-2025-7-Source-and-Tests.zip
+          clean="$(mktemp -d)"
+          trap 'rm -rf "$clean"' EXIT
+          unzip -q dist/Registry9-ET-2025-7-Source-and-Tests.zip -d "$clean"
+          (
+            cd "$clean"
+            uv sync --python 3.12 --frozen --dev
+            uv run --frozen pytest -q
+            uv run --frozen python -m scripts.run_electrotile_3d_case fresh-3d-model
+            uv run --frozen python -m scripts.run_electrotile_production_case fresh-production
+          )
+      - uses: actions/upload-artifact@v4
+        with:
+          name: electrotile-source-and-tests
+          path: dist/Registry9-ET-2025-7-Source-and-Tests.zip
+          if-no-files-found: error
+          retention-days: 90
