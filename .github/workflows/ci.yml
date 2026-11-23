@@ -89,18 +89,6 @@ jobs:
           { echo 'begin;'; cat supabase/tests/organization_project_access.sql; echo 'rollback;'; } | sql
       - run: uv export --frozen --no-dev --no-hashes --format requirements-txt --output-file requirements.txt > /dev/null && git diff --exit-code requirements.txt
       - run: npm ci --prefix web --no-audit --no-fund
-      - name: Temporary frontend formatting diagnostics
-        run: |
-          npm run format --prefix web
-          python - <<'PY'
-          import json
-          from pathlib import Path
-          for name in ("web/src/App.tsx", "web/e2e/location.spec.ts", "web/e2e/studio.spec.ts"):
-              payload = json.dumps({"path":name,"content":Path(name).read_text()},ensure_ascii=False)
-              for index in range(0,len(payload),1500):
-                  print(f"FORMATTED_{name}_{index//1500:04d}:" + payload[index:index+1500])
-          PY
-          exit 1
       - run: npm run format:check --prefix web
       - run: npm run build --prefix web
       - name: Install headless Chromium
