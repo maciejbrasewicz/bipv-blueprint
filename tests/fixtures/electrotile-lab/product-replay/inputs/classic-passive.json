@@ -1,0 +1,8 @@
+{
+  "scenario": "classic-product",
+  "design_revision": "design-r3",
+  "catalog_revision": "lab-classic-v1",
+  "pattern": {
+    "infill": "passive"
+  }
+}

@@ -2073,6 +2073,522 @@ p {
   font: inherit;
 }
 
+.location-demo-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+  margin-top: 8px;
+}
+
+.location-demo-row p {
+  margin: 0;
+}
+
+.location-area {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 14px;
+  margin-top: 14px;
+  font-size: 12px;
+}
+
+.location-area label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 650;
+}
+.location-area select,
+.location-demo-row select {
+  min-height: 32px;
+  padding: 3px 7px;
+  color: #253e30;
+  border: 1px solid #c1cec2;
+  border-radius: 5px;
+  background: #fff;
+}
+
+.portal-nav {
+  display: flex;
+  flex-shrink: 0;
+  flex-wrap: wrap;
+  gap: 8px 22px;
+  align-items: center;
+  min-height: 44px;
+  padding: 5px clamp(14px, 4vw, 44px);
+  background: #142820;
+  color: #e9f3ed;
+}
+
+.portal-nav a {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 32px;
+  padding: 0 9px;
+  border-radius: 5px;
+  text-decoration: none;
+  font-size: 13px;
+}
+
+.portal-nav a[aria-current="page"],
+.portal-nav a:hover {
+  background: #355447;
+}
+
+.portal-nav .nav-compact {
+  display: none;
+}
+
+@media (max-width: 700px) {
+  .portal-nav {
+    flex-wrap: nowrap;
+    justify-content: space-between;
+    gap: 4px;
+    padding: 5px 8px;
+  }
+
+  .portal-nav a {
+    min-width: 0;
+    padding: 0 5px;
+    font-size: 12px;
+    gap: 5px;
+  }
+
+  .portal-nav .nav-wide {
+    display: none;
+  }
+
+  .portal-nav .nav-compact {
+    display: inline;
+  }
+}
+
+.lab-page {
+  min-height: 100dvh;
+  background: #f2f4ef;
+  color: #172d24;
+}
+
+.lab-main {
+  max-width: 1220px;
+  margin: 0 auto;
+  padding: clamp(28px, 4.5vw, 62px) clamp(16px, 4vw, 48px) 64px;
+}
+
+.lab-intro,
+.lab-section-heading,
+.lab-scenario-top,
+.lab-result-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px 22px;
+}
+
+.lab-intro {
+  margin-bottom: 25px;
+}
+.lab-intro h1 {
+  font-size: clamp(34px, 6vw, 60px);
+  line-height: 1.02;
+  letter-spacing: -0.045em;
+  margin: 8px 0 10px;
+  font-weight: 750;
+}
+.lab-lead {
+  max-width: 55ch;
+  margin: 0;
+  color: #456155;
+  line-height: 1.55;
+  font-size: 15px;
+}
+.lab-kicker {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  margin: 0;
+  font-size: 11px;
+  font-weight: 750;
+  letter-spacing: 0.09em;
+  color: #436557;
+}
+.lab-actions,
+.lab-files {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+.lab-page .button {
+  min-height: 39px;
+}
+.lab-page :is(button, a, summary):focus-visible {
+  outline: 2px solid #597b37;
+  outline-offset: 3px;
+}
+.lab-feature {
+  background: #172e25;
+  color: #f0f7ec;
+  border: 1px solid #243e34;
+  border-radius: 14px;
+  overflow: hidden;
+}
+.lab-feature-body {
+  display: grid;
+  grid-template-columns: minmax(0, 0.95fr) minmax(0, 1.15fr);
+  align-items: stretch;
+  padding: clamp(16px, 2.5vw, 30px);
+  gap: clamp(20px, 3vw, 42px);
+}
+.lab-feature-copy {
+  align-self: center;
+  padding: 12px 0 12px clamp(0px, 1.3vw, 12px);
+}
+.lab-feature-copy .lab-kicker {
+  color: #b9dea8;
+}
+.lab-feature h2 {
+  font-size: clamp(27px, 4vw, 47px);
+  line-height: 1.05;
+  letter-spacing: -0.035em;
+  margin: 11px 0 16px;
+  max-width: 18ch;
+}
+.lab-feature-copy > p:not(.lab-kicker) {
+  margin: 0 0 22px;
+  max-width: 44ch;
+  color: #c4d9cd;
+  font-size: 15px;
+  line-height: 1.55;
+}
+.lab-feature-copy .lab-run {
+  background: #cceba3;
+  border-color: #cceba3;
+  color: #172e25;
+  font-weight: 750;
+}
+.lab-feature-copy .lab-run:hover:not(:disabled) {
+  background: #e2f4c5;
+  border-color: #e2f4c5;
+}
+.lab-feature-copy :is(button, a):focus-visible {
+  outline-color: #cceba3;
+}
+.lab-text-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  text-decoration: none;
+  font-size: 13px;
+  font-weight: 700;
+  color: #315744;
+}
+.lab-text-link:hover {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.lab-feature-copy .lab-text-link {
+  color: #c1d4c9;
+  margin-top: 20px;
+}
+.lab-figure {
+  margin: 0;
+  min-width: 0;
+  overflow: hidden;
+  background: radial-gradient(ellipse at 50% 50%, #244539, #142a23 85%);
+  border: 1px solid #426254;
+  border-radius: 10px;
+}
+.lab-figure figcaption,
+.lab-figure-meta {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: center;
+  gap: 6px 12px;
+  padding: 10px 13px;
+  background: #203a30;
+}
+.lab-figure figcaption {
+  font-size: 12px;
+  font-weight: 650;
+  border-bottom: 1px solid #426254;
+}
+.lab-figure figcaption span {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+}
+.lab-view-switch {
+  display: inline-flex;
+  padding: 2px;
+  border: 1px solid #5d786a;
+  border-radius: 5px;
+  background: #172e25;
+}
+.lab-view-switch button {
+  min-width: 42px;
+  padding: 4px 8px;
+  border: 0;
+  border-radius: 3px;
+  background: transparent;
+  color: #e4f1ea;
+  cursor: pointer;
+  font: inherit;
+}
+.lab-view-switch button[aria-pressed="true"] {
+  background: #cceba3;
+  color: #172e25;
+}
+.lab-figure canvas {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+.lab-figure-meta {
+  color: #d5e5da;
+  font-size: 11px;
+  border-top: 1px solid #426254;
+}
+.lab-proof {
+  padding: clamp(16px, 3vw, 30px);
+  background: #fff;
+  color: #172d24;
+  border-top: 1px solid #547164;
+}
+.lab-result-meta h3 {
+  margin: 0 0 4px;
+  font-size: 18px;
+}
+.lab-result-meta p {
+  margin: 0;
+  font-size: 12px;
+  color: #456155;
+}
+.lab-metrics {
+  width: 100%;
+  table-layout: auto;
+  border-collapse: collapse;
+  margin: 14px 0 16px;
+  font-size: 13px;
+  text-align: left;
+}
+.lab-metrics thead {
+  background: #eff3ed;
+}
+.lab-metrics :is(th, td) {
+  padding: 10px 12px;
+  border-bottom: 1px solid #d8e3d9;
+}
+.lab-metrics th:first-child {
+  width: 52%;
+}
+.lab-metrics th[scope="row"] {
+  font-weight: 600;
+}
+.lab-metrics td {
+  font-variant-numeric: tabular-nums;
+}
+.lab-metrics td svg {
+  vertical-align: text-bottom;
+  margin-left: 4px;
+}
+.lab-metrics td[data-result="pass"] {
+  color: #256443;
+}
+.lab-metrics td[data-result="fail"] {
+  color: #852922;
+  font-weight: 750;
+}
+.lab-integrity {
+  margin-top: 14px;
+  font-size: 12px;
+  color: #456155;
+}
+.lab-integrity summary,
+.lab-evidence summary {
+  cursor: pointer;
+  font-weight: 700;
+}
+.lab-integrity code {
+  overflow-wrap: anywhere;
+}
+.lab-integrity dl {
+  display: grid;
+  gap: 6px;
+}
+.lab-integrity dl div {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 10px;
+}
+.lab-integrity dd {
+  margin: 0;
+  min-width: 0;
+}
+.lab-suite,
+.lab-scope {
+  margin-top: clamp(26px, 4vw, 46px);
+}
+.lab-section-heading {
+  margin-bottom: 12px;
+}
+.lab-section-heading h2 {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: clamp(22px, 3vw, 29px);
+  letter-spacing: -0.025em;
+  margin: 0;
+}
+.lab-scenarios {
+  display: grid;
+  gap: 8px;
+}
+.lab-scenario,
+.lab-requirement,
+.lab-error {
+  padding: 15px 19px;
+  background: white;
+  border: 1px solid #d0dbd0;
+  border-radius: 9px;
+}
+.lab-scenario h3,
+.lab-requirement h3 {
+  color: #203628;
+  font-size: 17px;
+  margin: 4px 0;
+}
+.lab-scenario p,
+.lab-requirement p {
+  margin: 4px 0;
+}
+.lab-source,
+.lab-scope > p {
+  color: #466053;
+  font-size: 13px;
+  line-height: 1.45;
+}
+.lab-scope > p {
+  margin: -4px 0 14px;
+}
+.lab-requirements {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+.lab-requirement {
+  font-size: 13px;
+  line-height: 1.45;
+}
+.lab-requirement > div {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+}
+.lab-related {
+  color: #395e4b;
+  font-size: 12px;
+}
+.lab-related a {
+  display: inline-block;
+  margin-right: 8px;
+  text-underline-offset: 2px;
+}
+.lab-status {
+  display: inline-block;
+  background: #edf1ed;
+  color: #345348;
+  border-radius: 5px;
+  padding: 4px 8px;
+  font-size: 12px;
+  font-weight: 650;
+}
+.lab-status[data-result="pass"] {
+  background: #dff2df;
+  color: #185431;
+}
+.lab-status[data-result="fail"] {
+  background: #f9e5e2;
+  color: #852922;
+}
+.lab-evidence {
+  border-top: 1px solid #d4dfd3;
+  padding-top: 12px;
+  margin-top: 14px;
+  font-size: 13px;
+}
+.lab-check h4 {
+  font-size: 13px;
+  margin: 10px 0 6px;
+}
+.lab-check dl {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  margin: 0;
+  gap: 10px;
+}
+.lab-check dl > div {
+  min-width: 0;
+  background: #f5f8f4;
+  padding: 9px;
+}
+.lab-check dt {
+  font-size: 11px;
+  font-weight: 700;
+}
+.lab-check dd {
+  margin: 4px 0 0;
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+.lab-check pre {
+  margin: 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  max-height: 240px;
+  overflow: auto;
+}
+
+@media (max-width: 700px) {
+  .lab-feature-body,
+  .lab-requirements {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .lab-feature-copy {
+    padding-top: 3px;
+  }
+  .lab-feature h2 {
+    max-width: unset;
+  }
+}
+@media (max-width: 560px) {
+  .lab-metrics :is(th, td) {
+    padding: 8px 5px;
+  }
+  .lab-metrics td svg {
+    display: none;
+  }
+  .location-search {
+    flex-wrap: wrap;
+  }
+  .location-search label {
+    min-width: 120px;
+  }
+  .lab-check dl {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .lab-scenario {
+    padding: 13px;
+  }
+}
+
 .location-dialog h3,
 .building-options legend {
   color: #405849;
@@ -2155,6 +2671,78 @@ p {
   fill: #813e22;
 }
 
+.location-map-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 6px;
+}
+
+.location-map-panel .ortho-caption {
+  margin: 4px 0;
+  font-size: 11px;
+}
+
+.building-map.with-ortho g path {
+  fill-opacity: 0.27;
+  stroke: #fff;
+}
+
+.building-map.with-ortho .chosen-building path {
+  fill-opacity: 0.55;
+  stroke: #cff78e;
+}
+
+.building-map.with-ortho text {
+  paint-order: stroke;
+  stroke: white;
+  stroke-width: 0.55px;
+}
+
+.building-map.measuring,
+.building-map.measuring g {
+  cursor: crosshair;
+}
+
+.trace-outline {
+  fill: #f7ca5250;
+  stroke: #ffcf5c;
+  stroke-width: 0.8;
+  pointer-events: none;
+}
+
+.trace-vertex {
+  fill: #ffcf5c;
+  stroke: #282720;
+  stroke-width: 0.35;
+  pointer-events: none;
+}
+
+.building-map .trace-ridge {
+  pointer-events: none;
+}
+
+.trace-ridge line {
+  stroke: #6bd9ff;
+  stroke-width: 0.9;
+}
+
+.trace-ridge circle {
+  fill: #6bd9ff;
+  stroke: #153a49;
+  stroke-width: 0.3;
+}
+
+.roof-trace label {
+  display: grid;
+  gap: 4px;
+  font-size: 12px;
+}
+
+.roof-trace input {
+  width: 100px;
+}
+
 .building-options {
   min-width: 0;
   max-height: 320px;
@@ -2199,5 +2787,335 @@ p {
   .location-confirm {
     flex-direction: column;
     align-items: stretch;
+  }
+}
+
+.lab-evidence .lab-artifacts {
+  padding: 12px 0 6px;
+}
+
+.lab-workbench {
+  margin-top: 6px;
+}
+
+.plan-grid {
+  display: grid;
+  grid-template-columns: minmax(250px, 0.88fr) minmax(0, 1.55fr);
+  align-items: start;
+  gap: 16px;
+}
+
+.plan-form,
+.plan-output {
+  padding: clamp(16px, 2.4vw, 27px);
+}
+
+.plan-form-heading {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+}
+
+.plan-grid h2 {
+  font-size: 21px;
+  letter-spacing: -0.025em;
+}
+
+.plan-form > p,
+.plan-output > p {
+  font-size: 13px;
+  color: #456155;
+}
+
+.plan-form fieldset {
+  margin: 22px 0 0;
+  padding: 0;
+  min-width: 0;
+  border: 0;
+}
+
+.plan-form legend {
+  margin-bottom: 10px;
+  font-size: 13px;
+  font-weight: 730;
+}
+
+.plan-form label {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(85px, 106px);
+  align-items: center;
+  gap: 10px;
+  padding: 7px 0;
+  border-top: 1px solid #e2e9e1;
+  font-size: 13px;
+}
+
+.plan-form input {
+  width: 100%;
+  min-height: 37px;
+  padding: 6px 8px;
+  border: 1px solid #c5d2c5;
+  border-radius: 6px;
+  color: #172d24;
+  background: #f8faf6;
+}
+
+.plan-form > button {
+  margin-top: 17px;
+}
+
+.plan-form .plan-error {
+  color: #852922;
+}
+
+.plan-stats {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  margin: 14px 0 22px;
+  border-radius: 8px;
+  background: #192f26;
+  color: #eef6ec;
+}
+
+.plan-stats > div {
+  min-width: 0;
+  padding: 11px clamp(7px, 1.7vw, 18px);
+}
+
+.plan-stats dt {
+  font-size: 12px;
+  color: #d5e6da;
+}
+
+.plan-stats dd {
+  margin: 3px 0 0;
+  font-size: clamp(16px, 2.5vw, 25px);
+  font-weight: 750;
+  letter-spacing: -0.035em;
+  overflow-wrap: anywhere;
+  font-variant-numeric: tabular-nums;
+}
+
+.plan-parts {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  padding: 0;
+  margin: 7px 0 19px;
+  list-style: none;
+  gap: 5px 12px;
+  font-size: 12px;
+}
+
+.plan-parts li {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 9px;
+  justify-content: space-between;
+  padding: 7px;
+  background: #eef4ed;
+  border-radius: 5px;
+}
+
+.plan-parts code {
+  overflow-wrap: anywhere;
+  font-weight: 700;
+}
+
+.plan-stocks {
+  display: grid;
+  gap: 6px;
+  margin: 7px 0 19px;
+}
+
+.plan-stocks article,
+.plan-wire {
+  padding: 8px 10px;
+  border: 1px solid #e2e9e1;
+  border-radius: 5px;
+  font-size: 12px;
+}
+
+.plan-stocks h4 {
+  margin: 0;
+}
+
+.plan-stocks ul {
+  margin: 5px 0 2px;
+  padding-left: 18px;
+}
+
+@media (max-width: 690px) {
+  .plan-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* Explicit design-state cards. Estimates and infeasible layouts must never
+   look like verified, completed projects. */
+.geo-quality-card,
+.layout-empty-state {
+  border: 1px solid #d4bf92;
+  border-radius: 9px;
+  padding: 13px;
+  background: #faf6e9;
+  color: #554426;
+  font-size: 12px;
+  line-height: 1.5;
+}
+.geo-quality-card {
+  margin: 12px 0 16px;
+}
+.layout-empty-state {
+  margin: 14px 15px;
+}
+.geo-quality-card strong,
+.layout-empty-state strong {
+  display: block;
+  font-size: 13px;
+  font-weight: 750;
+}
+.geo-quality-card p,
+.layout-empty-state p {
+  margin: 6px 0 10px;
+}
+.geo-quality-card button,
+.layout-empty-state button {
+  padding: 8px 11px;
+  background: #fff;
+  border: 1px solid #b99e65;
+  border-radius: 6px;
+  color: #554426;
+  font-weight: 650;
+  cursor: pointer;
+}
+.geo-quality-card button:focus-visible,
+.layout-empty-state button:focus-visible {
+  outline: 2px solid #705523;
+  outline-offset: 3px;
+}
+
+/* Product-wide readability pass: the previous 7–9 px labels were not
+   appropriate for a professional engineering workspace. */
+.studio .panel-top {
+  font-size: 11px;
+  color: #48614e;
+  letter-spacing: 0.075em;
+}
+.studio .section-label {
+  font-size: 10px;
+  font-weight: 750;
+  color: #536f58;
+}
+.studio .object-row {
+  font-size: 13px;
+  color: #334e3d;
+}
+.studio .object-row small {
+  font-size: 11px;
+  color: #617763;
+}
+.studio .surface-row {
+  font-size: 12px;
+  color: #435d47;
+}
+.studio .surface-row small {
+  font-size: 10px;
+  color: #607764;
+}
+.studio .field > span,
+.studio .select-field,
+.studio .product-spec,
+.studio .product-spec b,
+.studio .info-note {
+  font-size: 11px;
+  color: #48614e;
+}
+.studio .add-buttons button,
+.studio .select-field select,
+.studio .right-footer p,
+.studio .text-button {
+  font-size: 11px;
+}
+.studio .mode-bar nav button {
+  font-size: 12px;
+  color: #506a56;
+}
+.studio .canvas-label h1 {
+  font-size: clamp(22px, 1.85vw, 28px);
+  font-weight: 600;
+  color: #244233;
+}
+.studio .canvas-label p {
+  font-size: 12px;
+  color: #5b735e;
+}
+.studio .live-label {
+  font-size: 10px;
+  color: #4b6c50;
+}
+.studio .power-card .eyebrow {
+  font-size: 10px;
+  color: #506e52;
+}
+.studio .power-bottom,
+.studio .power-bottom b {
+  font-size: 10px;
+  color: #476344;
+}
+.studio .metric-grid > div > span {
+  font-size: 11px;
+  color: #506d55;
+}
+.studio .metric-grid strong {
+  color: #2f533b;
+  font-weight: 650;
+}
+.studio .variant-dock b {
+  font-size: 12px;
+  color: #3c563e;
+  font-weight: 700;
+}
+.studio .variant-dock b small {
+  font-size: 9px;
+}
+.studio .variant-dock em {
+  font-size: 11px;
+  color: #536d53;
+}
+.studio .status-bar,
+.studio .status-bar button {
+  font-size: 10px;
+  color: #4e6751;
+}
+
+@media (max-width: 700px) {
+  .studio .mode-bar nav button {
+    min-width: 39px;
+    min-height: 42px;
+    justify-content: center;
+    padding: 10px;
+  }
+  .studio .mode-bar nav button span {
+    display: none;
+  }
+  .studio .mode-bar nav button svg {
+    width: 18px;
+    height: 18px;
+  }
+  .studio .canvas-label h1 {
+    font-size: 22px;
+  }
+  .studio .canvas-label p {
+    font-size: 11px;
+  }
+  .studio .variant-dock b {
+    font-size: 11px;
+  }
+  .studio .variant-dock em {
+    font-size: 10px;
+    white-space: normal;
+  }
+  .studio .status-bar {
+    font-size: 9px;
   }
 }

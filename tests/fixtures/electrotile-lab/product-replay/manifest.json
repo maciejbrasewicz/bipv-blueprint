@@ -1,0 +1,130 @@
+{
+  "version": 1,
+  "dataset_id": "classic-product-replay-v1",
+  "cases": [
+    {
+      "id": "classic-mixed",
+      "criterion": "I-II-III-product",
+      "input_sha256": "cad132022fa545f02a562a0570f756985fe1f02e0903392704a75691104fe0cc",
+      "reference": {
+        "design_revision": "design-r2",
+        "catalog_revision": "lab-classic-v1",
+        "catalog": {
+          "lab-classic-full": {
+            "activity": "full",
+            "nominal_mm": [
+              1191,
+              840
+            ],
+            "effective_mm": [
+              1157,
+              820
+            ],
+            "micropanels": 8,
+            "stc_mwp": 100000,
+            "trim_limits_mm": {}
+          },
+          "lab-classic-half-right": {
+            "activity": "half-right",
+            "nominal_mm": [
+              1191,
+              840
+            ],
+            "effective_mm": [
+              1157,
+              820
+            ],
+            "micropanels": 4,
+            "stc_mwp": 50000,
+            "trim_limits_mm": {
+              "left": 40
+            }
+          },
+          "lab-classic-half-left": {
+            "activity": "half-left",
+            "nominal_mm": [
+              1191,
+              840
+            ],
+            "effective_mm": [
+              1157,
+              820
+            ],
+            "micropanels": 4,
+            "stc_mwp": 50000,
+            "trim_limits_mm": {
+              "right": 40
+            }
+          },
+          "lab-classic-passive": {
+            "activity": "passive",
+            "nominal_mm": [
+              1191,
+              840
+            ],
+            "effective_mm": [
+              1157,
+              820
+            ],
+            "micropanels": 0,
+            "stc_mwp": 0,
+            "trim_limits_mm": {
+              "left": 40,
+              "right": 40
+            }
+          }
+        },
+        "sheets": {
+          "central": {
+            "sku": "lab-classic-full"
+          },
+          "edge-west": {
+            "sku": "lab-classic-half-right",
+            "trim_mm": {
+              "left": 30
+            }
+          },
+          "edge-east": {
+            "sku": "lab-classic-half-left"
+          },
+          "infill": {
+            "sku": "lab-classic-passive"
+          }
+        }
+      }
+    },
+    {
+      "id": "classic-passive",
+      "criterion": "I-II-III-product",
+      "input_sha256": "02b457f950e1131bbe9a8f2f78d88d0b705685da65e1197621a6aec4b97c6fe0",
+      "reference": {
+        "design_revision": "design-r3",
+        "catalog_revision": "lab-classic-v1",
+        "catalog": {
+          "lab-classic-passive": {
+            "activity": "passive",
+            "nominal_mm": [
+              1191,
+              840
+            ],
+            "effective_mm": [
+              1157,
+              820
+            ],
+            "micropanels": 0,
+            "stc_mwp": 0,
+            "trim_limits_mm": {
+              "left": 40,
+              "right": 40
+            }
+          }
+        },
+        "sheets": {
+          "infill": {
+            "sku": "lab-classic-passive"
+          }
+        }
+      }
+    }
+  ]
+}

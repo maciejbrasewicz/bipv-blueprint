@@ -28,9 +28,44 @@ jobs:
         with:
           node-version: '24'
       - run: uv sync --frozen --dev
-      - run: uv run ruff check server
-      - run: uv run ruff format --check server
-      - run: uv run pytest -q
+      - run: uv run ruff check server scripts/check_electrotile_run.py
+      - run: uv run ruff format --check server scripts/check_electrotile_run.py
+      - name: Record Studio test scope and run Python regression tests
+        run: |
+          mkdir -p "$RUNNER_TEMP/studio-python-evidence"
+          uv run --frozen python - <<'PY'
+          import hashlib
+          import json
+          import os
+          import platform
+          import subprocess
+          from pathlib import Path
+
+          evidence = Path(os.environ["RUNNER_TEMP"]) / "studio-python-evidence"
+          paths = (
+              "uv.lock",
+              "scripts/check_electrotile_run.py",
+              "server/tests/test_electrotile_run.py",
+              "server/tests/test_geometry_regression.py",
+          )
+          manifest = {
+              "scope": "studio-fixture",
+              "tested_commit": subprocess.check_output(["git", "rev-parse", "HEAD"], text=True).strip(),
+              "run_id": os.environ["GITHUB_RUN_ID"],
+              "run_attempt": os.environ["GITHUB_RUN_ATTEMPT"],
+              "python": platform.python_version(),
+              "platform": platform.platform(),
+              "sha256": {path: hashlib.sha256(Path(path).read_bytes()).hexdigest() for path in paths},
+          }
+          (evidence / "run.json").write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
+          PY
+          uv run --frozen pytest -q --junitxml "$RUNNER_TEMP/studio-python-evidence/python-tests.xml"
+      - uses: actions/upload-artifact@v7.0.2
+        if: always()
+        with:
+          name: studio-python-evidence
+          path: ${{ runner.temp }}/studio-python-evidence/
+          retention-days: 90
       - name: Verify organization migration preserves guest projects
         timeout-minutes: 4
         run: |
@@ -81,6 +116,27 @@ jobs:
           result=json.load(urllib.request.urlopen(req,timeout=60))
           assert result["variants"][0]["module_count"] > 0
           print({"health":health["status"],"modules":result["variants"][0]["module_count"]})
+          larger={
+              "product_id":"tile-32",
+              "surfaces":["qa-large-roof"],
+              "custom_surfaces":[{
+                  "id":"qa-large-roof",
+                  "name":"Budynek referencyjny 40 x 20 m",
+                  "kind":"roof",
+                  "origin":[0,0,6],
+                  "u":[1,0,0],
+                  "v":[0,1,0],
+                  "boundary_uv_m":[[-20,-10],[20,-10],[20,10],[-20,10]]
+              }]
+          }
+          req=urllib.request.Request("http://127.0.0.1:8081/api/layout",data=json.dumps(larger).encode(),headers={"Content-Type":"application/json"})
+          start=time.monotonic()
+          result=json.load(urllib.request.urlopen(req,timeout=80))
+          elapsed=time.monotonic()-start
+          assert result["variants"][0]["module_count"] > 0, "Large roof cannot silently return zero"
+          assert result["variants"][0]["roof_area_m2"] == 800
+          assert elapsed < 60, f"Large roof exceeded interactive budget: {elapsed:.2f}s"
+          print({"large_roof_modules":result["variants"][0]["module_count"],"response_seconds":round(elapsed,2)})
           PY
           docker stats --no-stream --format '{{.CPUPerc}} {{.MemUsage}}' "$cid"
       - name: Verify the runnable roof-test archive
@@ -103,6 +159,29 @@ jobs:
         with:
           name: bipv-roof-tests
           path: dist/BIPV-Roof-Tests.zip
+          if-no-files-found: error
+          retention-days: 90
+      - name: Build and audit public source-and-test review ZIP
+        timeout-minutes: 8
+        run: |
+          archive="$PWD/dist/Registry9-ET-2025-7-Source-and-Tests.zip"
+          python scripts/package_public_review.py "$archive" --source-sha "$GITHUB_SHA" --evidence-dir "$PWD/dist"
+          python scripts/verify_public_review.py "$archive"
+          unpacked="$(mktemp -d)"
+          trap 'rm -rf "$unpacked"' EXIT
+          unzip -q "$archive" -d "$unpacked"
+          (
+            cd "$unpacked"
+            uv sync --python 3.12 --frozen --dev
+            uv run --frozen pytest -q
+            uv run --frozen python -m scripts.benchmark_roof_tests --output "$unpacked/evaluation-benchmark.json"
+            uv run --frozen python -m scripts.run_electrotile_3d_case "$unpacked/evaluation-et-3d-01"
+            uv run --frozen python -m scripts.run_electrotile_production_case "$unpacked/evaluation-et-prod-01"
+          )
+      - uses: actions/upload-artifact@v7.0.2
+        with:
+          name: electrotile-source-review-zip
+          path: dist/Registry9-ET-2025-7-Source-and-Tests.zip
           if-no-files-found: error
           retention-days: 90
       - uses: actions/upload-artifact@v7.0.2

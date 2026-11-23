@@ -1,0 +1,48 @@
+name: Publish evaluation ZIP release
+on:
+  push:
+    tags:
+      - 'et2025-7-review-v*'
+permissions:
+  contents: write
+jobs:
+  publish-reviewed-source:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: astral-sh/setup-uv@v6
+        with:
+          version: '0.13.9'
+      - name: Install immutable dependencies
+        run: uv sync --python 3.12 --frozen --dev
+      - name: Generate fresh JUnit and benchmark evidence
+        run: |
+          mkdir -p dist
+          uv run --frozen pytest -q --junitxml dist/roof-test-results.xml
+          uv run --frozen python -m scripts.benchmark_roof_tests --output dist/roof-benchmark.json
+      - name: Build and verify published ZIP
+        run: |
+          python scripts/package_public_review.py dist/Registry9-ET-2025-7-Source-and-Tests.zip --source-sha "$GITHUB_SHA" --evidence-dir dist
+          python scripts/verify_public_review.py dist/Registry9-ET-2025-7-Source-and-Tests.zip
+          clean="$(mktemp -d)"
+          trap 'rm -rf "$clean"' EXIT
+          unzip -q dist/Registry9-ET-2025-7-Source-and-Tests.zip -d "$clean"
+          (
+            cd "$clean"
+            uv sync --python 3.12 --frozen --dev
+            uv run --frozen pytest -q
+            uv run --frozen python -m scripts.run_electrotile_3d_case fresh-et-3d
+            uv run --frozen python -m scripts.run_electrotile_production_case fresh-et-production
+          )
+      - name: Publish versioned release asset
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" dist/Registry9-ET-2025-7-Source-and-Tests.zip \
+            --verify-tag \
+            --title "Registry9 BIPV Studio — ET/2025/7 source & executable tests" \
+            --notes "Source-available / proprietary evaluation release. Interactive live portal: https://bipv-studio-production.up.railway.app/testy . Python tests run locally using the README, GitHub Actions executes only in GitHub. Use the bundled LICENSE and SHA256SUMS.txt to verify permitted use and integrity."

@@ -1,0 +1,12 @@
+{
+  "release": "b2613e70def10c582244affdf38c9bee515950ce",
+  "input_sha256": "d31b11dc36acbb06f08380554750b44537a7de0f5565a6bbd162a28afff0580f",
+  "obj": {
+    "wall_triangles": 0,
+    "sha256": "3c34e93f5a32e94261af74bd5fd6369649f6d100c78b779d84f2eb8d1493b331"
+  },
+  "glb": {
+    "wall_triangles": 0,
+    "sha256": "962375fb24aabd019ad32fc7bc33230eb59b887d3e066733afa178023a47a185"
+  }
+}

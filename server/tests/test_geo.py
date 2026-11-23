@@ -1,5 +1,11 @@
 """Independent address, coordinate and failure cases for the GUGiK adapters."""
 
+from base64 import b64decode
+from hashlib import sha256
+from random import Random
+from struct import pack
+from zlib import compress, crc32
+
 import httpx
 import pytest
 from fastapi.testclient import TestClient
@@ -78,6 +84,16 @@ def test_address_candidates_have_distinct_projected_points_and_no_cache(api_clie
     assert "selected" not in result.json()
 
 
+@pytest.mark.parametrize("kind", ["street", "city"])
+def test_uug_non_address_result_is_a_search_miss(api_client, monkeypatch, kind):
+    upstream_transport(
+        monkeypatch, lambda _: httpx.Response(200, json={"type": kind, "found objects": 0, "results": None})
+    )
+    response = api_client.post("/api/geo/addresses", json={"address": "Szczecińska 1, Stargard"})
+    assert response.status_code == 200
+    assert response.json() == {"candidates": []}
+
+
 def test_wfs_axes_sorting_reference_and_truncation(api_client, monkeypatch):
     marker = {**MARKER, "northing_m": 500002}
     far = FEATURE.format(crs=geo.CRS, west=500020, east=500026, id="TEST_FAR")
@@ -115,6 +131,24 @@ def test_wfs_axes_sorting_reference_and_truncation(api_client, monkeypatch):
     assert "rings_m" not in saved.json()["site"]
 
 
+def test_expanded_map_changes_provider_bounds_and_returns_distant_footprints(api_client, monkeypatch):
+    feature = FEATURE.format(crs=geo.CRS, west=500170, east=500184, id="DISTANT")
+
+    def handler(request):
+        assert request.url.params["bbox"] == f"499760.0,499760.0,500240.0,500240.0,{geo.CRS}"
+        assert request.url.params["count"] == str(geo.MAX_OVERVIEW_FEATURES)
+        return httpx.Response(200, text=feature_collection(feature))
+
+    upstream_transport(monkeypatch, handler)
+    result = api_client.post("/api/geo/buildings", json={**MARKER, "radius_m": 240})
+    assert result.status_code == 200
+    data = result.json()
+    assert data["radius_m"] == 240
+    assert data["candidates"][0]["site"]["building_id"] == "DISTANT"
+    assert data["candidates"][0]["distance_m"] > 160
+    assert api_client.post("/api/geo/buildings", json={**MARKER, "radius_m": 1000}).status_code == 422
+
+
 @pytest.mark.parametrize(
     ("body", "status"),
     [
@@ -138,8 +172,9 @@ def test_disabled_source_and_limits_prevent_a_provider_request(api_client, monke
     monkeypatch.setenv("BIPV_GEODATA_ENABLED", "0")
     sources = api_client.get("/api/geo/sources").json()
     assert not sources["enabled"]
-    assert {entry["retention"] for entry in sources["sources"]} == {"selected_reference"}
+    assert {entry["retention"] for entry in sources["sources"]} == {"selected_reference", "dialog_only"}
     assert api_client.post("/api/geo/buildings", json=MARKER).status_code == 503
+    assert api_client.post("/api/geo/orthophoto", json={"easting_m": 20, "northing_m": 30}).status_code == 503
     monkeypatch.setenv("BIPV_GEODATA_ENABLED", "1")
     geo.geo_requests.extend([geo.monotonic()] * 30)
     assert api_client.post("/api/geo/buildings", json=MARKER).status_code == 429
@@ -162,3 +197,66 @@ def test_provider_failure_is_reported_without_a_fictional_result(api_client, mon
     assert "candidates" not in result.json()
     if failure == "restricted":
         assert "nie udostępnił danych" in result.json()["detail"]
+
+
+def png_fixture(size=600, *, detailed=False):
+    def chunk(kind, data):
+        return pack(">I", len(data)) + kind + data + pack(">I", crc32(kind + data))
+
+    random = Random(202507)
+    pixels = b"".join(
+        b"\0" + (random.randbytes(size * 3) if detailed else b"\x9d\xc0\xa1" * size) for _ in range(size)
+    )
+    return (
+        b"\x89PNG\r\n\x1a\n"
+        + chunk(b"IHDR", pack(">IIBBBBB", size, size, 8, 2, 0, 0, 0))
+        + chunk(b"IDAT", compress(pixels))
+        + chunk(b"IEND", b"")
+    )
+
+
+def test_orthophoto_georeference_uses_wms_axes_and_preserves_spatial_frame(api_client, monkeypatch):
+    imagery = png_fixture(detailed=True)
+    assert len(imagery) > 512 * 1024
+
+    def handler(request):
+        assert request.url.host == "mapy.geoportal.gov.pl"
+        assert request.url.path == "/wss/service/PZGIK/ORTO/WMS/StandardResolution"
+        params = request.url.params
+        assert params["VERSION"] == "1.3.0" and params["REQUEST"] == "GetMap"
+        assert params["CRS"] == "EPSG:2180" and params["LAYERS"] == "Raster"
+        assert params["BBOX"] == "483524.0,674187.0,483644.0,674307.0"
+        assert params["WIDTH"] == params["HEIGHT"] == "600"
+        return httpx.Response(200, content=imagery, headers={"Content-Type": "image/png"})
+
+    upstream_transport(monkeypatch, handler)
+    response = api_client.post("/api/geo/orthophoto", json={"easting_m": 674247, "northing_m": 483584})
+    assert response.status_code == 200
+    assert response.headers["cache-control"] == "no-store"
+    payload = response.json()
+    assert payload["crs"] == "EPSG:2180"
+    assert payload["bounds_m"] == {"west": 674187, "south": 483524, "east": 674307, "north": 483644}
+    assert payload["source"]["kind"] == "orthophoto" and payload["source"]["retention"] == "dialog_only"
+    assert payload["width_px"] == payload["height_px"] == 600
+    assert payload["grid_m_per_pixel"] == 0.2
+    assert b64decode(payload["image_base64"], validate=True) == imagery
+    assert payload["sha256"] == sha256(imagery).hexdigest()
+
+
+@pytest.mark.parametrize(
+    ("body", "reason"),
+    [
+        (b"<ServiceExceptionReport/>", "nieprawidłowy obraz"),
+        (png_fixture(60), "nieprawidłowy obraz"),
+        (png_fixture()[:-1], "nieprawidłowy obraz"),
+        (png_fixture() + b"trailing content", "nieprawidłowy obraz"),
+        (b"X" * 1_500_001, "za duża"),
+    ],
+    ids=["provider-error", "incorrect-dimensions", "truncated", "extra-content", "body-limit"],
+)
+def test_orthophoto_rejects_invalid_provider_responses(api_client, monkeypatch, body, reason):
+    upstream_transport(monkeypatch, lambda _: httpx.Response(200, content=body))
+    response = api_client.post("/api/geo/orthophoto", json={"easting_m": 674247, "northing_m": 483584})
+    assert response.status_code == 502
+    assert reason in response.json()["detail"]
+    assert "image_base64" not in response.json()

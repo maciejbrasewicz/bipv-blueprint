@@ -8,6 +8,9 @@ from .models import StrictModel
 
 AddressText = Annotated[str, StringConstraints(strip_whitespace=True, min_length=3, max_length=160)]
 BuildingId = Annotated[str, Field(pattern=r"^[\w./-]{1,96}$")]
+ORTHOPHOTO_RADIUS_M = 60
+MapRadius = Literal[60, 120, 240]
+TraceCoordinate = Annotated[float, Field(ge=-ORTHOPHOTO_RADIUS_M, le=ORTHOPHOTO_RADIUS_M)]
 
 
 class GridPoint(StrictModel):
@@ -27,3 +30,22 @@ class SceneSite(StrictModel):
     longitude_deg: float = Field(ge=-180, le=180)
     source: Literal["gugik-egib-wfs"]
     retrieved_at: AwareDatetime
+
+
+class TraceGable(StrictModel):
+    ridge_en_m: tuple[tuple[TraceCoordinate, TraceCoordinate], tuple[TraceCoordinate, TraceCoordinate]]
+    pitch_deg: float = Field(ge=5, le=60)
+
+
+class OrthophotoTrace(StrictModel):
+    source: Literal["gugik-orto-wms"]
+    image_sha256: Annotated[str, Field(pattern=r"^[a-f0-9]{64}$")]
+    retrieved_at: AwareDatetime
+    center: GridPoint
+    outline_en_m: Annotated[list[tuple[TraceCoordinate, TraceCoordinate]], Field(min_length=3, max_length=48)]
+    roof_height_m: float = Field(gt=0, le=40)
+    building_id: BuildingId
+    suggestion_method: Literal["seed-rgb-v1"] | None = Field(
+        default=None, exclude_if=lambda method: method is None
+    )
+    gable: TraceGable | None = Field(default=None, exclude_if=lambda gable: gable is None)

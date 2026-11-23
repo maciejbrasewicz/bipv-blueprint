@@ -50,6 +50,8 @@ import AccountDialog from "./AccountDialog";
 import SurfacePlan from "./SurfacePlan";
 import HoleEditor from "./HoleEditor";
 import LocationDialog from "./LocationDialog";
+import PortalNav from "./PortalNav";
+import ProjectJourney from "./ProjectJourney";
 import examplePlanes from "./example-planes.json";
 import {
   INITIAL,
@@ -58,6 +60,7 @@ import {
   type Layout,
   type Obstacle,
   type Organization,
+  type OrthophotoTrace,
   type Project,
   type ProjectRevisionSummary,
   type ProjectSummary,
@@ -310,7 +313,14 @@ function Studio({
     obstacle?.surface_id ?? hole?.surfaceId ?? planSurface;
   const activeSurfaceId =
     surfaceChoices.find((surface) => surface.id === requestedSurface)?.id ??
-    scene.surfaces[0];
+    scene.surfaces[0] ??
+    surfaceChoices[0].id;
+  const footprintPreview = scene.surfaces.length === 0;
+  const noPanels =
+    !calculating && !error && !!variant && variant.module_count === 0;
+  const egibEstimate =
+    document.schema_version === "2.0.0" &&
+    document.surface_evidence.some((item) => item.egib_assumed_height_m);
   const inspectedSurface = scene.custom_surfaces?.find(
     (surface) => surface.id === activeSurfaceId,
   );
@@ -339,19 +349,91 @@ function Studio({
     setFuture([]);
     setDocument(next);
   }, []);
-  function confirmSite(site: SceneSite) {
-    const next: SceneV2 =
-      document.schema_version === "2.0.0"
-        ? { ...document, site }
-        : {
-            schema_version: "2.0.0",
-            geometry: document,
-            surface_evidence: [],
-            site,
-          };
+  function applyLocatedModel(next: SceneV2, notice: string) {
     changed(next);
+    setSelected(null);
+    setHole(null);
+    setPlanSurface(
+      next.geometry.surfaces[0] ??
+        next.geometry.custom_surfaces?.[0]?.id ??
+        null,
+    );
+    setMode("project");
     setLocationOpen(false);
-    setToast("Zapisano lokalizację budynku w projekcie.");
+    setToast(notice);
+  }
+  async function confirmSite(
+    chosenSite: SceneSite,
+    center: { easting_m: number; northing_m: number },
+    rings: PointUV[][][],
+    signal: AbortSignal,
+  ) {
+    const current = documentRef.current;
+    const { name, product_id, setback_m, gap_m, clearance_m } =
+      geometry(current);
+    const next = await api<SceneV2>(
+      "scene/from-footprint",
+      "POST",
+      {
+        name:
+          name === INITIAL.name ||
+          (current.schema_version === "2.0.0" && name === current.site?.address)
+            ? chosenSite.address.slice(0, 100)
+            : name,
+        product_id,
+        setback_m,
+        gap_m,
+        clearance_m,
+        site: chosenSite,
+        center: { easting_m: center.easting_m, northing_m: center.northing_m },
+        rings_m: rings,
+      },
+      undefined,
+      signal,
+    );
+    if (signal.aborted) return;
+    if (documentRef.current !== current)
+      throw new Error(
+        "Scena zmieniła się podczas tworzenia bryły. Wybierz budynek ponownie.",
+      );
+    if (!webglUnavailable) setView("orbit");
+    applyLocatedModel(
+      next,
+      "Utworzono wstępną bryłę EGiB i uruchomiono obliczenia PV. Sprawdź rzeczywisty dach.",
+    );
+  }
+  async function applyOrthophotoTrace(
+    chosenSite: SceneSite,
+    trace: OrthophotoTrace,
+    signal: AbortSignal,
+  ) {
+    const current = documentRef.current;
+    const { name, product_id, setback_m, gap_m, clearance_m } =
+      geometry(current);
+    const next = await api<SceneV2>(
+      "scene/from-orthophoto",
+      "POST",
+      {
+        name,
+        product_id,
+        setback_m,
+        gap_m,
+        clearance_m,
+        site: chosenSite,
+        trace,
+      },
+      undefined,
+      signal,
+    );
+    if (signal.aborted) return;
+    if (documentRef.current !== current)
+      throw new Error("Scena zmieniła się podczas walidacji. Ponów edycję.");
+    applyLocatedModel(
+      next,
+      trace.gable
+        ? "Utworzono szacowany dach dwuspadowy z obrysu."
+        : "Utworzono szacowany dach płaski z obrysu.",
+    );
   }
   function changeGeometry(next: Scene, changedSurfaceId?: string) {
     if (document.schema_version === "1.0.0") {
@@ -371,6 +453,28 @@ function Studio({
   }
   const patch = (partial: Partial<Scene>) =>
     changeGeometry({ ...scene, ...partial });
+
+  async function activateSavedFootprint() {
+    if (!scene.custom_surfaces || scene.surfaces.length) return;
+    const requestedDocument = documentRef.current;
+    const updated = {
+      ...scene,
+      surfaces: scene.custom_surfaces.map((surface) => surface.id),
+    };
+    try {
+      await api<Scene>("scene/validate", "POST", updated);
+      if (documentRef.current !== requestedDocument) {
+        setToast("Projekt zmienił się podczas walidacji. Spróbuj ponownie.");
+        return;
+      }
+      changeGeometry(updated);
+      setToast(
+        "Obrys aktywowany. Obliczam rzeczywiste rozmieszczenie modułów.",
+      );
+    } catch (err) {
+      setToast((err as Error).message);
+    }
+  }
   function selectObstacle(id: string | null) {
     setSelected(id);
     setHole(null);
@@ -655,7 +759,7 @@ function Studio({
       return;
     }
     const id = kind + "-" + crypto.randomUUID().slice(0, 8);
-    const surfaceId = scene.surfaces[0];
+    const surfaceId = scene.surfaces[0] ?? activeSurfaceId;
     const exterior = scene.custom_surfaces?.find(
       (s) => s.id === surfaceId,
     )?.boundary_uv_m;
@@ -745,18 +849,20 @@ function Studio({
     );
     setExportMenu(false);
   };
-  async function exportObj() {
+  async function exportModel(format: "obj" | "glb") {
     if (!variant || stale) return;
     setExportMenu(false);
     try {
-      const response = await fetch("/api/model.obj", {
+      const response = await fetch(`/api/model.${format}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ scene, variant: variant.id }),
+        body: JSON.stringify({ scene: document, variant: variant.id }),
       });
       if (!response.ok)
-        throw new Error("Eksport OBJ nie powiódł się. Spróbuj ponownie.");
-      download("bipv-model.obj", await response.text(), "text/plain");
+        throw new Error(
+          `Eksport ${format.toUpperCase()} nie powiódł się. Spróbuj ponownie.`,
+        );
+      download(`bipv-model.${format}`, await response.blob());
     } catch (e) {
       setToast((e as Error).message);
     }
@@ -800,16 +906,17 @@ function Studio({
   }
   const headline =
     mode === "sun"
-      ? "Światło definiuje projekt."
+      ? "Analiza światła i cienia"
       : mode === "variants"
-        ? "Dwie orientacje. Jeden model."
+        ? "Porównaj warianty układu"
         : mode === "materials"
-          ? "Geometria staje się materiałem."
+          ? "Przedmiar z geometrii"
           : mode === "quality"
-            ? "Każdy wynik ma swoje źródło."
-            : "Energia wpisana w architekturę.";
+            ? "Kontrola danych projektu"
+            : "Projekt dachu i modułów PV";
   return (
     <div className="studio">
+      <PortalNav current="studio" />
       <header className="header">
         <a className="brand" href="/" aria-label="Registry9 BIPV Studio">
           <span className="brand-icon">
@@ -817,7 +924,7 @@ function Studio({
           </span>
           <span>
             REGISTRY<span className="brand-nine">9</span>
-            <small>BIPV STUDIO</small>
+            <small>BIPV DESIGN WORKSPACE</small>
           </span>
         </a>
         <span className="header-divider" />
@@ -867,9 +974,19 @@ function Studio({
                 <FileJson size={16} />
                 Projekt JSON
               </button>
-              <button onClick={exportObj} disabled={stale || !variant}>
+              <button
+                onClick={() => void exportModel("obj")}
+                disabled={stale || !variant}
+              >
                 <Box size={16} />
                 Model 3D OBJ
+              </button>
+              <button
+                onClick={() => void exportModel("glb")}
+                disabled={stale || !variant}
+              >
+                <Box size={16} />
+                Model 3D GLB
               </button>
               <button onClick={exportMaterials} disabled={stale || !variant}>
                 <LayoutGrid size={16} />
@@ -909,8 +1026,34 @@ function Studio({
           </IconButton>
         </div>
       </header>
+      <ProjectJourney
+        site={site}
+        estimated={egibEstimate}
+        calculated={!!currentResult}
+        moduleCount={variant?.module_count ?? 0}
+        busy={calculating}
+        error={!!error}
+        onLocation={() => setLocationOpen(true)}
+        onLayout={() => {
+          setMode("variants");
+          setMobilePanel("");
+        }}
+        onReview={() => {
+          setMode("quality");
+          setMobilePanel("right");
+        }}
+      />
       <div className="workspace">
+        {mobilePanel && (
+          <button
+            type="button"
+            className={"workbench-scrim for-" + mobilePanel}
+            aria-label="Zamknij panel boczny"
+            onClick={() => setMobilePanel("")}
+          />
+        )}
         <aside
+          aria-label="Parametry budynku i powierzchnie"
           className={
             "left-panel " + (mobilePanel === "left" ? "mobile-open" : "")
           }
@@ -930,10 +1073,25 @@ function Studio({
           >
             <MapPin size={17} />
             <span>
-              {site?.address ?? "Lokalizacja budynku"}
+              {site?.address ?? "Wybierz budynek na mapie"}
               <small>
-                {site ? `EGiB · ${site.building_id}` : "Wyszukaj adres"}
+                {site
+                  ? `EGiB · ${site.building_id}`
+                  : "Rzeczywisty adres i obrys dachu"}
               </small>
+            </span>
+            <ChevronRight size={13} />
+          </button>
+          <button
+            type="button"
+            className="object-row"
+            aria-label="Otwórz przykład techniczny"
+            onClick={loadExample}
+          >
+            <Layers3 size={17} />
+            <span>
+              Przykład techniczny
+              <small>Sprawdzalna scena 3D · bez adresu</small>
             </span>
             <ChevronRight size={13} />
           </button>
@@ -951,7 +1109,12 @@ function Studio({
                 : "Budynek mieszkalny"}
               <small>
                 {scene.custom_surfaces
-                  ? "Geometria z importu"
+                  ? document.schema_version === "2.0.0" &&
+                    document.surface_evidence.some(
+                      (item) => item.egib_assumed_height_m,
+                    )
+                    ? "Skala z obrysu EGiB"
+                    : "Geometria z importu"
                   : "Model parametryczny"}
               </small>
             </span>
@@ -969,6 +1132,7 @@ function Studio({
                 <input
                   type="checkbox"
                   checked={scene.surfaces.includes(id)}
+                  disabled={footprintPreview}
                   onChange={(e) => {
                     if (!e.target.checked && scene.surfaces.length === 1) {
                       setToast("Wybierz co najmniej jedną powierzchnię.");
@@ -993,6 +1157,34 @@ function Studio({
               </label>
             ))}
           </div>
+          {footprintPreview && (
+            <div className="geo-quality-card">
+              <strong>Brak aktywnej połaci PV</strong>
+              <p>
+                W zapisanej scenie nie wybrano powierzchni do obliczeń. Spróbuj
+                ponownie aktywować obrys; zbyt duży zostanie jawnie odrzucony.
+              </p>
+              <button
+                type="button"
+                onClick={() => void activateSavedFootprint()}
+              >
+                Aktywuj obrys do obliczeń
+              </button>
+            </div>
+          )}
+          {egibEstimate && (
+            <div className="geo-quality-card" role="note">
+              <strong>Model wstępny z EGiB</strong>
+              <p>
+                Obrys budynku jest rzeczywisty, ale dach płaski i wysokość 6 m
+                są założeniem. Układ PV nie jest zweryfikowanym projektem
+                wykonawczym.
+              </p>
+              <button type="button" onClick={() => setLocationOpen(true)}>
+                Sprawdź lub popraw dach
+              </button>
+            </div>
+          )}
           <div className="section-label">
             PRZESZKODY{" "}
             <button
@@ -1144,6 +1336,12 @@ function Studio({
               <p className="info-note">
                 <span>
                   Status geometrii <strong>{geometryStatus}</strong>
+                  {provenance?.orthophoto_trace
+                    ? " · obrys z ortofotomapy"
+                    : ""}
+                  {provenance?.egib_assumed_height_m
+                    ? ` · obrys EGiB · wysokość założona ${provenance.egib_assumed_height_m} m`
+                    : ""}
                   {provenance?.source_asset_ids.length
                     ? ` · źródła: ${provenance.source_asset_ids.length}`
                     : ""}
@@ -1287,10 +1485,13 @@ function Studio({
                   className={mode === id ? "active" : ""}
                   onClick={() => {
                     setMode(id);
+                    setMobilePanel("");
                     if (id === "sun" && view === "plan") setView("orbit");
                   }}
+                  aria-pressed={mode === id}
+                  title={title}
                 >
-                  <Icon size={15} />
+                  <Icon size={17} />
                   <span>{title}</span>
                 </button>
               ))}
@@ -1310,22 +1511,38 @@ function Studio({
             <div className="canvas-label">
               <span className="live-label">
                 <span />
-                {view === "plan" ? "RZUT 2D" : "PODGLĄD 3D"}
+                {view === "plan"
+                  ? "PLAN MODUŁÓW · 2D"
+                  : "MODEL PRZESTRZENNY · 3D"}
               </span>
               <h1>{headline}</h1>
               <p>
                 {webglUnavailable
                   ? "Podgląd 3D niedostępny · rzut i edycja są aktywne"
                   : mode === "sun"
-                    ? "Kierunek słońca i cień · Szczecin · CET"
+                    ? `Kierunek słońca i cień · ${site?.address ?? "Szczecin"} · CET`
                     : mode === "variants"
-                      ? "Deterministyczne przeszukiwanie siatki modułów"
+                      ? "Dwie orientacje · rzeczywiste rozmieszczenie i moc STC"
                       : mode === "quality"
-                        ? "Metry, wersja silnika i dane wejściowe"
+                        ? "Pochodzenie geometrii, parametry i ograniczenia"
                         : scene.custom_surfaces
-                          ? "Dach i fasada · obrysy w metrach"
-                          : "Dach dwuspadowy · model edytowalny"}
+                          ? "Wybierz powierzchnię, sprawdź obrys i odsunięcia"
+                          : "Zmień geometrię lub wybierz rzeczywisty budynek"}
               </p>
+              <div
+                className={
+                  "canvas-confidence " + (egibEstimate ? "is-estimated" : "")
+                }
+              >
+                <ShieldCheck size={14} aria-hidden="true" />
+                <span>
+                  {egibEstimate
+                    ? "Obrys z EGiB · dach wymaga potwierdzenia"
+                    : site
+                      ? "Geometria edytowana · sprawdź źródła"
+                      : "Scena demonstracyjna · bez adresu"}
+                </span>
+              </div>
             </div>
             <div className="view-controls">
               <IconButton
@@ -1438,6 +1655,14 @@ function Studio({
                     sunHour={sunHour}
                     sunDate={sunDate}
                     sunMode={mode === "sun"}
+                    site={site}
+                    footprintIds={
+                      document.schema_version === "2.0.0"
+                        ? document.surface_evidence
+                            .filter((s) => s.egib_assumed_height_m)
+                            .map((s) => s.surface_id)
+                        : []
+                    }
                   />
                 </Suspense>
               </ViewportBoundary>
@@ -1558,6 +1783,7 @@ function Studio({
           </div>
         </main>
         <aside
+          aria-label="Wynik projektu i katalog modułów"
           className={
             "right-panel " + (mobilePanel === "right" ? "mobile-open" : "")
           }
@@ -1588,10 +1814,30 @@ function Studio({
                   ? "Błąd obliczenia"
                   : calculating
                     ? "Przeliczanie…"
-                    : "Obliczono"}
+                    : noPanels
+                      ? "Brak miejsca na moduły"
+                      : "Obliczono"}
               </b>
             </div>
           </div>
+          {noPanels && (
+            <div className="layout-empty-state" role="status">
+              <strong>Nie rozmieszczono żadnego modułu</strong>
+              <p>
+                Wybrany moduł nie mieści się na aktywnych powierzchniach po
+                uwzględnieniu odsunięć. Sprawdź wymiary, geometrię i przeszkody.
+                Wynik 0 nie oznacza, że dach jest nieprzydatny.
+              </p>
+              <button
+                type="button"
+                onClick={() =>
+                  site ? setLocationOpen(true) : setMode("quality")
+                }
+              >
+                {site ? "Zweryfikuj dach" : "Sprawdź geometrię"}
+              </button>
+            </div>
+          )}
           <div className={"metric-grid " + (stale ? "stale" : "")}>
             <div>
               <span>Moduły aktywne</span>
@@ -1621,6 +1867,34 @@ function Studio({
                 <small>m²</small>
               </strong>
             </div>
+          </div>
+          <div
+            className={
+              "result-confidence " + (egibEstimate ? "is-estimated" : "")
+            }
+          >
+            <div className="result-confidence-header">
+              <ShieldCheck size={16} aria-hidden="true" />
+              <strong>
+                {egibEstimate
+                  ? "Weryfikacja dachu wymagana"
+                  : "Zakres obliczenia"}
+              </strong>
+            </div>
+            <p>
+              {egibEstimate
+                ? "Znamy obrys EGiB. Wysokość i płaski dach są szacowane; zweryfikuj połacie przed ofertą."
+                : "Moc i liczba modułów wynikają z geometrii. Uzysk roczny i projekt elektryczny nie są wyliczane."}
+            </p>
+            <button
+              type="button"
+              onClick={() => {
+                setMode("quality");
+                setMobilePanel("right");
+              }}
+            >
+              Zobacz źródła i ograniczenia <ArrowRight size={15} />
+            </button>
           </div>
           {mode === "materials" ? (
             <>
@@ -1774,6 +2048,26 @@ function Studio({
               )}
             </>
           )}
+          <div className="result-export">
+            <button
+              type="button"
+              className="button full"
+              onClick={() => void exportModel("glb")}
+              disabled={stale || !variant}
+              aria-label="Eksportuj bryłę w formacie GLB"
+            >
+              <ArrowDownToLine size={16} />
+              Model 3D · GLB
+            </button>
+            <button
+              type="button"
+              className="button full secondary-export"
+              onClick={exportJson}
+            >
+              <FileJson size={16} />
+              Projekt · JSON
+            </button>
+          </div>
           <div className="right-footer">
             <p>
               Geometria i rozmieszczenie są obliczane. Uzysk roczny, stringi i
@@ -1798,7 +2092,9 @@ function Studio({
               ? "Błąd obliczenia"
               : calculating
                 ? "Przeliczanie układu"
-                : "Geometria obliczona"}
+                : noPanels
+                  ? "Nie rozmieszczono modułów"
+                  : "Geometria obliczona"}
           </span>
           <span className="status-separator" />
           <Save size={12} />
@@ -2116,6 +2412,13 @@ function Studio({
       {locationOpen && (
         <LocationDialog
           current={site}
+          previousTrace={
+            document.schema_version === "2.0.0"
+              ? document.surface_evidence.find((item) => item.orthophoto_trace)
+                  ?.orthophoto_trace
+              : undefined
+          }
+          onTrace={applyOrthophotoTrace}
           onConfirm={confirmSite}
           onClose={() => setLocationOpen(false)}
         />
