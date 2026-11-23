@@ -592,3 +592,27 @@ test("Scene v2 hole correction invalidates old results and undo restores provena
   );
   expect(errors).toEqual([]);
 });
+
+test("the explicitly labeled technical scenario is discoverable and shows computed modules", async ({
+  page,
+}) => {
+  await page.goto("/");
+  await page.getByRole("button", { name: "Otwórz przykład techniczny" }).click();
+  await expect(page.getByRole("textbox", { name: "Nazwa projektu" })).toHaveValue(
+    "Przykład · dach L i fasada",
+  );
+  await expect(page.getByTestId("layout-status")).toHaveText(
+    "Geometria obliczona",
+    { timeout: 30_000 },
+  );
+  const count = Number(
+    (await page.locator(".metric-grid strong").first().innerText()).replace(
+      /\D/g,
+      "",
+    ),
+  );
+  expect(count).toBeGreaterThan(0);
+  await expect(
+    page.getByRole("button", { name: "Ustal lokalizację budynku" }),
+  ).toBeVisible();
+});
