@@ -113,7 +113,7 @@ jobs:
                       "bbox": bbox,
                   })
                   try:
-                      with urllib.request.urlopen(upstream+"?"+query, timeout=18) as response:
+                      with urllib.request.urlopen(urllib.request.Request(upstream+"?"+query,headers={"User-Agent":"Mozilla/5.0 (compatible; BIPVStudio/1.0; public geodata diagnostics)","Connection":"close"}), timeout=18) as response:
                           result["upstream_http"] = response.status
                           result["upstream_prefix"] = response.read(180).decode(errors="replace")
                   except urllib.error.HTTPError as exc:
@@ -121,6 +121,38 @@ jobs:
                       result["upstream_prefix"] = exc.read(180).decode(errors="replace")
                   except Exception as exc:
                       result["upstream_error"] = type(exc).__name__
+              if result.get("upstream_error") == "RemoteDisconnected" and address == samples[0]:
+                  from xml.sax.saxutils import escape
+                  lower_n,lower_e,upper_n,upper_e=n-60,e-60,n+60,e+60
+                  xml=f'''<?xml version="1.0" encoding="UTF-8"?>
+          <wfs:GetFeature xmlns:wfs="http://www.opengis.net/wfs/2.0"
+             xmlns:fes="http://www.opengis.net/fes/2.0"
+             xmlns:gml="http://www.opengis.net/gml/3.2"
+             xmlns:ms="http://mapserver.gis.umn.edu/mapserver"
+             service="WFS" version="2.0.0" count="32">
+            <wfs:Query typeNames="ms:budynki" srsName="EPSG:2180">
+              <fes:Filter><fes:BBOX><fes:ValueReference>geom</fes:ValueReference>
+                <gml:Envelope srsName="EPSG:2180">
+                  <gml:lowerCorner>{lower_n} {lower_e}</gml:lowerCorner>
+                  <gml:upperCorner>{upper_n} {upper_e}</gml:upperCorner>
+                </gml:Envelope>
+              </fes:BBOX></fes:Filter>
+            </wfs:Query>
+          </wfs:GetFeature>'''
+                  postreq=urllib.request.Request(upstream,data=xml.encode("utf-8"),headers={
+                      "User-Agent":"Mozilla/5.0 (compatible; BIPVStudio/1.0; public geodata diagnostics)",
+                      "Content-Type":"application/xml",
+                      "Connection":"close",
+                  },method="POST")
+                  try:
+                      with urllib.request.urlopen(postreq,timeout=18) as response:
+                          result["upstream_post_http"]=response.status
+                          result["upstream_post_prefix"]=response.read(180).decode(errors="replace")
+                  except urllib.error.HTTPError as exc:
+                      result["upstream_post_http"]=exc.code
+                      result["upstream_post_prefix"]=exc.read(180).decode(errors="replace")
+                  except Exception as exc:
+                      result["upstream_post_error"]=type(exc).__name__
               print(json.dumps(result,ensure_ascii=False), flush=True)
               time.sleep(1)
           PY
