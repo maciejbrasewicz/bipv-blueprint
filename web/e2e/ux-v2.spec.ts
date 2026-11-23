@@ -57,14 +57,22 @@ test("premium workbench guides roof selection, design and review at desktop widt
     ];
     return pairs.map(([label, background]) => {
       const color = getComputedStyle(document.querySelector(label)!).color;
-      const fill = getComputedStyle(document.querySelector(background)!).backgroundColor;
+      const fill = getComputedStyle(
+        document.querySelector(background)!,
+      ).backgroundColor;
       const a = luminance(color);
       const b = luminance(fill);
-      return { label, contrast: (Math.max(a, b) + 0.05) / (Math.min(a, b) + 0.05) };
+      return {
+        label,
+        contrast: (Math.max(a, b) + 0.05) / (Math.min(a, b) + 0.05),
+      };
     });
   });
   for (const item of contrastRatios) {
-    expect(item.contrast, `WCAG AA text contrast: ${item.label}`).toBeGreaterThanOrEqual(4.5);
+    expect(
+      item.contrast,
+      `WCAG AA text contrast: ${item.label}`,
+    ).toBeGreaterThanOrEqual(4.5);
   }
   await page.screenshot({
     path: "test-results/workbench-v2-desktop.jpg",
@@ -107,7 +115,10 @@ test("360px workbench keeps tools reachable, panels dismissible and content insi
     page.getByRole("link", { name: "Kalkulator produkcji" }),
   ).toBeVisible();
   await expect(page.locator("canvas")).toBeVisible();
-  const viewTool = await page.locator(".view-controls .icon-button").first().boundingBox();
+  const viewTool = await page
+    .locator(".view-controls .icon-button")
+    .first()
+    .boundingBox();
   expect(viewTool?.width).toBeGreaterThanOrEqual(40);
   expect(viewTool?.height).toBeGreaterThanOrEqual(40);
   await expect
