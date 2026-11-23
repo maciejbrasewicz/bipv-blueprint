@@ -425,9 +425,9 @@ test("account opens a claimed project without writing its organization scene to 
   await page
     .getByRole("button", { name: "Przenieś otwarty projekt gościa" })
     .click();
-  await expect(page.getByRole("dialog", { name: "Konto i organizacje" })).toBeHidden({
-    timeout: 30000,
-  });
+  await expect(
+    page.getByRole("dialog", { name: "Konto i organizacje" }),
+  ).toBeHidden({ timeout: 30000 });
   await expect(page.locator(".version-pill")).toHaveText("Biuro BIPV", {
     timeout: 15000,
   });
