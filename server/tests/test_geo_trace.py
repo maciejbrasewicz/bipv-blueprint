@@ -199,7 +199,7 @@ def test_large_egib_footprint_produces_real_layout_and_export(client):
         assert len(variant["placements"]) == variant["module_count"]
         assert all(p["surface_id"] == "egib-roof-1" for p in variant["placements"])
     selected = layout["variants"][0]
-    exported = client.post("/api/model.obj", json={"scene": geometry, "variant_id": selected["id"]})
+    exported = client.post("/api/model.obj", json={"geometry": geometry, "variant": selected["id"]})
     assert exported.status_code == 200, exported.text
     assert sum(line.startswith("g module_") for line in exported.text.splitlines()) == selected["module_count"]
 
