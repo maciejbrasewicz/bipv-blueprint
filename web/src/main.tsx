@@ -1,6 +1,7 @@
 import { Component, lazy, StrictMode, Suspense, type ReactNode } from "react";
 import { createRoot } from "react-dom/client";
 import "./style.css";
+import "./workbench.css";
 const Studio = lazy(() => import("./App"));
 const TestLab = lazy(() => import("./TestLab"));
 const ProductionStudio = lazy(() => import("./ProductionStudio"));
