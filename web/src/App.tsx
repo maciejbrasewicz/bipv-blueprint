@@ -467,7 +467,9 @@ function Studio({
         return;
       }
       changeGeometry(updated);
-      setToast("Obrys aktywowany. Obliczam rzeczywiste rozmieszczenie modułów.");
+      setToast(
+        "Obrys aktywowany. Obliczam rzeczywiste rozmieszczenie modułów.",
+      );
     } catch (err) {
       setToast((err as Error).message);
     }
@@ -1130,9 +1132,8 @@ function Studio({
             <div className="geo-quality-card">
               <strong>Brak aktywnej połaci PV</strong>
               <p>
-                W zapisanej scenie nie wybrano powierzchni do obliczeń.
-                Spróbuj ponownie aktywować obrys; zbyt duży zostanie jawnie
-                odrzucony.
+                W zapisanej scenie nie wybrano powierzchni do obliczeń. Spróbuj
+                ponownie aktywować obrys; zbyt duży zostanie jawnie odrzucony.
               </p>
               <button
                 type="button"
@@ -1774,13 +1775,15 @@ function Studio({
             <div className="layout-empty-state" role="status">
               <strong>Nie rozmieszczono żadnego modułu</strong>
               <p>
-                Wybrany moduł nie mieści się na aktywnych powierzchniach
-                po uwzględnieniu odsunięć. Sprawdź wymiary, geometrię i
-                przeszkody. Wynik 0 nie oznacza, że dach jest nieprzydatny.
+                Wybrany moduł nie mieści się na aktywnych powierzchniach po
+                uwzględnieniu odsunięć. Sprawdź wymiary, geometrię i przeszkody.
+                Wynik 0 nie oznacza, że dach jest nieprzydatny.
               </p>
               <button
                 type="button"
-                onClick={() => (site ? setLocationOpen(true) : setMode("quality"))}
+                onClick={() =>
+                  site ? setLocationOpen(true) : setMode("quality")
+                }
               >
                 {site ? "Zweryfikuj dach" : "Sprawdź geometrię"}
               </button>
