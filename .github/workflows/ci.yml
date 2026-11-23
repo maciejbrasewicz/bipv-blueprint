@@ -161,6 +161,27 @@ jobs:
           path: dist/BIPV-Roof-Tests.zip
           if-no-files-found: error
           retention-days: 90
+      - name: Build and independently smoke-test complete local Studio release
+        timeout-minutes: 6
+        run: |
+          archive="$PWD/dist/Registry9_ET-2025-7_BIPV-Studio_Local.zip"
+          python scripts/package_full_studio.py "$archive" --source-sha "$GITHUB_SHA"
+          python scripts/verify_full_studio_package.py "$archive"
+          unpacked="$(mktemp -d)"
+          trap 'rm -rf "$unpacked"' EXIT
+          unzip -q "$archive" -d "$unpacked"
+          (
+            cd "$unpacked"
+            uv sync --python 3.12 --frozen --dev
+            uv run --python 3.12 --frozen python scripts/run_local_studio.py --self-test
+            uv run --python 3.12 --frozen pytest -q server/tests/test_electrotile_geometry.py server/tests/test_electrotile_product.py server/tests/test_electrotile_lab.py server/tests/test_production_plan.py
+          )
+      - uses: actions/upload-artifact@v7.0.2
+        with:
+          name: electrotile-complete-local-studio
+          path: dist/Registry9_ET-2025-7_BIPV-Studio_Local.zip
+          if-no-files-found: error
+          retention-days: 90
       - uses: actions/upload-artifact@v7.0.2
         if: always()
         with:
