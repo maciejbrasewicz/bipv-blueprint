@@ -64,19 +64,26 @@ def test_one_tile_at_setback_boundary(client, x, y, slack, count):
 
 
 @pytest.mark.parametrize(
-    ("width", "expected_status"), [(25, 200), (25.001, 422)], ids=["at-limit", "over-limit"]
+    ("width", "expected_status"), [(40, 200), (40.001, 422)], ids=["at-limit", "over-limit"]
 )
 def test_selected_area_boundary(client, width, expected_status):
-    scene = {"surfaces": ["roof"], "custom_surfaces": [rectangle(0, 0, width, 10)]}
+    scene = {"surfaces": ["roof"], "custom_surfaces": [rectangle(-20, -25, width, 50)]}
     response = client.post("/api/scene/validate", json=scene)
     assert response.status_code == expected_status
     if expected_status == 422:
-        assert "250 m²" in response.json()["detail"][0]["msg"]
+        assert "2000 m²" in response.json()["detail"][0]["msg"]
 
 
 def test_search_area_limit_and_selected_surface_scope(client):
-    sparse = rectangle(0, 0, 25, 25)
-    sparse["boundary_uv_m"] = [[0, 0], [25, 0], [25, 1], [1, 1], [1, 25], [0, 25]]
+    sparse = rectangle(-37.5, -37.5, 75, 75)
+    sparse["boundary_uv_m"] = [
+        [-37.5, -37.5],
+        [37.5, -37.5],
+        [37.5, -36.5],
+        [-36.5, -36.5],
+        [-36.5, 37.5],
+        [-37.5, 37.5],
+    ]
     sparse["id"] = "sparse"
     scene = {
         "surfaces": ["roof", "sparse"],
@@ -84,7 +91,7 @@ def test_search_area_limit_and_selected_surface_scope(client):
     }
     response = client.post("/api/layout", json=scene)
     assert response.status_code == 422
-    assert "600 m²" in response.json()["detail"][0]["msg"]
+    assert "4000 m²" in response.json()["detail"][0]["msg"]
 
     scene["surfaces"] = ["roof"]
     response = client.post("/api/layout", json=scene)

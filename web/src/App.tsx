@@ -315,6 +315,11 @@ function Studio({
     scene.surfaces[0] ??
     surfaceChoices[0].id;
   const footprintPreview = scene.surfaces.length === 0;
+  const noPanels =
+    !calculating && !error && !!variant && variant.module_count === 0;
+  const egibEstimate =
+    document.schema_version === "2.0.0" &&
+    document.surface_evidence.some((item) => item.egib_assumed_height_m);
   const inspectedSurface = scene.custom_surfaces?.find(
     (surface) => surface.id === activeSurfaceId,
   );
@@ -393,9 +398,7 @@ function Studio({
     if (!webglUnavailable) setView("orbit");
     applyLocatedModel(
       next,
-      next.geometry.surfaces.length
-        ? "Utworzono szacowaną bryłę z obrysu wybranego budynku EGiB."
-        : "Wyświetlono bryłę EGiB. Obrys przekracza limit obliczeń układu PV.",
+      "Utworzono wstępną bryłę EGiB i uruchomiono obliczenia PV. Sprawdź rzeczywisty dach.",
     );
   }
   async function applyOrthophotoTrace(
@@ -449,6 +452,28 @@ function Studio({
   }
   const patch = (partial: Partial<Scene>) =>
     changeGeometry({ ...scene, ...partial });
+
+  async function activateSavedFootprint() {
+    if (!scene.custom_surfaces || scene.surfaces.length) return;
+    const requestedDocument = documentRef.current;
+    const updated = {
+      ...scene,
+      surfaces: scene.custom_surfaces.map((surface) => surface.id),
+    };
+    try {
+      await api<Scene>("scene/validate", "POST", updated);
+      if (documentRef.current !== requestedDocument) {
+        setToast("Projekt zmienił się podczas walidacji. Spróbuj ponownie.");
+        return;
+      }
+      changeGeometry(updated);
+      setToast(
+        "Obrys aktywowany. Obliczam rzeczywiste rozmieszczenie modułów.",
+      );
+    } catch (err) {
+      setToast((err as Error).message);
+    }
+  }
   function selectObstacle(id: string | null) {
     setSelected(id);
     setHole(null);
@@ -1029,6 +1054,19 @@ function Studio({
             <ChevronRight size={13} />
           </button>
           <button
+            type="button"
+            className="object-row"
+            aria-label="Otwórz przykład techniczny"
+            onClick={loadExample}
+          >
+            <Layers3 size={17} />
+            <span>
+              Przykład techniczny
+              <small>Sprawdzalna scena 3D · bez adresu</small>
+            </span>
+            <ChevronRight size={13} />
+          </button>
+          <button
             className={
               "object-row building " +
               (selected === null && hole === null ? "selected" : "")
@@ -1091,10 +1129,32 @@ function Studio({
             ))}
           </div>
           {footprintPreview && (
-            <p className="info-note">
-              Podgląd obrysu. Aby policzyć PV, wydziel mniejszą część dachu na
-              ortofotomapie.
-            </p>
+            <div className="geo-quality-card">
+              <strong>Brak aktywnej połaci PV</strong>
+              <p>
+                W zapisanej scenie nie wybrano powierzchni do obliczeń. Spróbuj
+                ponownie aktywować obrys; zbyt duży zostanie jawnie odrzucony.
+              </p>
+              <button
+                type="button"
+                onClick={() => void activateSavedFootprint()}
+              >
+                Aktywuj obrys do obliczeń
+              </button>
+            </div>
+          )}
+          {egibEstimate && (
+            <div className="geo-quality-card" role="note">
+              <strong>Model wstępny z EGiB</strong>
+              <p>
+                Obrys budynku jest rzeczywisty, ale dach płaski i wysokość 6 m
+                są założeniem. Układ PV nie jest zweryfikowanym projektem
+                wykonawczym.
+              </p>
+              <button type="button" onClick={() => setLocationOpen(true)}>
+                Sprawdź lub popraw dach
+              </button>
+            </div>
           )}
           <div className="section-label">
             PRZESZKODY{" "}
@@ -1705,10 +1765,30 @@ function Studio({
                   ? "Błąd obliczenia"
                   : calculating
                     ? "Przeliczanie…"
-                    : "Obliczono"}
+                    : noPanels
+                      ? "Brak miejsca na moduły"
+                      : "Obliczono"}
               </b>
             </div>
           </div>
+          {noPanels && (
+            <div className="layout-empty-state" role="status">
+              <strong>Nie rozmieszczono żadnego modułu</strong>
+              <p>
+                Wybrany moduł nie mieści się na aktywnych powierzchniach po
+                uwzględnieniu odsunięć. Sprawdź wymiary, geometrię i przeszkody.
+                Wynik 0 nie oznacza, że dach jest nieprzydatny.
+              </p>
+              <button
+                type="button"
+                onClick={() =>
+                  site ? setLocationOpen(true) : setMode("quality")
+                }
+              >
+                {site ? "Zweryfikuj dach" : "Sprawdź geometrię"}
+              </button>
+            </div>
+          )}
           <div className={"metric-grid " + (stale ? "stale" : "")}>
             <div>
               <span>Moduły aktywne</span>
@@ -1915,7 +1995,9 @@ function Studio({
               ? "Błąd obliczenia"
               : calculating
                 ? "Przeliczanie układu"
-                : "Geometria obliczona"}
+                : noPanels
+                  ? "Nie rozmieszczono modułów"
+                  : "Geometria obliczona"}
           </span>
           <span className="status-separator" />
           <Save size={12} />

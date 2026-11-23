@@ -91,11 +91,12 @@ def scene_from_footprint(body: FootprintSceneInput) -> SceneV2:
     shapes = [roof.polygon() for roof in roofs]
     area = sum(shape.area for shape in shapes)
     bounds_area = sum((x1 - x0) * (y1 - y0) for x0, y0, x1, y1 in (shape.bounds for shape in shapes))
-    selected = (
-        [roof.id for roof in roofs]
-        if area <= MAX_LAYOUT_AREA_M2 and bounds_area <= MAX_LAYOUT_BOUNDS_M2
-        else []
-    )
+    if area > MAX_LAYOUT_AREA_M2 or bounds_area > MAX_LAYOUT_BOUNDS_M2:
+        raise ValueError(
+            "Wybrany obrys przekracza limit interaktywnego rozmieszczenia PV. "
+            "Wydziel mniejszy fragment dachu na ortofotomapie."
+        )
+    selected = [roof.id for roof in roofs]
     scene = Scene(
         **body.model_dump(exclude={"site", "center", "rings_m"}),
         surfaces=selected,
@@ -197,8 +198,8 @@ def scene_from_orthophoto(body: TraceSceneInput) -> SceneV2:
     local_polygon = Polygon(boundary)
     if not local_polygon.is_valid:
         raise ValueError("Obrys po przeliczeniu na lokalną scenę jest nieprawidłowy.")
-    if local_polygon.area > 250:
-        raise ValueError("Limit demonstratora: 250 m² wybranych połaci.")
+    if local_polygon.area > MAX_LAYOUT_AREA_M2:
+        raise ValueError(f"Limit interaktywnego obrysu: {MAX_LAYOUT_AREA_M2} m².")
 
     if trace.gable:
         roofs = gable_surfaces(
