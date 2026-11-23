@@ -23,6 +23,8 @@ def verify(archive: Path) -> None:
         "scripts/run_local_checks.py",
         "uv.lock",
         "pyproject.toml",
+        "evidence/roof-test-results.xml",
+        "evidence/roof-benchmark.json",
         "MANIFEST.json",
         "SOURCE_COMMIT.txt",
         "SHA256SUMS.txt",
