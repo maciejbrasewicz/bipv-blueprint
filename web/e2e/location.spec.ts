@@ -512,7 +512,6 @@ test("orthophoto retries, measures, corrects a trace and exports estimated geome
   ).toBe(true);
 });
 
-
 test("a wider chosen building renders actual PV and an older saved footprint can be reactivated", async ({
   page,
 }) => {
@@ -541,18 +540,24 @@ test("a wider chosen building renders actual PV and an older saved footprint can
       json: {
         radius_m: 60,
         partial: false,
-        candidates: [{
-          site,
-          area_m2: 800,
-          distance_m: 0,
-          rings_m: [[[
-            [-20, -10],
-            [20, -10],
-            [20, 10],
-            [-20, 10],
-            [-20, -10],
-          ]]],
-        }],
+        candidates: [
+          {
+            site,
+            area_m2: 800,
+            distance_m: 0,
+            rings_m: [
+              [
+                [
+                  [-20, -10],
+                  [20, -10],
+                  [20, 10],
+                  [-20, 10],
+                  [-20, -10],
+                ],
+              ],
+            ],
+          },
+        ],
       },
     }),
   );
@@ -562,8 +567,12 @@ test("a wider chosen building renders actual PV and an older saved footprint can
   await expect(
     dialog.getByRole("combobox", { name: "Przykładowe okolice" }),
   ).toHaveCount(0);
-  await dialog.getByRole("searchbox", { name: "Miejscowość" }).fill("Budynek referencyjny");
-  await dialog.getByRole("searchbox", { name: "Ulica i numer budynku" }).fill("Testowa 4");
+  await dialog
+    .getByRole("searchbox", { name: "Miejscowość" })
+    .fill("Budynek referencyjny");
+  await dialog
+    .getByRole("searchbox", { name: "Ulica i numer budynku" })
+    .fill("Testowa 4");
   await dialog.getByRole("button", { name: "Szukaj adresu" }).click();
   await dialog.getByRole("button", { name: point.label }).click();
   await dialog.getByRole("radio", { name: /^Budynek 1/ }).check();
