@@ -578,9 +578,10 @@ test("a wider chosen building renders actual PV and an older saved footprint can
   await dialog.getByRole("radio", { name: /^Budynek 1/ }).check();
   await dialog.getByRole("button", { name: "Potwierdź budynek" }).click();
   await expect(dialog).toBeHidden();
-  await expect(
-    page.getByRole("status").filter({ hasText: "Geometria obliczona" }),
-  ).toBeVisible({ timeout: 45_000 });
+  await expect(page.getByTestId("layout-status")).toHaveText(
+    "Geometria obliczona",
+    { timeout: 45_000 },
+  );
   const modules = page.locator(".metric-grid strong").first();
   await expect(modules).not.toHaveText(/^(—|0)/);
   const count = Number((await modules.innerText()).replace(/\D/g, ""));
