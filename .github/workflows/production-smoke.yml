@@ -45,7 +45,13 @@ jobs:
           print(json.dumps({"live_commit":expected,"cloud_configured":True,"status":"ok"}))
           with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as output:
               print("geo=" + str(bool(target.get("geo"))).lower(), file=output)
+              print("demo_lab=" + str(bool(target.get("demo_lab"))).lower(), file=output)
+              print("commit=" + expected, file=output)
           PY
+      - name: Check out the exact verified production release
+        uses: actions/checkout@v7.0.1
+        with:
+          ref: ${{ steps.deployed.outputs.commit }}
       - run: npm ci --prefix web --no-audit --no-fund
       - name: Verify live v1/v2 revisions and workspace isolation
         env:
@@ -90,6 +96,12 @@ jobs:
           if [ "$GEO_ENABLED" = true ]; then filter="$filter|location waits|location lets"; fi
           npx playwright test --grep "$filter"
         working-directory: web
+      - name: Verify current production Electrotile portal and calculator
+        if: steps.deployed.outputs.demo_lab == 'true'
+        env:
+          LIVE_GEO: '1'
+        run: npx playwright test demo-lab.spec.ts production-plan.spec.ts
+        working-directory: web
       - uses: actions/upload-artifact@v7.0.2
         if: always()
         with:
@@ -100,6 +112,7 @@ jobs:
         if: always()
         env:
           JOB_STATUS: ${{ job.status }}
+          DEPLOYED_COMMIT: ${{ steps.deployed.outputs.commit }}
         run: |
           if [ -f web/test-results/studio-desktop-review.jpg ]; then
             python -c "import base64,pathlib; s=base64.b64encode(pathlib.Path('web/test-results/studio-desktop-review.jpg').read_bytes()).decode(); [print('LIVE_VISUAL_CHUNK_'+str(i//4000).zfill(4)+':'+s[i:i+4000]) for i in range(0,len(s),4000)]"
@@ -111,7 +124,7 @@ jobs:
           git worktree add /tmp/bipv-live-evidence origin/evidence/r1
           mkdir -p /tmp/bipv-live-evidence/evidence/live
           find web/test-results -type f \( -name '*.png' -o -name '*.jpg' -o -name 'error-context.md' \) -exec cp {} /tmp/bipv-live-evidence/evidence/live/ \; || true
-          python -c "import json,os,pathlib; target=json.loads(pathlib.Path('docs/production-target.json').read_text()); pathlib.Path('/tmp/bipv-live-evidence/evidence/live/run.json').write_text(json.dumps({'deployed_commit':target['commit'],'status':os.environ['JOB_STATUS'],'run_id':os.environ['GITHUB_RUN_ID']},indent=2))"
+          python -c "import json,os,pathlib; pathlib.Path('/tmp/bipv-live-evidence/evidence/live/run.json').write_text(json.dumps({'deployed_commit':os.environ['DEPLOYED_COMMIT'],'status':os.environ['JOB_STATUS'],'run_id':os.environ['GITHUB_RUN_ID']},indent=2))"
           git -C /tmp/bipv-live-evidence config user.name "github-actions[bot]"
           git -C /tmp/bipv-live-evidence config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git -C /tmp/bipv-live-evidence add evidence/live
