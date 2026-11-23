@@ -78,7 +78,20 @@ def test_reject_extra_nan_duplicates_and_excess_work():
     for bad in (
         {"arbitrary": True},
         {"roof": {"width_m": float("nan")}},
-        {"roof": {"width_m": 30, "depth_m": 24, "pitch_deg": 60}},
+        {
+            "surfaces": ["large"],
+            "custom_surfaces": [
+                {
+                    "id": "large",
+                    "name": "Obszar poza limitem",
+                    "kind": "roof",
+                    "origin": [0, 0, 3],
+                    "u": [1, 0, 0],
+                    "v": [0, 1, 0],
+                    "boundary_uv_m": [[-25, -25], [25, -25], [25, 25], [-25, 25]],
+                }
+            ],
+        },
         {"surfaces": ["south", "south"]},
         {"obstacles": [{"id": "a", "u": 0, "v": 0}, {"id": "a", "u": 1, "v": 0}]},
     ):
