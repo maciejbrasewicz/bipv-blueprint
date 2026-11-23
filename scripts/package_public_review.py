@@ -28,6 +28,8 @@ TREE_FILES = {
 }
 SINGLE_FILES = (
     "LICENSE",
+    ".github/workflows/source-evaluation.yml",
+    ".github/workflows/evaluation-release.yml",
     "README.md",
     "Dockerfile",
     "pyproject.toml",
