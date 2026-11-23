@@ -139,7 +139,12 @@ def layout_surface(scene: Scene, surface: dict, width: float, height: float) -> 
     # use fewer phases to preserve bounded latency at 0.1 vCPU. Every candidate
     # still has to pass exact polygon containment: no simulated placements.
     search_area = (max_x - min_x) * (max_y - min_y)
-    phases = (0, 0.25, 0.5, 0.75) if search_area <= 250 else (0, 0.5) if search_area <= 900 else (0,)
+    if search_area <= 250:
+        phases = (0, 0.25, 0.5, 0.75)
+    elif search_area <= 900:
+        phases = (0, 0.5)
+    else:
+        phases = (0,)
     for fx in phases:
         for fy in phases:
             current = []
