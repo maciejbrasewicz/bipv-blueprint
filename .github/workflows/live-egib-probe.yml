@@ -1,0 +1,158 @@
+name: Live EGiB WFS coverage diagnosis
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/live-egib-probe.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - name: Diagnose real public GUGiK requests without masking errors
+        env:
+          BASE: https://bipv-studio-production.up.railway.app
+        run: |
+          python - <<'PY'
+          import json
+          import os
+          import time
+          import urllib.error
+          import urllib.parse
+          import urllib.request
+
+          base = os.environ["BASE"] + "/api/"
+          samples = (
+              "Marki, Andersa 1",
+              "Stargard, Szczecińska 1",
+              "Szczecin, Księcia Bogusława X 1",
+              "Warszawa, Marszałkowska 1",
+              "Wrocław, Kościuszki 1",
+              "Gdańsk, Grunwaldzka 1",
+          )
+          upstream = "https://mapy.geoportal.gov.pl/wss/service/PZGIK/EGIB/WFS/UslugaZbiorcza"
+          crs = "urn:ogc:def:crs:EPSG::2180"
+
+          def request_json(path, payload):
+              req = urllib.request.Request(
+                  base + path,
+                  json.dumps(payload).encode("utf-8"),
+                  {"Content-Type": "application/json"},
+              )
+              try:
+                  with urllib.request.urlopen(req, timeout=35) as response:
+                      return response.status, json.load(response)
+              except urllib.error.HTTPError as exc:
+                  return exc.code, {"detail": exc.read(512).decode(errors="replace")}
+              except Exception as exc:
+                  return 0, {"error":type(exc).__name__}
+
+          for address in samples:
+              addr_code, points = request_json("geo/addresses", {"address": address})
+              result = {"address": address, "address_http": addr_code}
+              if addr_code != 200 or not points.get("candidates"):
+                  result["address_data"] = points
+                  print(json.dumps(result, ensure_ascii=False), flush=True)
+                  continue
+              point = points["candidates"][0]
+              result["point"] = [point["easting_m"], point["northing_m"]]
+              code, buildings = request_json("geo/buildings", point)
+              result["buildings_http"] = code
+              if code == 200:
+                  result["building_count"] = len(buildings["candidates"])
+                  result["partial"] = buildings["partial"]
+                  if buildings["candidates"]:
+                      b = buildings["candidates"][0]
+                      result["first_building"] = {
+                          "id": b["site"]["building_id"],
+                          "area_m2": b["area_m2"],
+                          "distance_m": b["distance_m"],
+                      }
+                      scene_req = {
+                          "name": "QA - rzeczywisty obrys EGiB",
+                          "product_id": "tile-32",
+                          "setback_m": 0.3,
+                          "gap_m": 0.02,
+                          "clearance_m": 0.4,
+                          "site": b["site"],
+                          "center": {
+                              "easting_m": point["easting_m"],
+                              "northing_m": point["northing_m"],
+                          },
+                          "rings_m": b["rings_m"],
+                      }
+                      scene_code, scene = request_json("scene/from-footprint", scene_req)
+                      result["scene_http"] = scene_code
+                      if scene_code == 200:
+                          layout_code, layout = request_json("layout", scene["geometry"])
+                          result["layout_http"] = layout_code
+                          if layout_code == 200:
+                              result["layout"] = [
+                                  {"id": v["id"], "modules": v["module_count"], "area_m2":v["roof_area_m2"]}
+                                  for v in layout["variants"]
+                              ]
+                          else:
+                              result["layout_detail"] = str(layout)[:300]
+                      else:
+                          result["scene_detail"] = str(scene)[:300]
+              else:
+                  result["buildings_detail"] = buildings
+                  n, e = point["northing_m"], point["easting_m"]
+                  bbox = f"{n - 60},{e - 60},{n + 60},{e + 60},{crs}"
+                  query = urllib.parse.urlencode({
+                      "service": "WFS",
+                      "version": "2.0.0",
+                      "request": "GetFeature",
+                      "typeNames": "budynki",
+                      "count": 32,
+                      "srsName": crs,
+                      "bbox": bbox,
+                  })
+                  try:
+                      with urllib.request.urlopen(urllib.request.Request(upstream+"?"+query,headers={"User-Agent":"Mozilla/5.0 (compatible; BIPVStudio/1.0; public geodata diagnostics)","Connection":"close"}), timeout=18) as response:
+                          result["upstream_http"] = response.status
+                          result["upstream_prefix"] = response.read(180).decode(errors="replace")
+                  except urllib.error.HTTPError as exc:
+                      result["upstream_http"] = exc.code
+                      result["upstream_prefix"] = exc.read(180).decode(errors="replace")
+                  except Exception as exc:
+                      result["upstream_error"] = type(exc).__name__
+              if result.get("upstream_error") == "RemoteDisconnected" and address == samples[0]:
+                  from xml.sax.saxutils import escape
+                  lower_n,lower_e,upper_n,upper_e=n-60,e-60,n+60,e+60
+                  xml=f'''<?xml version="1.0" encoding="UTF-8"?>
+          <wfs:GetFeature xmlns:wfs="http://www.opengis.net/wfs/2.0"
+             xmlns:fes="http://www.opengis.net/fes/2.0"
+             xmlns:gml="http://www.opengis.net/gml/3.2"
+             xmlns:ms="http://mapserver.gis.umn.edu/mapserver"
+             service="WFS" version="2.0.0" count="32">
+            <wfs:Query typeNames="ms:budynki" srsName="EPSG:2180">
+              <fes:Filter><fes:BBOX><fes:ValueReference>geom</fes:ValueReference>
+                <gml:Envelope srsName="EPSG:2180">
+                  <gml:lowerCorner>{lower_n} {lower_e}</gml:lowerCorner>
+                  <gml:upperCorner>{upper_n} {upper_e}</gml:upperCorner>
+                </gml:Envelope>
+              </fes:BBOX></fes:Filter>
+            </wfs:Query>
+          </wfs:GetFeature>'''
+                  postreq=urllib.request.Request(upstream,data=xml.encode("utf-8"),headers={
+                      "User-Agent":"Mozilla/5.0 (compatible; BIPVStudio/1.0; public geodata diagnostics)",
+                      "Content-Type":"application/xml",
+                      "Connection":"close",
+                  },method="POST")
+                  try:
+                      with urllib.request.urlopen(postreq,timeout=18) as response:
+                          result["upstream_post_http"]=response.status
+                          result["upstream_post_prefix"]=response.read(180).decode(errors="replace")
+                  except urllib.error.HTTPError as exc:
+                      result["upstream_post_http"]=exc.code
+                      result["upstream_post_prefix"]=exc.read(180).decode(errors="replace")
+                  except Exception as exc:
+                      result["upstream_post_error"]=type(exc).__name__
+              print(json.dumps(result,ensure_ascii=False), flush=True)
+              time.sleep(1)
+          PY
