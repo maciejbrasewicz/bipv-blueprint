@@ -121,7 +121,9 @@ test("360px workbench keeps tools reachable, panels dismissible and content insi
       }),
     );
   expect(stagePositions).toHaveLength(3);
-  expect(stagePositions.every(([left, right]) => left >= 0 && right <= 360)).toBe(true);
+  expect(
+    stagePositions.every(([left, right]) => left >= 0 && right <= 360),
+  ).toBe(true);
   await expect(
     page.getByRole("link", { name: "Kalkulator produkcji" }),
   ).toBeVisible();
