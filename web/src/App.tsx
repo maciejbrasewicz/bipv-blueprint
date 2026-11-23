@@ -1511,7 +1511,9 @@ function Studio({
             <div className="canvas-label">
               <span className="live-label">
                 <span />
-                {view === "plan" ? "PLAN MODUŁÓW · 2D" : "MODEL PRZESTRZENNY · 3D"}
+                {view === "plan"
+                  ? "PLAN MODUŁÓW · 2D"
+                  : "MODEL PRZESTRZENNY · 3D"}
               </span>
               <h1>{headline}</h1>
               <p>
@@ -1527,7 +1529,11 @@ function Studio({
                           ? "Wybierz powierzchnię, sprawdź obrys i odsunięcia"
                           : "Zmień geometrię lub wybierz rzeczywisty budynek"}
               </p>
-              <div className={"canvas-confidence " + (egibEstimate ? "is-estimated" : "")}>
+              <div
+                className={
+                  "canvas-confidence " + (egibEstimate ? "is-estimated" : "")
+                }
+              >
                 <ShieldCheck size={14} aria-hidden="true" />
                 <span>
                   {egibEstimate
@@ -1862,10 +1868,18 @@ function Studio({
               </strong>
             </div>
           </div>
-          <div className={"result-confidence " + (egibEstimate ? "is-estimated" : "")}>
+          <div
+            className={
+              "result-confidence " + (egibEstimate ? "is-estimated" : "")
+            }
+          >
             <div className="result-confidence-header">
               <ShieldCheck size={16} aria-hidden="true" />
-              <strong>{egibEstimate ? "Weryfikacja dachu wymagana" : "Zakres obliczenia"}</strong>
+              <strong>
+                {egibEstimate
+                  ? "Weryfikacja dachu wymagana"
+                  : "Zakres obliczenia"}
+              </strong>
             </div>
             <p>
               {egibEstimate
