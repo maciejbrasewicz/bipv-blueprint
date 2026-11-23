@@ -2949,3 +2949,47 @@ p {
     grid-template-columns: minmax(0, 1fr);
   }
 }
+
+/* Explicit design-state cards. Estimates and infeasible layouts must never
+   look like verified, completed projects. */
+.geo-quality-card,
+.layout-empty-state {
+  border: 1px solid #d4bf92;
+  border-radius: 9px;
+  padding: 13px;
+  background: #faf6e9;
+  color: #554426;
+  font-size: 12px;
+  line-height: 1.5;
+}
+.geo-quality-card {
+  margin: 12px 0 16px;
+}
+.layout-empty-state {
+  margin: 14px 15px;
+}
+.geo-quality-card strong,
+.layout-empty-state strong {
+  display: block;
+  font-size: 13px;
+  font-weight: 750;
+}
+.geo-quality-card p,
+.layout-empty-state p {
+  margin: 6px 0 10px;
+}
+.geo-quality-card button,
+.layout-empty-state button {
+  padding: 8px 11px;
+  background: #fff;
+  border: 1px solid #b99e65;
+  border-radius: 6px;
+  color: #554426;
+  font-weight: 650;
+  cursor: pointer;
+}
+.geo-quality-card button:focus-visible,
+.layout-empty-state button:focus-visible {
+  outline: 2px solid #705523;
+  outline-offset: 3px;
+}
