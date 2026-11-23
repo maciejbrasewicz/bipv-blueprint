@@ -70,16 +70,16 @@ test("all three sections are reachable from navigation on desktop and phone", as
     });
     const studio = nav.getByRole("link", { name: "Studio projektowe" });
     const tests = nav.getByRole("link", { name: "Testy Electrotile" });
-    const production = nav.getByRole("link", {
-      name: "Kalkulator produkcji",
-    });
+    const production = nav.getByRole("link", { name: "Kalkulator produkcji" });
 
     await expect(studio).toHaveAttribute("aria-current", "page");
     await expect(production).toBeVisible();
     await production.click();
     await expect(page).toHaveURL(/\/produkcja$/);
     await expect(production).toHaveAttribute("aria-current", "page");
-    await expect(page.getByRole("button", { name: "Oblicz plan" })).toBeVisible();
+    await expect(
+      page.getByRole("button", { name: "Oblicz plan" }),
+    ).toBeVisible();
 
     await tests.click();
     await expect(page).toHaveURL(/\/testy$/);
