@@ -1,70 +1,83 @@
-# Registry9 BIPV Studio
+# Registry9 Engineering / BIPV Studio
 
-**Live:** https://bipv-studio-production.up.railway.app
+**Metryczna geometria dachu i fasady · konfiguracja BIPV · weryfikowalne testy funkcjonalne**
 
-[Quality gates](https://github.com/maciejbrasewicz/bipv-blueprint/actions/runs/44896489024) · [Production verification](https://github.com/maciejbrasewicz/bipv-blueprint/actions/runs/44913416525)
+BIPV Studio to działający demonstrator inżynierski i środowisko do odtwarzalnego testowania oprogramowania dachowego. Pokazuje zarówno proces projektowania, jak i metodę wykrywania błędów za pomocą niezależnych wzorców, wersjonowanych danych wejściowych i eksportowanych dowodów.
 
-BIPV design software for installers and planners. The current release includes roof and facade geometry, an interactive 3D editor, layout variants, exports and private revision history. See the roadmap for the address-to-offer workflow.
+> **Zakres dowodów:** Studio jest własnym produktem demonstracyjnym Registry9. Nie jest systemem Electrotile. Wyniki jego testów nie stanowią odbioru modułów zamawiającego.
 
-## Start here
+## Otwórz i sprawdź
 
-[Product roadmap](docs/PRODUCT-ROADMAP.md) · [Product UX](docs/PRODUCT-UX.md) · [Foundry execution](foundry/PRODUCT-EXECUTION.md)
+| Miejsce | Co możesz zrobić | Dostęp |
+| --- | --- | --- |
+| **[Laboratorium Electrotile](https://bipv-studio-production.up.railway.app/testy)** | Uruchomić próby, porównać wynik z referencją, pobrać dowody i raport | Publiczny, bez konta |
+| [Studio BIPV](https://bipv-studio-production.up.railway.app/) | Edytować scenę 2D/3D, porównać rozmieszczenie modułów PV i wyeksportować modele | Publiczny, podstawowe funkcje bez konta |
+| [Kalkulator przedmiaru](https://bipv-studio-production.up.railway.app/produkcja) | Sprawdzić arkusze, rozkrój, rzaz i parametry wiązek w kontrolnym katalogu | Publiczny, bez konta |
+| [Notatka techniczna dla ET/2025/7](docs/ET-2025-7-TECHNICAL-BRIEF.md) | Zakres, metoda, tabela dowodów i ograniczenia | GitHub – tylko upoważnieni |
+| [Scenariusz demonstracji](docs/ET-2025-7-DEMO-PLAYBOOK.md) | Krótki, powtarzalny pokaz dla oceniającego | GitHub – tylko upoważnieni |
+| [Lista kontrolna oferty](docs/ET-2025-7-SUBMISSION-CHECKLIST.md) | Wymagane dokumenty, podpisy, termin i finalny QA | Wewnętrzny |
 
-[Engineering handoff](docs/HANDOFF.md) · [Release evidence](docs/RELEASE.md)
+**Repozytorium jest prywatne.** Nie należy podawać samego linku do niego jako wymaganego załącznika przetargowego. Do oferty dołącza się bezpośrednio wykonywalną paczkę ZIP z instrukcją oraz osobny materiał techniczny PDF. Materiały te nie wymagają dostępu do GitHuba.
 
-[Electrotile requirements and delivery plan](docs/ELECTROTILE-DELIVERY.md) · [Runnable roof tests](docs/ROOF-TEST-PACK.md) · [Download the test archive](https://github.com/maciejbrasewicz/bipv-blueprint/actions/runs/44816156045/artifacts/14670086147)
+## Co jest rzeczywiście zaimplementowane
 
-## Implemented
+- Wyszukiwanie polskich adresów (GUGiK UUG), wybór budynku z EGiB, ortofoto, przypięcie pochodzenia danych i ich ograniczeń do projektu. Dostawca danych publicznych może przejściowo nie odpowiadać.
+- Metryczny model ENU/UV, edycja bryły i połaci dachu oraz fasad, otwory i przeszkody, historia i odtwarzanie wersji sceny.
+- Dwuwymiarowy rzut oraz interaktywny podgląd 3D; rozmieszczanie pełnych obrysów modułów z odsunięciami i kontrolą kolizji, dwie orientacje i warianty siatki.
+- Liczby modułów, powierzchnia aktywna i nominalna moc STC dla **jawnie demonstracyjnych SKU**. Porównanie wariantów i eksport JSON / CSV / OBJ / GLB.
+- Scenariusz produkcyjny z kontrolnym katalogiem arkuszy, rozkrojem profili z rzazem, bilansem długości i grafem wiązki.
+- Publiczne laboratorium z rzeczywistymi wykonaniami, niezależnym porównaniem artefaktów OBJ/GLB, raportami i SHA-256; QA obejmuje też testy brzegowe i regresyjne.
+- Projektowy interfejs UX v2 z prowadzeniem po etapach, kluczowymi metrykami, jawnością założeń geometrycznych i interaktywnymi panelami mobilnymi.
 
-- Polish address search and explicit building selection using GUGiK UUG and EGiB footprints. The confirmed reference is part of the project revision.
-- Named organization workspaces with private project history and an explicit guest-to-organization transfer.
+**Aktualne wydanie produkcyjne:** `7a1b88034d1e6750b5b9945feca3364f136d0ce6`. Testy źródeł: [Quality gates #45168329114](https://github.com/maciejbrasewicz/bipv-blueprint/actions/runs/45168329114); testy działającego wydania: [Production verification #45169946732](https://github.com/maciejbrasewicz/bipv-blueprint/actions/runs/45169946732). Linki GitHub wymagają uprawnień, ale istotne dane i raporty są również dołączane do niezależnej paczki ofertowej.
 
-- Metric 2D plan and 3D editor with validated opening corrections, undo and versioned Scene v1/v2 project documents.
+## Próbka do zapytania ET/2025/7
 
-- Saved project history with up to 20 revisions. Load any retained revision into the editor and save it as a new revision.
-- Concave roof and facade import with holes, and 3D OBJ export with the selected BIPV layout.
-- Editable gable roof: width, projected depth, pitch, eaves height, azimuth; one or both surfaces.
-- Add/edit/remove chimneys and skylights; undo/redo; perspective, top and front views.
-- Two module orientations, sixteen grid phases each, full-polygon containment and obstacle/edge setbacks.
-- Actual module count, active area, coverage and STC power from an explicitly fictional demo catalog.
-- Astronomical sun direction and shadow preview for Szczecin, fixed CET time.
-- Autosaved local scene; capability-private Supabase guest workspace; revision conflicts; JSON round trip and CSV quantities.
-- Input SHA-256, algorithm version, warnings, independent tests and desktop/mobile interface.
+Zamawiający wymaga **przykładowych scenariuszy testów aplikacji pokryć dachowych, opisu technicznego i paczki ZIP uruchamianej lokalnie z instrukcją**. Przygotowana próbka zawiera:
 
-Not yet implemented: address reconstruction, satellite ingestion/ML, manufacturer rules, annual yield, string/inverter sizing, full BOM/pricing and runtime AI agents. R1 makes no claim to satisfy the procurement's satellite-only reconstruction requirements.
+1. Sprawdzanie geometrii, ścian i eksportów OBJ/GLB przez niezależny odczyt wygenerowanych plików.
+2. Obliczanie układu PV z marginesami, przeszkodami, fasadami i granicznymi przypadkami dopasowania.
+3. Kontrole SKU, mocy STC, rozkroju profili z rzazem, portów, połączeń i długości tras.
+4. Powtarzalny test-runner, JUnit, benchmarki i instrukcję ponownego uruchomienia.
 
-## Run
+**Wynik paczki ofertowej:** 217/217 testów Python (clean-room GitHub Actions), dwie analityczne sceny benchmarku PASS; wynik i identyfikator commita są zapisane w plikach paczki. To liczby dotyczące **lokalnej próbki**, nie liczby testów wykonanych w systemie Electrotile. Skróty plików pozwalają porównać dokładnie sprawdzone materiały.
 
-Requires Node 24, Python 3.12+ and uv.
+Instrukcja źródłowa: [Roof test pack](docs/ROOF-TEST-PACK.md). Nie używaj archiwów z przestarzałych wydań ani samego linku do artefaktu GitHub zamiast załączenia ZIP w BK2021.
 
-```sh
+## Lokalny development pełnego Studio
+
+Wymagania: Python 3.12+, uv oraz Node.js 24.
+
+```bash
 uv sync --frozen --dev
-npm ci --prefix web
+npm ci --prefix web --no-audit --no-fund
 npm run build --prefix web
-uv run uvicorn server.app:app --host 127.0.0.1 --port 8000
+uv run --frozen uvicorn server.app:app --host 127.0.0.1 --port 8000
 ```
 
-Open http://127.0.0.1:8000. Without cloud configuration the geometry works locally. For Supabase persistence apply the tracked migrations to the explicitly chosen project and export SUPABASE_URL and SUPABASE_PUBLISHABLE_KEY into the server process. See .env.example. A service-role key is neither needed nor supported. The server does not implicitly load .env.
+Aplikacja: http://127.0.0.1:8000, OpenAPI: http://127.0.0.1:8000/openapi.json. Funkcje geometryczne mogą działać bez konfiguracji chmury. Dane Supabase wymagają świadomego ustawienia `SUPABASE_URL` i `SUPABASE_PUBLISHABLE_KEY`, z migracjami w osobno wybranym projekcie. Nie należy podawać klucza service-role do frontendu.
 
-Frontend development: npm run dev --prefix web, with API on port 8000. OpenAPI: /openapi.json.
-
-```sh
-uv run ruff check server
-uv run ruff format --check server
-uv run pytest -q
+```bash
+uv run --frozen pytest -q
 npm run format:check --prefix web
 npm run build --prefix web
 cd web && npx playwright install chromium && npm run test:e2e
 ```
 
-Live cloud checks use the same browser tests with BASE_URL set to the deployed origin and LIVE_CLOUD=1. They create independent temporary guest workspaces and remove only their own projects.
+**Uwaga:** powyższe polecenia dotyczą pełnego repozytorium. Dostarczana komisji uproszczona paczka ZIP ma własne instrukcje i **nie potrzebuje Node.js ani dostępu do repo**.
 
-## Cost and deployment
+## Granice wiarygodności
 
-Dockerfile serves the frontend and FastAPI together. Railway has one replica, sleep enabled, **250 MB RAM / 0.1 vCPU limits**, no volume, no Redis, no GPU and no paid add-ons. Supabase uses the existing Free project. Active roof area is bounded to 250 m², obstacles to 12, guest projects to 10/workspace and 1000 globally, each scene to 65 KB.
+EGiB dostarcza rzeczywisty **obrys budynku**, nie pomierzoną wysokość, geometrię połaci ani potwierdzenie możliwości montażu. Dach importowany z obrysu może mieć szacowaną wysokość i nachylenie. Studio nie wykonuje automatycznej rekonstrukcji dachu wyłącznie ze zdjęcia satelitarnego. Nie udostępnia pełnej produkcyjnej bazy wyrobów Electrotile, zwalidowanego rocznego uzysku DC/AC, kompletnego projektu elektrycznego ani pełnego procesu ofertowania i rezerwacji systemu zamawiającego. Limit interaktywnej powierzchni wybranych dachów to do 2000 m² (przy dodatkowym limicie obwiedni wyszukiwania). Nie należy wykorzystywać wyników demonstracyjnych jako projektu wykonawczego.
 
-The 5 USD Hobby subscription includes usage shared with all other apps in the workspace. Service limits and sleep reduce usage; they are not an account billing cap and do not guarantee a 5 USD invoice. No recurring polling, socket subscription, model downloads or idle DB pings run in the service.
+**Testy odbiorcze Electrotile nadal wymagają kodu, środowiska, wejść i zatwierdzonych referencji zamawiającego.** Szczególnie: 10 adresów dla rekonstrukcji satelitarnej, około 100 historycznych wycen, kolejka 20 zdjęć i pełna wycena z opłacalnością do 6 godzin. Wewnętrzna macierz: [Electrotile acceptance](docs/ELECTROTILE-ACCEPTANCE.md).
 
-Promote an exact green commit. Routine pushes do not automatically promote a new version. CI checks the frozen dependency locks, API and independent geometry tests, Chromium interaction tests and Docker at the same CPU/RAM limits. The evidence/r1 branch holds browser review screenshots and the actual tested SHA.
+## Architektura i kontrola wydań
 
-See [architecture](docs/ARCHITECTURE.md), [release evidence](docs/RELEASE.md) and [Foundry handoff](foundry/START_HERE.md).
+React + TypeScript + Three.js / MapLibre, FastAPI + Python + Shapely, metryczna scena ENU, Supabase/PostgreSQL. Frontend i backend są dostarczane razem w kontenerze Railway; wydania są przypinane do jednoznacznego SHA. Produkcyjny profil obejmuje 250 MB RAM i 0,1 vCPU, co ma znaczenie przy interpretacji benchmarków. Testy CI obejmują również rzeczywistą przeglądarkę i eksport plików.
+
+[Architektura](docs/ARCHITECTURE.md) · [Test lab](docs/ELECTROTILE-TEST-LAB.md) · [Protokół odbioru](docs/ELECTROTILE-ACCEPTANCE.md) · [Engineering handoff](docs/HANDOFF.md) · [Historia projektu](docs/RELEASE.md)
+
+---
+
+**EN:** Registry9 BIPV Studio is a working roof/facade and photovoltaic layout demonstrator with reproducible engineering QA. Real EGiB footprints are **not** verified roof surveys. The independent, offline-capable test harness demonstrates the team's methodology; Electrotile production acceptance remains dependent on access to the customer's actual modules and reference data. The private source repository is not a substitute for the tender ZIP attachment.
