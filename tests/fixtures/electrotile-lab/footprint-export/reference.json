@@ -1,0 +1,7 @@
+{
+  "id": "ET-3D-01",
+  "revision": 1,
+  "input_sha256": "d31b11dc36acbb06f08380554750b44537a7de0f5565a6bbd162a28afff0580f",
+  "projection": "EPSG:2180",
+  "position_tolerance_m": 0.00002
+}

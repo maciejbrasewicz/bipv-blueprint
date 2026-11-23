@@ -425,7 +425,12 @@ test("account opens a claimed project without writing its organization scene to 
   await page
     .getByRole("button", { name: "Przenieś otwarty projekt gościa" })
     .click();
-  await expect(page.locator(".version-pill")).toHaveText("Biuro BIPV");
+  await expect(
+    page.getByRole("dialog", { name: "Konto i organizacje" }),
+  ).toBeHidden({ timeout: 30000 });
+  await expect(page.locator(".version-pill")).toHaveText("Biuro BIPV", {
+    timeout: 15000,
+  });
   await expect(name).toHaveValue("Projekt do przeniesienia");
   expect(claimInput).toEqual({
     organization_id: org,
@@ -591,4 +596,30 @@ test("Scene v2 hole correction invalidates old results and undo restores provena
     examplePlanes.custom_surfaces[0].holes_uv_m,
   );
   expect(errors).toEqual([]);
+});
+
+test("the explicitly labeled technical scenario is discoverable and shows computed modules", async ({
+  page,
+}) => {
+  await page.goto("/");
+  await page
+    .getByRole("button", { name: "Otwórz przykład techniczny" })
+    .click();
+  await expect(
+    page.getByRole("textbox", { name: "Nazwa projektu" }),
+  ).toHaveValue("Przykład · dach L i fasada");
+  await expect(page.getByTestId("layout-status")).toHaveText(
+    "Geometria obliczona",
+    { timeout: 30_000 },
+  );
+  const count = Number(
+    (await page.locator(".metric-grid strong").first().innerText()).replace(
+      /\D/g,
+      "",
+    ),
+  );
+  expect(count).toBeGreaterThan(0);
+  await expect(
+    page.getByRole("button", { name: "Ustal lokalizację budynku" }),
+  ).toBeVisible();
 });

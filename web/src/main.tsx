@@ -1,7 +1,10 @@
-import { Component, StrictMode, type ReactNode } from "react";
+import { Component, lazy, StrictMode, Suspense, type ReactNode } from "react";
 import { createRoot } from "react-dom/client";
-import App from "./App";
 import "./style.css";
+import "./workbench.css";
+const Studio = lazy(() => import("./App"));
+const TestLab = lazy(() => import("./TestLab"));
+const ProductionStudio = lazy(() => import("./ProductionStudio"));
 class ErrorBoundary extends Component<
   { children: ReactNode },
   { failed: boolean }
@@ -25,7 +28,21 @@ class ErrorBoundary extends Component<
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
     <ErrorBoundary>
-      <App />
+      <Suspense
+        fallback={
+          <p className="fatal" role="status">
+            Wczytuję demonstrator…
+          </p>
+        }
+      >
+        {/^\/testy\/?$/.test(location.pathname) ? (
+          <TestLab />
+        ) : /^\/produkcja\/?$/.test(location.pathname) ? (
+          <ProductionStudio />
+        ) : (
+          <Studio />
+        )}
+      </Suspense>
     </ErrorBoundary>
   </StrictMode>,
 );

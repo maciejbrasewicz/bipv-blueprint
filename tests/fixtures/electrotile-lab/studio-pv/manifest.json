@@ -1,0 +1,43 @@
+{
+  "version": 1,
+  "dataset_id": "synthetic-studio-pv-v1",
+  "cases": [
+    {
+      "id": "pv-exact-grid",
+      "criterion": "I-02",
+      "input_sha256": "599526b6360aac1d96d34451e40dca38293f102f0523f8c935cdce2c931bda14",
+      "reference": {
+        "module_count": 6,
+        "accepted_type_sets": [
+          [
+            "tile-32"
+          ]
+        ]
+      }
+    },
+    {
+      "id": "pv-too-small",
+      "criterion": "I-02",
+      "input_sha256": "f18a63ca8b6703538232a5e268316b96d9d4b77436e364f855ad9aa6eb16ed4a",
+      "reference": {
+        "module_count": 0,
+        "accepted_type_sets": [
+          []
+        ]
+      }
+    },
+    {
+      "id": "pv-grid-20",
+      "criterion": "I-02",
+      "input_sha256": "9f48e977ae69e4c810fc342f90b5a7b5106865a206fbff7e4711b592127eae6b",
+      "reference": {
+        "module_count": 20,
+        "accepted_type_sets": [
+          [
+            "tile-32"
+          ]
+        ]
+      }
+    }
+  ]
+}

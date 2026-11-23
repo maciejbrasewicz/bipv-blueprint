@@ -1,11 +1,13 @@
 # Protokół testów odbiorczych · Electrotile ET/2025/7
 
+W repozytorium szczegółowe karty wykonania oraz instrukcję lokalnego laboratorium opisuje `docs/ELECTROTILE-TEST-LAB.md`.
+
 Podstawa zakresu to załącznik 2, s. 10–13 oraz zapytanie ET/2025/7, s. 3. Przed wykonaniem testów zamrozić identyfikator wydania, wejścia i wersję zbioru referencyjnego. Rejestrować system, region i zasoby wykonawcze, wersję źródeł i katalogu, warunki cache, błędy i ponowienia. Dla materiałów licencjonowanych ewidencjonować identyfikator lub hash zgodnie z zasadami retencji.
 
 | ID | Próba | Wykonanie i warunek zaliczenia | Dowód | Status dla Electrotile |
 |---|---|---|---|---|
 | I-01 | Adres → satelita → model 3D | Zapisz populację jednego województwa i seed. Wylosuj 10 adresów bez zwracania. Dla każdego mierz od uruchomienia interfejsu do otwarcia eksportu. Użyj wyłącznie zdjęcia satelitarnego dla rekonstrukcji. Sprawdź obiekt, metryczne wymiary i położenie połaci na niezależnym wzorcu. Cel 300 s, granica 900 s dla każdego przypadku | Lista i seed, źródło obrazu, ślad operacji, eksport, niezależna kontrola geometrii. Ustal tolerancję geometryczną przed losowaniem | BLOCKED |
-| I-02 | Dobór ilości i rodzaju PV | Odtwórz udostępnione historyczne wyceny z wejściami używanymi przez ekspertów. Od podania wejścia do kompletnego wyniku cel 60 s, granica 120 s. Dla dodatniej liczby referencyjnej sprawdź `abs(wynik − referencja) / referencja ≤ 0,20`. Przy zerowej referencji oczekuj zera. Sprawdź typ według zamrożonego mapowania SKU i zaakceptowanych równoważników | Eksport wejść, wersja katalogu, różnica ilości i lista typów per przypadek. Specyfikacja wskazuje ok. 100 wycen; uzgodnij regułę agregacji przed badaniem | BLOCKED |
+| I-02 | Dobór ilości i rodzaju PV | Odtwórz historyczne wyceny z wejściami ekspertów. Od podania wejścia do kompletnego wyniku cel 60 s, granica 120 s. Próg odchylenia ilości to 20%. W ocenie pojedynczego przypadku dla dodatniej liczby referencyjnej sprawdź `abs(wynik − referencja) / referencja ≤ 0,20`, przy zerowej oczekuj zera. Typ oceń według zamrożonego mapowania SKU i równoważników. | Eksport wejść, wersja katalogu, różnica ilości i lista typów per przypadek. Specyfikacja wskazuje ok. 100 wycen. Przed badaniem ustal jednostkę dla pełnych i połówkowych elementów, sposób traktowania pokrycia biernego oraz regułę agregacji. | BLOCKED |
 | I-03 | Geometria i sprawność energetyczna | Przypadki dachu i fasady z otworami, przeszkodami oraz cieniem. Sprawdź skalę, orientację i moc STC. Porównaj kWh/rok dla tego samego źródła pogody i tych samych parametrów z niezależnym modelem. Powtórz dla sceny bez cienia i ze zmienionym nachyleniem | Modele wejściowe, parametry pogody, eksport i bilans różnic. Tolerancję kWh ustal przed pomiarem | BLOCKED |
 | II-01 | Mikropanele i profile | Wybierz zatwierdzony wzór, zmień dopuszczalny wymiar, sprawdź odrzucenie wartości poza zakresem. Dla referencyjnego dachu i fasady uzgodnij ilości, SKU, długość, rzaz, kąty i odpad z rzeczywistą listą cięć. Zweryfikuj przypadki bez wykonalnego cięcia | Rysunek, rewizja katalogu, referencyjna lista i raport różnic po pozycji | BLOCKED |
 | II-02 | Schemat i wiązki | Porównaj topologię, złącza i długości odcinków z dokumentacją systemu oraz pomiarem po trasie z zapasem. Odtwórz scenę bez wykonalnej trasy oraz przypadek graniczny ze zmianą SKU | Niezależny schemat, trasy w metrach, wyeksportowane zestawienie i opinia projektanta | BLOCKED |
@@ -16,3 +18,26 @@ Podstawa zakresu to załącznik 2, s. 10–13 oraz zapytanie ET/2025/7, s. 3. Pr
 **Ocena.** PASS wymaga kompletnego i poprawnego wyniku oraz dotrzymania limitu. Przy zaliczeniu granicy z przekroczeniem celu zapisz wynik i odchylenie od celu. FAIL oznacza niespełnienie kryterium na wykonanej próbie. BLOCKED oznacza brak niezbędnego modułu, dostępu, danych, referencji albo uzgodnionej miary. Brak wyniku na rozpoczętej, poprawnie przygotowanej próbie ujmij jako FAIL i zachowaj przypadek w mianowniku.
 
 **Naprawa i retest.** Każdy FAIL otrzymuje ID, kroki odtworzenia, oczekiwany i rzeczywisty wynik, wersję wejścia, log i priorytet. Po poprawce powtórz pierwotne wejście i sąsiedni przypadek graniczny. Raport końcowy wiąże wynik retestu z commitem i wersją wdrożenia. Automaty Studio oraz pomiary syntetyczne mają własny dowód wykonania w instrukcji paczki oraz w katalogu `evidence/`.
+
+## Automatyczna ocena zapisanych przebiegów
+
+`scripts.check_electrotile_run` ocenia jeden zamknięty przebieg I-01, I-02, N-01 lub III-02. Uruchom go na dwóch plikach JSON.
+
+```sh
+uv run --frozen python -m scripts.check_electrotile_run manifest.json capture.json --output report.json
+```
+
+Manifest jest zamrażany przed pomiarem. Zawiera `version: 1`, `criterion`, `dataset_id`, uporządkowane `case_ids`, słownik `inputs_sha256` z SHA-256 dokładnych pakietów wejściowych i pola właściwe dla próby. Capture zawiera `version: 1`, to samo `criterion`, `run_id`, `scope` (`studio-fixture`, `replay`, `client-live`), `release_sha`, `environment_id`, `observer_id`, `manifest_sha256` dokładnych bajtów manifestu, `closed_ns` oraz listę `observations`. I-01 i N-01 wymagają odrębnych skrótów wejść w obrębie próby. Repozytorium przechowuje syntetyczne przypadki. Pakiety klienta oraz odpowiadające im manifesty i pomiary przechowuj w uzgodnionej przestrzeni klienta.
+
+Każda obserwacja zawiera `case_id`, `input_sha256`, `started_ns`, `finished_ns` i `output`. Znaczniki czasu to liczby całkowite w nanosekundach z jednego zegara monotonicznego obserwatora. Start mierzy zdarzenie z tabeli odbiorczej i pozostaje ten sam po retry. Koniec to chwila dostępności kompletnego wyniku. Próba rozpoczęta bez wyniku ma `finished_ns: null` i `output: null`. Brak obserwacji daje `NOT_RUN` dla przypadku. W rozpoczętej partii N-01 brak któregokolwiek przypadku daje `FAIL` partii.
+
+| ID | Dodatkowe pola manifestu | Pola `output` i reguła |
+|---|---|---|
+| I-01 | `voivodeship_id`, `sampling_seed`, `population_sha256`, dokładnie 10 ID | `model_sha256`, `geometry_review_sha256`, `geometry_valid` i `geometry_sources`. Ocena wymaga wyłącznie źródła `satellite` dla rekonstrukcji oraz zaliczonej niezależnej kontroli geometrii. |
+| I-02 | `catalog_id`, słownik `references` według ID z `module_count` i `accepted_type_sets` | `report_sha256`, słownik `modules_by_type` z kanonicznymi typami producenta i dodatnimi liczbami sztuk. Raport porównuje liczbę i typ per wycena. Jeden wynik odbiegający o więcej niż 20% nie może zniknąć w średniej. Przed badaniem klient potwierdza skład próby, agregację i normalizację SKU. |
+| N-01 | `cache` (`cold` albo `warm`), dokładnie 20 ID. Capture powtarza `cache` | `image_sha256`, `source`, `preprocessed` i `matches_case`. Wymagane jest poprawnie obrobione zdjęcie satelitarne dla każdego ID. Identyczny plik wynikowy przypisany do różnych adresów oblewa partię. Czas partii biegnie od pierwszego zgłoszenia do ostatniego wyniku, także przy nierównomiernych zgłoszeniach. |
+| III-02 | Wspólne pola manifestu | `quote_sha256`, `profitability_sha256` i `visualization_sha256`. Obserwacja może zawierać `active_ns`, liczone bez podwójnego liczenia nakładających się czynności. Limit 6 h dotyczy całego czasu od przyjęcia kompletnego zgłoszenia. |
+
+Raport zachowuje wszystkie zamrożone przypadki, ich powody oraz SHA-256 manifestu i pomiaru. Rozróżnia cel od dopuszczalnej granicy. Kod wyjścia `0` oznacza zaliczoną ocenę automatu, `1` oznacza niezaliczoną lub niewykonaną próbę, a `2` oznacza błąd danych lub odczytu. Dla syntetyków i replay status odbioru pozostaje `BLOCKED`. Dla zaliczonego przebiegu klienta automat ustawia `REVIEW_REQUIRED`. Przegląd potwierdza autentyczność logu, definicje zdarzeń, licencje i pochodzenie źródeł, poprawność losowania, skróty artefaktów i wyniki sprawdzeń merytorycznych. Ocenę liczbową można uruchomić bez połączenia z Electrotile. Integracja, która rejestruje zdarzenia i pobiera dowody w ich środowisku, wymaga dostępu do systemu.
+
+Testy działają w zwykłym workflow `Quality gates` i publikują wyniki JUnit. Można też uruchomić sam zestaw oceny przez `uv run --frozen pytest -q server/tests/test_electrotile_run.py`.

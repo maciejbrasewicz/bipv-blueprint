@@ -6,18 +6,22 @@ from pathlib import Path
 from uuid import UUID, uuid4
 
 import httpx
-from fastapi import FastAPI, HTTPException, Request
+from fastapi import FastAPI, HTTPException, Request, Response
 from fastapi.responses import FileResponse, JSONResponse, PlainTextResponse
 from fastapi.staticfiles import StaticFiles
 from starlette.concurrency import run_in_threadpool
 from starlette.middleware.gzip import GZipMiddleware
 
+from . import demo_lab
 from .cloud import CLOUD, db, project_access
 from .geo import router as geo_router
+from .geo_trace import FootprintSceneInput, TraceSceneInput, scene_from_footprint, scene_from_orthophoto
 from .geometry import CATALOG, ENGINE_VERSION, compute
+from .glb_export import export_glb
 from .model_export import export_obj
-from .models import ModelExport, Scene
-from .product_contracts import SaveProject, SceneV2
+from .models import Scene
+from .product_contracts import ModelExport, SaveProject, SceneV2
+from .production_plan import PlanRejected, ProductionInput, build_plan
 
 DIST = Path(os.getenv("WEB_DIST", "web/dist"))
 compute_slots = asyncio.Semaphore(2)
@@ -92,6 +96,56 @@ def catalog():
     return {"revision": "demo/1", "is_manufacturer_data": False, "products": CATALOG}
 
 
+@app.get("/api/demo/tests")
+def demo_tests():
+    return demo_lab.catalog()
+
+
+@app.get("/api/demo/requirements")
+def demo_requirements():
+    return demo_lab.requirements()
+
+
+@app.get("/api/demo/specimens/footprint")
+def demo_footprint():
+    return demo_lab.footprint_specimen()
+
+
+@app.get("/api/demo/specimens/production")
+def demo_production():
+    return Response(demo_lab.production_input(), media_type="application/json")
+
+
+@app.post("/api/demo/tests/{test_id}")
+async def run_demo_test(test_id: str, request: Request):
+    if test_id not in demo_lab.TESTS:
+        raise HTTPException(404, "Nieznany scenariusz testowy.")
+    version = os.getenv("RAILWAY_GIT_COMMIT_SHA", "local")
+    if test_id != "address":
+        async with compute_slots:
+            return await run_in_threadpool(demo_lab.case_response, test_id, version)
+    started = time.perf_counter()
+    checks = await demo_lab.check_address(request)
+    return {
+        "id": test_id,
+        "source": demo_lab.TESTS[test_id][2],
+        "version": version,
+        "scope": "live-public-data",
+        "elapsed_ms": round((time.perf_counter() - started) * 1000),
+        "passed": bool(checks) and all(row["passed"] for row in checks),
+        "checks": checks,
+    }
+
+
+@app.post("/api/production-plan")
+async def production_plan(job: ProductionInput):
+    async with compute_slots:
+        try:
+            return await run_in_threadpool(build_plan, job)
+        except PlanRejected as error:
+            raise HTTPException(422, str(error)) from error
+
+
 @app.post("/api/layout")
 async def layout(scene: Scene):
     async with compute_slots:
@@ -108,12 +162,39 @@ def validate_scene_v2(scene: SceneV2):
     return scene
 
 
+@app.post("/api/scene/from-orthophoto", response_model=SceneV2, response_model_exclude_none=True)
+def trace_scene(body: TraceSceneInput):
+    try:
+        return scene_from_orthophoto(body)
+    except ValueError as exc:
+        raise HTTPException(422, str(exc)) from exc
+
+
+@app.post("/api/scene/from-footprint", response_model=SceneV2, response_model_exclude_none=True)
+def build_footprint_scene(body: FootprintSceneInput):
+    try:
+        return scene_from_footprint(body)
+    except ValueError as exc:
+        raise HTTPException(422, str(exc)) from exc
+
+
 @app.post("/api/model.obj", response_class=PlainTextResponse)
 async def model_obj(body: ModelExport):
     async with compute_slots:
         content = await run_in_threadpool(export_obj, body)
     return PlainTextResponse(
         content, headers={"Content-Disposition": 'attachment; filename="bipv-model.obj"'}
+    )
+
+
+@app.post("/api/model.glb", response_class=Response, responses={200: {"content": {"model/gltf-binary": {}}}})
+async def model_glb(body: ModelExport):
+    async with compute_slots:
+        content = await run_in_threadpool(export_glb, body)
+    return Response(
+        content,
+        media_type="model/gltf-binary",
+        headers={"Content-Disposition": 'attachment; filename="bipv-model.glb"'},
     )
 
 

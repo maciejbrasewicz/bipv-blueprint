@@ -3,10 +3,14 @@
 import asyncio
 import json
 import os
+from base64 import b64encode
 from collections import deque
 from datetime import UTC, datetime
+from hashlib import sha256
+from struct import unpack_from
 from time import monotonic
 from xml.etree import ElementTree
+from zlib import crc32
 
 import httpx
 from fastapi import APIRouter, HTTPException, Request
@@ -16,7 +20,7 @@ from shapely import Point, Polygon
 from shapely.errors import GEOSException
 from shapely.ops import unary_union
 
-from .geo_contracts import AddressPoint, AddressText, SceneSite
+from .geo_contracts import ORTHOPHOTO_RADIUS_M, AddressPoint, AddressText, GridPoint, MapRadius, SceneSite
 from .models import StrictModel
 
 router = APIRouter(prefix="/api/geo")
@@ -36,14 +40,25 @@ BUILDING_SOURCE = {
     "rights_url": "https://www.dziennikustaw.gov.pl/D2026000138901.pdf",
     "retention": "selected_reference",
 }
+ORTHOPHOTO_SOURCE = {
+    "id": "gugik-orto-wms",
+    "name": "GUGiK · Ortofotomapa",
+    "url": "https://mapy.geoportal.gov.pl/wss/service/PZGIK/ORTO/WMS/StandardResolution",
+    "rights_url": "https://www.geoportal.gov.pl/pl/dane/ortofotomapa-orto/",
+    "retention": "dialog_only",
+    "kind": "orthophoto",
+}
 NS = {
     "wfs": "http://www.opengis.net/wfs/2.0",
     "gml": "http://www.opengis.net/gml/3.2",
     "ms": "http://mapserver.gis.umn.edu/mapserver",
 }
 MAX_FEATURES = 32
+MAX_OVERVIEW_FEATURES = 96
 MAX_BYTES = 512 * 1024
-RADIUS_M = 60
+RADIUS_M = ORTHOPHOTO_RADIUS_M
+IMAGE_SIZE_PX = 600
+MAX_IMAGE_BYTES = 1_500_000
 geo_requests: deque[float] = deque()
 geo_slots = asyncio.Semaphore(2)
 
@@ -52,16 +67,28 @@ class AddressSearch(StrictModel):
     address: AddressText
 
 
+class BuildingSearch(AddressPoint):
+    radius_m: MapRadius = RADIUS_M
+
+
+class OrthophotoWindow(GridPoint):
+    radius_m: MapRadius = RADIUS_M
+
+
 def geography_enabled():
     return os.getenv("BIPV_GEODATA_ENABLED", "1") == "1"
 
 
 @router.get("/sources")
 def sources():
-    return {"enabled": geography_enabled(), "crs": "EPSG:2180", "sources": [ADDRESS_SOURCE, BUILDING_SOURCE]}
+    return {
+        "enabled": geography_enabled(),
+        "crs": "EPSG:2180",
+        "sources": [ADDRESS_SOURCE, BUILDING_SOURCE, ORTHOPHOTO_SOURCE],
+    }
 
 
-async def read_source(request: Request, source: dict, params: dict) -> bytes:
+async def read_source(request: Request, source: dict, params: dict, *, max_bytes: int = MAX_BYTES) -> bytes:
     if not geography_enabled():
         raise HTTPException(503, "Wyszukiwanie w publicznych rejestrach jest wyłączone.")
     now = monotonic()
@@ -82,7 +109,7 @@ async def read_source(request: Request, source: dict, params: dict) -> bytes:
                 response.raise_for_status()
                 body = bytearray()
                 async for chunk in response.aiter_bytes():
-                    if len(body) + len(chunk) > MAX_BYTES:
+                    if len(body) + len(chunk) > max_bytes:
                         raise HTTPException(502, "Odpowiedź rejestru jest za duża.")
                     body.extend(chunk)
                 return bytes(body)
@@ -94,6 +121,9 @@ async def read_source(request: Request, source: dict, params: dict) -> bytes:
 
 def parse_address_points(body: bytes) -> list[AddressPoint]:
     data = json.loads(body)
+    # UUG also returns locality and street matches for incomplete addresses.
+    if data["type"] in ("city", "street") and type(data.get("found objects")) is int:
+        return []
     returned = data["returned objects"]
     if type(returned) is not int or returned < 0 or data["type"] != "address":
         raise ValueError("Unexpected address response")
@@ -137,7 +167,9 @@ def read_ring(element):
     return pairs
 
 
-def parse_buildings(body: bytes, point: AddressPoint, retrieved_at: datetime):
+def parse_buildings(
+    body: bytes, point: AddressPoint, retrieved_at: datetime, radius=RADIUS_M, limit=MAX_FEATURES
+):
     # Decode before parsing so declarations cannot hide behind a different XML encoding.
     xml = body.decode("utf-8-sig")
     if "<!DOCTYPE" in xml or "<!ENTITY" in xml:
@@ -146,9 +178,14 @@ def parse_buildings(body: bytes, point: AddressPoint, retrieved_at: datetime):
     if root.tag != "{http://www.opengis.net/wfs/2.0}FeatureCollection":
         raise ValueError("Unexpected WFS document")
     members = root.findall("wfs:member", NS)
-    if len(members) > MAX_FEATURES or int(root.attrib["numberReturned"]) != len(members):
+    if len(members) > limit or int(root.attrib["numberReturned"]) != len(members):
         raise ValueError("Unexpected feature count")
-    truncated = "next" in root.attrib or len(members) == MAX_FEATURES
+    matched = root.get("numberMatched", "unknown")
+    truncated = (
+        "next" in root.attrib
+        or len(members) == limit
+        or (matched.isdecimal() and int(matched) > len(members))
+    )
     origin = Point(point.easting_m, point.northing_m)
     candidates = []
     seen = set()
@@ -175,7 +212,7 @@ def parse_buildings(body: bytes, point: AddressPoint, retrieved_at: datetime):
                 raise ValueError("Missing building footprint")
             footprint = unary_union(parts)
             distance = footprint.distance(origin)
-            if distance > RADIUS_M:
+            if distance > radius:
                 continue
             anchor = footprint.representative_point()
             lon, lat = TO_WGS84.transform(anchor.x, anchor.y, errcheck=True)
@@ -203,7 +240,7 @@ def parse_buildings(body: bytes, point: AddressPoint, retrieved_at: datetime):
         raise ValueError("No usable footprints in provider response")
     candidates.sort(key=lambda item: (item[0], item[1].building_id))
     return {
-        "radius_m": RADIUS_M,
+        "radius_m": radius,
         "partial": bool(truncated or unavailable),
         "candidates": [
             {"site": site, "distance_m": round(distance, 1), "rings_m": rings, "area_m2": round(area, 1)}
@@ -222,9 +259,11 @@ async def addresses(query: AddressSearch, request: Request):
 
 
 @router.post("/buildings")
-async def buildings(point: AddressPoint, request: Request):
+async def buildings(point: BuildingSearch, request: Request):
     north, east = point.northing_m, point.easting_m
-    bbox = f"{north - RADIUS_M},{east - RADIUS_M},{north + RADIUS_M},{east + RADIUS_M},{CRS}"
+    radius = point.radius_m
+    limit = MAX_FEATURES if radius == RADIUS_M else MAX_OVERVIEW_FEATURES
+    bbox = f"{north - radius},{east - radius},{north + radius},{east + radius},{CRS}"
     body = await read_source(
         request,
         BUILDING_SOURCE,
@@ -233,12 +272,74 @@ async def buildings(point: AddressPoint, request: Request):
             "version": "2.0.0",
             "request": "GetFeature",
             "typeNames": "budynki",
-            "count": MAX_FEATURES,
+            "count": limit,
             "srsName": CRS,
             "bbox": bbox,
         },
     )
     try:
-        return parse_buildings(body, point, datetime.now(UTC))
+        return parse_buildings(body, point, datetime.now(UTC), radius, limit)
     except (ElementTree.ParseError, KeyError, TypeError, ValueError) as exc:
         raise HTTPException(502, "Nie udało się odczytać obrysów budynków z EGiB.") from exc
+
+
+def valid_png(body: bytes) -> bool:
+    # Validate the bounded payload and dimensions before it is handed to the browser decoder.
+    if len(body) < 57 or body[:16] != b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR":
+        return False
+    if unpack_from(">II", body, 16) != (IMAGE_SIZE_PX, IMAGE_SIZE_PX):
+        return False
+    offset = 8
+    has_data = False
+    while offset + 12 <= len(body):
+        size, kind = unpack_from(">I4s", body, offset)
+        chunk_end = offset + 8 + size
+        if chunk_end + 4 > len(body):
+            return False
+        if crc32(body[offset + 4 : chunk_end]) != unpack_from(">I", body, chunk_end)[0]:
+            return False
+        if kind == b"IEND":
+            return has_data and size == 0 and chunk_end + 4 == len(body)
+        has_data |= kind == b"IDAT" and size > 0
+        offset = chunk_end + 4
+    return False
+
+
+@router.post("/orthophoto")
+async def orthophoto(point: OrthophotoWindow, request: Request):
+    radius = point.radius_m
+    west, east = point.easting_m - radius, point.easting_m + radius
+    south, north = point.northing_m - radius, point.northing_m + radius
+    # WMS 1.3.0 uses the formal northing/easting order of EPSG:2180.
+    body = await read_source(
+        request,
+        ORTHOPHOTO_SOURCE,
+        {
+            "SERVICE": "WMS",
+            "REQUEST": "GetMap",
+            "VERSION": "1.3.0",
+            "LAYERS": "Raster",
+            "STYLES": "",
+            "CRS": "EPSG:2180",
+            "BBOX": f"{south},{west},{north},{east}",
+            "WIDTH": IMAGE_SIZE_PX,
+            "HEIGHT": IMAGE_SIZE_PX,
+            "FORMAT": "image/png",
+            "EXCEPTIONS": "XML",
+            "TRANSPARENT": "TRUE",
+        },
+        max_bytes=MAX_IMAGE_BYTES,
+    )
+    if not valid_png(body):
+        raise HTTPException(502, "GUGiK zwrócił nieprawidłowy obraz ortofotomapy.")
+    return {
+        "source": ORTHOPHOTO_SOURCE,
+        "crs": "EPSG:2180",
+        "bounds_m": {"west": west, "south": south, "east": east, "north": north},
+        "width_px": IMAGE_SIZE_PX,
+        "height_px": IMAGE_SIZE_PX,
+        "grid_m_per_pixel": 2 * radius / IMAGE_SIZE_PX,
+        "retrieved_at": datetime.now(UTC),
+        "sha256": sha256(body).hexdigest(),
+        "image_base64": b64encode(body).decode("ascii"),
+    }

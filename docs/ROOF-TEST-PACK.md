@@ -14,6 +14,22 @@ uv run --frozen python -m scripts.benchmark_roof_tests --output roof-benchmark.j
 
 Kod wyjścia 0 oznacza zaliczenie danego polecenia. XML zawiera wynik każdego przypadku. JSON zawiera trzy pomiary każdej operacji dla każdej sceny oraz medianę, maksimum i limit. Jeżeli paczka zawiera katalog `evidence/`, są w nim wyniki przebiegu dla załączonej wersji źródeł.
 
+Aby odtworzyć próbę eksportu widoczną w portalu, wykonaj dodatkowo:
+
+```sh
+uv run --frozen python -m scripts.run_electrotile_3d_case wyniki/et-3d-01
+```
+
+Otrzymasz wejście, modele OBJ i GLB oraz raport prób z sumami SHA-256 każdego pliku. Test `test_footprint_export.py` sprawdza zgodność plików z wykonaniem przez portal i zwykłe API Studio.
+
+Próbę ET-PROD-01 dla przedmiaru, rozkroju i wiązki uruchamia:
+
+```sh
+uv run --frozen python -m scripts.run_electrotile_production_case wyniki/et-prod-01
+```
+
+Raport odczytuje rzeczywiście wyliczony plan. Sprawdza typy arkuszy i moc STC, bilans sztang z rzazem oraz końce i długość wiązki według zamrożonej referencji. Ścieżkę można też wykonać w publicznym laboratorium i zweryfikować sumy plików.
+
 ## Scenariusze wykonawcze
 
 | Obszar | Wejście / wykonanie | Kryterium zaliczenia | Test |
@@ -22,7 +38,11 @@ Kod wyjścia 0 oznacza zaliczenie danego polecenia. XML zawiera wynik każdego p
 | Kolizje | Dwie połacie, komin, trzy produkty, trzy nachylenia | Cały prostokąt modułu mieści się w obszarze montażowym. Brak nakładania modułów i wejścia w strefę komina | `test_geometry.py` |
 | Narożniki i otwory | Dach w kształcie L, otwór, fasada z oknem | Brak przecięć z obszarami wykluczonymi. Pole i zwrot normalnej zgadzają się z referencją | `test_planar_geometry.py`, `test_product_contracts.py` |
 | Granica dopasowania | Dachówka 0,60 × 0,40 m, margines 0,25 m, trzy przesunięcia UV oraz połać o 1 µm szersza i węższa od wymaganego wymiaru | Wynik odpowiednio 1 i 0 w orientacji poziomej, niezależnie od położenia. W wyjściu 32 Wp albo 0 Wp | `test_roof_acceptance.py` |
+| Regresja geometrii | Cztery dokładnie dopasowane siatki w dziesięciu położeniach UV, niedobór 1 µm, azymuty przy północy, dach i fasada z otworem i kominem | Niezależna liczba i położenie paneli, poprawna kwalifikacja granic, orientacja oraz topologia i zgodność OBJ z API. Kontrole negatywne wykrywają brak grupy, odwróconą oś i panel w otworze | `test_geometry_regression.py` |
+| Ocena czterech prób przetargu | Syntetyczne przebiegi ze zmienionym czasem, liczbą lub typem PV, brakiem obrazu, zdublowanym wynikiem, niewłaściwym źródłem lub zmienionym wejściem. Jedna odpowiedź API layoutu z analityczną referencją | Granice są włączające, skróty wejść i kompletność są sprawdzane, a wynik syntetyczny zachowuje blokadę odbioru | `test_electrotile_run.py` |
 | Model 3D | Dach dwuspadowy dla azymutów 73°, 180° i 287° oraz dach L z fasadą | Wierzchołki OBJ mają prawidłowe osie, kalenica łączy połacie, ściany mają poprawną orientację i pole, a trójkąty respektują otwory | `test_roof_acceptance.py`, `test_planar_geometry.py` |
+| Ocena OBJ w laboratorium | Dach skośny z otworem i pionowa fasada. Kontrole skali, orientacji, powielonej ściany, modułu w otworze, jednostki mocy i rozbieżności z raportem | Niezależny wzorzec geometrii i STC. Dwa poprawne eksporty przechodzą, a każda celowa zmiana zostaje wykryta | `test_electrotile_geometry.py`, [uruchomienie przez HTTP](docs/ELECTROTILE-TEST-LAB.md#niezależna-kontrola-geometrii-i-mocy-stc) |
+| Przeniesienie konfiguracji pokrycia do materiałów, schematu i oferty | Wzorzec inspirowany eTile Classic z pełnym, lewym i prawym połówkowym oraz biernym elementem. Drugi przypadek obejmuje wyłącznie bierne pokrycie. | Karta wyrobu, BOM, schemat i oferta są zgodne w zakresie rodzaju i liczby arkuszy, wzoru aktywnego, wymiarów, cięć, STC i rewizji. | `test_electrotile_product.py`, [próba integracji](docs/ELECTROTILE-TEST-LAB.md#próba-integracji-na-wzorcu-etile-classic) |
 | Granice API | Uszkodzony obrys, nieznana połać, zbyt duża scena i żądanie; próba na granicy 250 m² | Prawidłowe dane przechodzą. Nieprawidłowe wejścia są odrzucane zgodnie z kontraktem. Limit geometrii zależy od zaznaczonych połaci | `test_api.py`, `test_geometry.py`, `test_roof_acceptance.py` |
 | Zgodność danych | JSON Schema, Scene v1/v2, szablony katalogu, zadania i materiały wejściowe | Wygenerowane schematy są zgodne z kodem, a migracja sceny zachowuje geometrię i hash. Reguły opisujące dane bez źródła egzekwuje walidator | `test_product_contracts.py` |
 | Wydajność regresji | Dwie połacie oraz 6 powierzchni o łącznym polu 240 m²; żądania obliczenia układu i eksportu OBJ | Liczby modułów są równe wartościom referencyjnym. Każda próba mieści się w technicznym budżecie 5 s dla układu i 10 s dla OBJ | `scripts/benchmark_roof_tests.py` |

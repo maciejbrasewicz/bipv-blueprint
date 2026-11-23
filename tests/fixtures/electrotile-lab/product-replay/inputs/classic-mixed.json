@@ -1,0 +1,11 @@
+{
+  "scenario": "classic-product",
+  "design_revision": "design-r2",
+  "catalog_revision": "lab-classic-v1",
+  "pattern": {
+    "central": "full",
+    "edge-west": "half-right",
+    "edge-east": "half-left",
+    "infill": "passive"
+  }
+}

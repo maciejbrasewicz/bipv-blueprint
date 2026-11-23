@@ -1,0 +1,159 @@
+{
+  "id": "ET-PROD-01",
+  "revision": 1,
+  "input_sha256": "a65b2df1c374aa046f269ab5579815820bd014e826adc265525dcfa958073f7f",
+  "layout": {
+    "design_revision": "roof-k2-r1",
+    "catalog_revision": "studio-control-v1",
+    "stc_mwp": 84000,
+    "sheet_bom": {
+      "LAB-FULL": 1,
+      "LAB-LEFT": 1,
+      "LAB-RIGHT": 1,
+      "LAB-PASSIVE": 1
+    },
+    "sheets": {
+      "east": {
+        "sku": "LAB-LEFT",
+        "activity": "half-left",
+        "nominal_mm": [
+          1080,
+          430
+        ],
+        "effective_mm": [
+          1000,
+          390
+        ],
+        "micropanels": 6,
+        "stc_mwp": 21000,
+        "trim_mm": {
+          "right": 20
+        }
+      },
+      "infill": {
+        "sku": "LAB-PASSIVE",
+        "activity": "passive",
+        "nominal_mm": [
+          1080,
+          430
+        ],
+        "effective_mm": [
+          1000,
+          390
+        ],
+        "micropanels": 0,
+        "stc_mwp": 0,
+        "trim_mm": {}
+      },
+      "ridge": {
+        "sku": "LAB-FULL",
+        "activity": "full",
+        "nominal_mm": [
+          1080,
+          430
+        ],
+        "effective_mm": [
+          1000,
+          390
+        ],
+        "micropanels": 12,
+        "stc_mwp": 42000,
+        "trim_mm": {}
+      },
+      "west": {
+        "sku": "LAB-RIGHT",
+        "activity": "half-right",
+        "nominal_mm": [
+          1080,
+          430
+        ],
+        "effective_mm": [
+          1000,
+          390
+        ],
+        "micropanels": 6,
+        "stc_mwp": 21000,
+        "trim_mm": {
+          "left": 20
+        }
+      }
+    },
+    "strings": {
+      "circuit-a": [
+        "west",
+        "ridge",
+        "east"
+      ]
+    }
+  },
+  "materials": {
+    "profiles": {
+      "LAB-RAIL": {
+        "stock_lengths_mm": [
+          6000
+        ],
+        "kerf_mm": 3,
+        "passes_per_piece": 1
+      }
+    },
+    "cuts": {
+      "rail-east": {
+        "id": "rail-east",
+        "profile": "LAB-RAIL",
+        "length_mm": 2998,
+        "angle_a_mdeg": 45000,
+        "angle_b_mdeg": 0
+      },
+      "rail-west": {
+        "id": "rail-west",
+        "profile": "LAB-RAIL",
+        "length_mm": 2998,
+        "angle_a_mdeg": 0,
+        "angle_b_mdeg": 45000
+      },
+      "rail-entry": {
+        "id": "rail-entry",
+        "profile": "LAB-RAIL",
+        "length_mm": 1200,
+        "angle_a_mdeg": 0,
+        "angle_b_mdeg": 0
+      }
+    },
+    "bom": {
+      "LAB-RAIL": 2
+    }
+  },
+  "total_scrap_mm": 4795,
+  "harness": {
+    "segments": {
+      "path-ridge": {
+        "start": "roof-out",
+        "end": "entry",
+        "length_mm": 3500
+      },
+      "path-entry": {
+        "start": "entry",
+        "end": "cabinet-in",
+        "length_mm": 2000
+      }
+    },
+    "wires": {
+      "circuit-a": {
+        "start": "roof-out",
+        "end": "cabinet-in",
+        "cable_sku": "LAB-CABLE",
+        "connector_start": "LAB-PLUG",
+        "connector_end": "LAB-SOCKET",
+        "reserve_mm": 250,
+        "approved_routes": [
+          [
+            "path-ridge",
+            "path-entry"
+          ]
+        ]
+      }
+    },
+    "length_tolerance_mm": 0
+  },
+  "total_wire_mm": 5750
+}
