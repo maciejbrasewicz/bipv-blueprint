@@ -113,7 +113,7 @@ def test_trace_corrects_grid_convergence_off_central_meridian(client):
         [[0, 0], [1, 0], [2, 0]],
         [[0, 0], [61, 0], [61, 5], [0, 5]],
         [[0, 0], [81, 0], [0, 2]],
-        [[0, 0], [17, 0], [17, 17], [0, 17]],
+        [[0, 0], [50, 0], [50, 50], [0, 50]],
     ],
     ids=["crossing", "repeated-vertex", "collinear", "out-of-raster", "out-of-raster-large", "area-limit"],
 )
@@ -180,7 +180,7 @@ def test_two_egib_footprints_at_one_address_yield_different_models(client):
     assert captures[0] != captures[1]
 
 
-def test_large_egib_footprint_keeps_geometry_while_skipping_pv(client):
+def test_large_egib_footprint_produces_real_layout_and_export(client):
     body = inputs()
     body.pop("trace")
     body["center"] = {"easting_m": 500000, "northing_m": 500000}
@@ -188,11 +188,51 @@ def test_large_egib_footprint_keeps_geometry_while_skipping_pv(client):
     response = client.post("/api/scene/from-footprint", json=body)
     assert response.status_code == 200, response.text
     geometry = response.json()["geometry"]
-    assert geometry["surfaces"] == []
-    layout = client.post("/api/layout", json=geometry).json()
+    assert geometry["surfaces"] == ["egib-roof-1"]
+    layout_response = client.post("/api/layout", json=geometry)
+    assert layout_response.status_code == 200, layout_response.text
+    layout = layout_response.json()
     assert layout["surfaces"][0]["width_m"] == pytest.approx(40, abs=0.1)
-    assert all(variant["module_count"] == 0 for variant in layout["variants"])
-    assert client.post("/api/layout", json={**geometry, "surfaces": ["egib-roof-1"]}).status_code == 422
+    assert all(variant["module_count"] > 0 for variant in layout["variants"])
+    for variant in layout["variants"]:
+        assert variant["power_kwp"] == pytest.approx(variant["module_count"] * 0.032)
+        assert len(variant["placements"]) == variant["module_count"]
+        assert all(p["surface_id"] == "egib-roof-1" for p in variant["placements"])
+    selected = layout["variants"][0]
+    exported = client.post("/api/model.obj", json={"scene": geometry, "variant": selected["id"]})
+    assert exported.status_code == 200, exported.text
+    exported_modules = sum(line.startswith("g module_") for line in exported.text.splitlines())
+    assert exported_modules == selected["module_count"]
+
+
+@pytest.mark.parametrize("width,depth", [(20, 20), (40, 20), (45, 35)])
+def test_large_footprint_counts_and_layout_survive_api_roundtrip(client, width, depth):
+    body = inputs()
+    body.pop("trace")
+    body["center"] = {"easting_m": 500000, "northing_m": 500000}
+    x, y = width / 2, depth / 2
+    body["rings_m"] = [[[[-x, -y], [x, -y], [x, y], [-x, y], [-x, -y]]]]
+    response = client.post("/api/scene/from-footprint", json=body)
+    assert response.status_code == 200, response.text
+    doc = response.json()
+    assert doc["geometry"]["surfaces"] == ["egib-roof-1"]
+    layout = client.post("/api/layout", json=doc["geometry"])
+    assert layout.status_code == 200, layout.text
+    value = layout.json()["variants"][0]
+    assert value["module_count"] > 0
+    assert value["roof_area_m2"] == pytest.approx(width * depth, rel=0.01)
+    assert value["module_count"] == len(value["placements"])
+    assert client.post("/api/scene/v2/validate", json=doc).status_code == 200
+
+
+def test_unsupported_footprint_is_rejected_instead_of_reporting_zero_pv(client):
+    body = inputs()
+    body.pop("trace")
+    body["center"] = {"easting_m": 500000, "northing_m": 500000}
+    body["rings_m"] = [[[[-30, -30], [30, -30], [30, 30], [-30, 30], [-30, -30]]]]
+    response = client.post("/api/scene/from-footprint", json=body)
+    assert response.status_code == 422
+    assert "Wydziel mniejszy fragment" in response.json()["detail"]
 
 
 def with_gable(body, ridge=((-4, 0), (4, 0)), pitch=30):

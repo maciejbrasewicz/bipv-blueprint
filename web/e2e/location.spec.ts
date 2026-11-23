@@ -511,3 +511,117 @@ test("orthophoto retries, measures, corrects a trace and exports estimated geome
     loaded.scene.children.some((node) => node.userData.role === "pv"),
   ).toBe(true);
 });
+
+test("a wider chosen building renders actual PV and an older saved footprint can be reactivated", async ({
+  page,
+}) => {
+  const point = {
+    label: "Budynek referencyjny, Testowa 4",
+    region: "Scenariusz QA",
+    easting_m: 500000,
+    northing_m: 500000,
+  };
+  const site = {
+    address: point.label,
+    building_id: "QA-40x20",
+    latitude_deg: 52.36594762063416,
+    longitude_deg: 19,
+    source: "gugik-egib-wfs",
+    retrieved_at: "2026-11-23T09:00:00Z",
+  };
+  await page.route("**/api/geo/sources", (route) =>
+    route.fulfill({ json: { enabled: true } }),
+  );
+  await page.route("**/api/geo/addresses", (route) =>
+    route.fulfill({ json: { candidates: [point] } }),
+  );
+  await page.route("**/api/geo/buildings", (route) =>
+    route.fulfill({
+      json: {
+        radius_m: 60,
+        partial: false,
+        candidates: [
+          {
+            site,
+            area_m2: 800,
+            distance_m: 0,
+            rings_m: [
+              [
+                [
+                  [-20, -10],
+                  [20, -10],
+                  [20, 10],
+                  [-20, 10],
+                  [-20, -10],
+                ],
+              ],
+            ],
+          },
+        ],
+      },
+    }),
+  );
+  await page.goto("/");
+  await page.getByRole("button", { name: "Ustal lokalizację budynku" }).click();
+  const dialog = page.getByRole("dialog", { name: "Lokalizacja budynku" });
+  await expect(
+    dialog.getByRole("combobox", { name: "Przykładowe okolice" }),
+  ).toHaveCount(0);
+  await dialog
+    .getByRole("searchbox", { name: "Miejscowość" })
+    .fill("Budynek referencyjny");
+  await dialog
+    .getByRole("searchbox", { name: "Ulica i numer budynku" })
+    .fill("Testowa 4");
+  await dialog.getByRole("button", { name: "Szukaj adresu" }).click();
+  await dialog.getByRole("button", { name: point.label }).click();
+  await dialog.getByRole("radio", { name: /^Budynek 1/ }).check();
+  await dialog.getByRole("button", { name: "Potwierdź budynek" }).click();
+  await expect(dialog).toBeHidden();
+  await expect(page.getByTestId("layout-status")).toHaveText(
+    "Geometria obliczona",
+    { timeout: 45_000 },
+  );
+  const modules = page.locator(".metric-grid strong").first();
+  await expect(modules).not.toHaveText(/^(—|0)/);
+  const count = Number((await modules.innerText()).replace(/\D/g, ""));
+  expect(count).toBeGreaterThan(0);
+  await expect(page.getByText("Model wstępny z EGiB")).toBeVisible();
+  await expect(page.locator("canvas")).toBeVisible();
+
+  await page.getByRole("button", { name: "Eksport", exact: true }).click();
+  const saved = page.waitForEvent("download");
+  await page.getByRole("button", { name: "Projekt JSON" }).click();
+  const exported = JSON.parse(
+    await readFile((await (await saved).path())!, "utf8"),
+  );
+  expect(exported.scene.geometry.surfaces).toEqual(["egib-roof-1"]);
+  await page.getByRole("button", { name: "Eksport", exact: true }).click();
+  const glbDownload = page.waitForEvent("download");
+  await page.getByRole("button", { name: "Model 3D GLB" }).click();
+  const glbBytes = await readFile((await (await glbDownload).path())!);
+  const gltf = await new GLTFLoader().parseAsync(
+    new Uint8Array(glbBytes).buffer,
+    "",
+  );
+  const pvMesh = gltf.scene.getObjectByName("pv_egib-roof-1");
+  expect(pvMesh?.userData.role).toBe("pv");
+  expect(pvMesh?.userData.moduleIds).toHaveLength(count);
+
+  // A project saved by a previous release had an empty selection for large footprints.
+  exported.scene.geometry.surfaces = [];
+  await page.locator('input[type="file"]').setInputFiles({
+    name: "legacy-large-footprint.json",
+    mimeType: "application/json",
+    buffer: Buffer.from(JSON.stringify(exported)),
+  });
+  await expect(
+    page.getByRole("button", { name: "Aktywuj obrys do obliczeń" }),
+  ).toBeVisible();
+  await page.getByRole("button", { name: "Aktywuj obrys do obliczeń" }).click();
+  await expect(page.getByTestId("layout-status")).toHaveText(
+    "Geometria obliczona",
+    { timeout: 45_000 },
+  );
+  await expect(modules).not.toHaveText(/^(—|0)/);
+});

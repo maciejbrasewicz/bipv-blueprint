@@ -12,7 +12,7 @@ from shapely.prepared import prep
 
 from .models import Scene
 
-ENGINE_VERSION = "grid-search/0.2.2"
+ENGINE_VERSION = "grid-search/0.3.0"
 COORDINATE_TOLERANCE_M = 1e-9
 CATALOG = [
     {
@@ -135,8 +135,18 @@ def layout_surface(scene: Scene, surface: dict, width: float, height: float) -> 
     prepared = prep(usable.buffer(COORDINATE_TOLERANCE_M))
     step_x, step_y = width + scene.gap_m, height + scene.gap_m
     best: list = []
-    for fx in (0, 0.25, 0.5, 0.75):
-        for fy in (0, 0.25, 0.5, 0.75):
+    # Keep the full sixteen grid phases on smaller designs. For bigger roofs,
+    # use fewer phases to preserve bounded latency at 0.1 vCPU. Every candidate
+    # still has to pass exact polygon containment: no simulated placements.
+    search_area = (max_x - min_x) * (max_y - min_y)
+    if search_area <= 250:
+        phases = (0, 0.25, 0.5, 0.75)
+    elif search_area <= 900:
+        phases = (0, 0.5)
+    else:
+        phases = (0,)
+    for fx in phases:
+        for fy in phases:
             current = []
             y = min_y + fy * step_y
             while y + height <= max_y + COORDINATE_TOLERANCE_M:
@@ -207,8 +217,17 @@ def _compute_cached(serialized_scene: str) -> dict:
         "Moc STC jest sumą mocy modułów. Roczny uzysk i dobór elektryczny nie są wyliczane.",
     ]
     if not selected:
+        warnings.insert(0, "Brak wybranej powierzchni. Zaznacz połać, aby obliczyć układ PV.")
+    elif variants[0]["module_count"] == 0:
         warnings.insert(
-            0, "Podgląd geometrii. Wydziel powierzchnię w granicach limitu, aby obliczyć układ PV."
+            0,
+            "Nie dopasowano żadnego modułu do geometrii i aktualnych odsunięć. "
+            "Sprawdź kształt dachu, przeszkody oraz model modułu.",
+        )
+    elif roof_area > 250:
+        warnings.append(
+            "Duży dach: układ obliczony ograniczonym przeszukiwaniem faz siatki, "
+            "nie stanowi gwarancji globalnie optymalnego rozkładu.",
         )
     for o in scene.obstacles:
         s = next(s for s in resolved if s["id"] == o.surface_id)

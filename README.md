@@ -61,7 +61,7 @@ Live cloud checks use the same browser tests with BASE_URL set to the deployed o
 
 ## Cost and deployment
 
-Dockerfile serves the frontend and FastAPI together. Railway has one replica, sleep enabled, **250 MB RAM / 0.1 vCPU limits**, no volume, no Redis, no GPU and no paid add-ons. Supabase uses the existing Free project. Active roof area is bounded to 250 m², obstacles to 12, guest projects to 10/workspace and 1000 globally, each scene to 65 KB.
+Dockerfile serves the frontend and FastAPI together. Railway has one replica, sleep enabled, **250 MB RAM / 0.1 vCPU limits**, no volume, no Redis, no GPU and no paid add-ons. Supabase uses the existing Free project. Interactive selected roof area is bounded to 2000 m² and the sum of UV search bounds to 4000 m²; large layouts use reduced grid-phase sampling. Footprints beyond this validated range return an explicit error rather than a misleading zero-panel result. Obstacles are limited to 12, guest projects to 10/workspace and 1000 globally, each scene to 65 KB.
 
 The 5 USD Hobby subscription includes usage shared with all other apps in the workspace. Service limits and sleep reduce usage; they are not an account billing cap and do not guarantee a 5 USD invoice. No recurring polling, socket subscription, model downloads or idle DB pings run in the service.
 

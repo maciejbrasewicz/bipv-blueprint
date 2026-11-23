@@ -2139,6 +2139,34 @@ p {
   background: #355447;
 }
 
+.portal-nav .nav-compact {
+  display: none;
+}
+
+@media (max-width: 700px) {
+  .portal-nav {
+    flex-wrap: nowrap;
+    justify-content: space-between;
+    gap: 4px;
+    padding: 5px 8px;
+  }
+
+  .portal-nav a {
+    min-width: 0;
+    padding: 0 5px;
+    font-size: 12px;
+    gap: 5px;
+  }
+
+  .portal-nav .nav-wide {
+    display: none;
+  }
+
+  .portal-nav .nav-compact {
+    display: inline;
+  }
+}
+
 .lab-page {
   min-height: 100dvh;
   background: #f2f4ef;
@@ -2759,5 +2787,335 @@ p {
   .location-confirm {
     flex-direction: column;
     align-items: stretch;
+  }
+}
+
+.lab-evidence .lab-artifacts {
+  padding: 12px 0 6px;
+}
+
+.lab-workbench {
+  margin-top: 6px;
+}
+
+.plan-grid {
+  display: grid;
+  grid-template-columns: minmax(250px, 0.88fr) minmax(0, 1.55fr);
+  align-items: start;
+  gap: 16px;
+}
+
+.plan-form,
+.plan-output {
+  padding: clamp(16px, 2.4vw, 27px);
+}
+
+.plan-form-heading {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+}
+
+.plan-grid h2 {
+  font-size: 21px;
+  letter-spacing: -0.025em;
+}
+
+.plan-form > p,
+.plan-output > p {
+  font-size: 13px;
+  color: #456155;
+}
+
+.plan-form fieldset {
+  margin: 22px 0 0;
+  padding: 0;
+  min-width: 0;
+  border: 0;
+}
+
+.plan-form legend {
+  margin-bottom: 10px;
+  font-size: 13px;
+  font-weight: 730;
+}
+
+.plan-form label {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(85px, 106px);
+  align-items: center;
+  gap: 10px;
+  padding: 7px 0;
+  border-top: 1px solid #e2e9e1;
+  font-size: 13px;
+}
+
+.plan-form input {
+  width: 100%;
+  min-height: 37px;
+  padding: 6px 8px;
+  border: 1px solid #c5d2c5;
+  border-radius: 6px;
+  color: #172d24;
+  background: #f8faf6;
+}
+
+.plan-form > button {
+  margin-top: 17px;
+}
+
+.plan-form .plan-error {
+  color: #852922;
+}
+
+.plan-stats {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  margin: 14px 0 22px;
+  border-radius: 8px;
+  background: #192f26;
+  color: #eef6ec;
+}
+
+.plan-stats > div {
+  min-width: 0;
+  padding: 11px clamp(7px, 1.7vw, 18px);
+}
+
+.plan-stats dt {
+  font-size: 12px;
+  color: #d5e6da;
+}
+
+.plan-stats dd {
+  margin: 3px 0 0;
+  font-size: clamp(16px, 2.5vw, 25px);
+  font-weight: 750;
+  letter-spacing: -0.035em;
+  overflow-wrap: anywhere;
+  font-variant-numeric: tabular-nums;
+}
+
+.plan-parts {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  padding: 0;
+  margin: 7px 0 19px;
+  list-style: none;
+  gap: 5px 12px;
+  font-size: 12px;
+}
+
+.plan-parts li {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 9px;
+  justify-content: space-between;
+  padding: 7px;
+  background: #eef4ed;
+  border-radius: 5px;
+}
+
+.plan-parts code {
+  overflow-wrap: anywhere;
+  font-weight: 700;
+}
+
+.plan-stocks {
+  display: grid;
+  gap: 6px;
+  margin: 7px 0 19px;
+}
+
+.plan-stocks article,
+.plan-wire {
+  padding: 8px 10px;
+  border: 1px solid #e2e9e1;
+  border-radius: 5px;
+  font-size: 12px;
+}
+
+.plan-stocks h4 {
+  margin: 0;
+}
+
+.plan-stocks ul {
+  margin: 5px 0 2px;
+  padding-left: 18px;
+}
+
+@media (max-width: 690px) {
+  .plan-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* Explicit design-state cards. Estimates and infeasible layouts must never
+   look like verified, completed projects. */
+.geo-quality-card,
+.layout-empty-state {
+  border: 1px solid #d4bf92;
+  border-radius: 9px;
+  padding: 13px;
+  background: #faf6e9;
+  color: #554426;
+  font-size: 12px;
+  line-height: 1.5;
+}
+.geo-quality-card {
+  margin: 12px 0 16px;
+}
+.layout-empty-state {
+  margin: 14px 15px;
+}
+.geo-quality-card strong,
+.layout-empty-state strong {
+  display: block;
+  font-size: 13px;
+  font-weight: 750;
+}
+.geo-quality-card p,
+.layout-empty-state p {
+  margin: 6px 0 10px;
+}
+.geo-quality-card button,
+.layout-empty-state button {
+  padding: 8px 11px;
+  background: #fff;
+  border: 1px solid #b99e65;
+  border-radius: 6px;
+  color: #554426;
+  font-weight: 650;
+  cursor: pointer;
+}
+.geo-quality-card button:focus-visible,
+.layout-empty-state button:focus-visible {
+  outline: 2px solid #705523;
+  outline-offset: 3px;
+}
+
+/* Product-wide readability pass: the previous 7–9 px labels were not
+   appropriate for a professional engineering workspace. */
+.studio .panel-top {
+  font-size: 11px;
+  color: #48614e;
+  letter-spacing: 0.075em;
+}
+.studio .section-label {
+  font-size: 10px;
+  font-weight: 750;
+  color: #536f58;
+}
+.studio .object-row {
+  font-size: 13px;
+  color: #334e3d;
+}
+.studio .object-row small {
+  font-size: 11px;
+  color: #617763;
+}
+.studio .surface-row {
+  font-size: 12px;
+  color: #435d47;
+}
+.studio .surface-row small {
+  font-size: 10px;
+  color: #607764;
+}
+.studio .field > span,
+.studio .select-field,
+.studio .product-spec,
+.studio .product-spec b,
+.studio .info-note {
+  font-size: 11px;
+  color: #48614e;
+}
+.studio .add-buttons button,
+.studio .select-field select,
+.studio .right-footer p,
+.studio .text-button {
+  font-size: 11px;
+}
+.studio .mode-bar nav button {
+  font-size: 12px;
+  color: #506a56;
+}
+.studio .canvas-label h1 {
+  font-size: clamp(22px, 1.85vw, 28px);
+  font-weight: 600;
+  color: #244233;
+}
+.studio .canvas-label p {
+  font-size: 12px;
+  color: #5b735e;
+}
+.studio .live-label {
+  font-size: 10px;
+  color: #4b6c50;
+}
+.studio .power-card .eyebrow {
+  font-size: 10px;
+  color: #506e52;
+}
+.studio .power-bottom,
+.studio .power-bottom b {
+  font-size: 10px;
+  color: #476344;
+}
+.studio .metric-grid > div > span {
+  font-size: 11px;
+  color: #506d55;
+}
+.studio .metric-grid strong {
+  color: #2f533b;
+  font-weight: 650;
+}
+.studio .variant-dock b {
+  font-size: 12px;
+  color: #3c563e;
+  font-weight: 700;
+}
+.studio .variant-dock b small {
+  font-size: 9px;
+}
+.studio .variant-dock em {
+  font-size: 11px;
+  color: #536d53;
+}
+.studio .status-bar,
+.studio .status-bar button {
+  font-size: 10px;
+  color: #4e6751;
+}
+
+@media (max-width: 700px) {
+  .studio .mode-bar nav button {
+    min-width: 39px;
+    min-height: 42px;
+    justify-content: center;
+    padding: 10px;
+  }
+  .studio .mode-bar nav button span {
+    display: none;
+  }
+  .studio .mode-bar nav button svg {
+    width: 18px;
+    height: 18px;
+  }
+  .studio .canvas-label h1 {
+    font-size: 22px;
+  }
+  .studio .canvas-label p {
+    font-size: 11px;
+  }
+  .studio .variant-dock b {
+    font-size: 11px;
+  }
+  .studio .variant-dock em {
+    font-size: 10px;
+    white-space: normal;
+  }
+  .studio .status-bar {
+    font-size: 9px;
   }
 }

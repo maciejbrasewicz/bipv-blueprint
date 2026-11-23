@@ -45,7 +45,18 @@ test("Electrotile lab measures the current export and downloads matching evidenc
   });
   await geometry.getByRole("button", { name: /^Uruchom/ }).click();
   await expect(geometry.getByRole("status")).toHaveText("Zaliczony");
-  await expect(geometry.getByText("survey-pitched-opening")).toBeVisible();
+  await expect(
+    geometry.getByRole("heading", {
+      name: "survey-pitched-opening OK",
+      exact: true,
+    }),
+  ).toBeVisible();
+  await expect(
+    geometry.getByRole("button", {
+      name: "survey-pitched-opening · model OBJ",
+      exact: true,
+    }),
+  ).toBeVisible();
 
   const file = page.waitForEvent("download");
   await page.getByRole("button", { name: "Pobierz raport JSON" }).click();

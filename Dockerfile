@@ -16,6 +16,7 @@ COPY scripts/check_electrotile_run.py scripts/electrotile_checks.py scripts/elec
 COPY tests/fixtures/electrotile-lab/footprint-export/input.json tests/fixtures/electrotile-lab/footprint-export/reference.json ./tests/fixtures/electrotile-lab/footprint-export/
 COPY tests/fixtures/electrotile-lab/studio-pv ./tests/fixtures/electrotile-lab/studio-pv
 COPY tests/fixtures/electrotile-lab/studio-geometry ./tests/fixtures/electrotile-lab/studio-geometry
+COPY tests/fixtures/electrotile-lab/production-plan ./tests/fixtures/electrotile-lab/production-plan
 USER studio
 EXPOSE 8080
 CMD ["python", "-c", "import os,uvicorn; uvicorn.run('server.app:app',host='0.0.0.0',port=int(os.environ.get('PORT','8080')),workers=1,access_log=False)"]
