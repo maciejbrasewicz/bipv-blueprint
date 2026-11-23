@@ -76,6 +76,12 @@ def files_to_include() -> list[tuple[Path, str]]:
             raise FileNotFoundError(f"Missing submission file: {rel}")
         paths[path.name if rel.startswith("submission/") else rel] = path
 
+    for filename in ("roof-test-results.xml", "roof-benchmark.json"):
+        evidence = ROOT / "dist" / filename
+        if not evidence.is_file():
+            raise FileNotFoundError(f"Missing signed-off clean-room evidence: {evidence}")
+        paths[f"evidence/{filename}"] = evidence
+
     mandatory = ("web/dist/index.html", "server/app.py", "uv.lock", "START-STUDIO-WINDOWS.cmd")
     if any(name not in paths for name in mandatory):
         raise ValueError("Compiled application or local start script is absent")
