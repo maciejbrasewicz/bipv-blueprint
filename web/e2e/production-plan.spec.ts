@@ -58,3 +58,43 @@ test("the public production assessment runs and agrees with the working planner"
     fullPage: true,
   });
 });
+
+test("all three sections are reachable from navigation on desktop and phone", async ({
+  page,
+}) => {
+  for (const width of [1440, 360]) {
+    await page.setViewportSize({ width, height: 800 });
+    await page.goto("/");
+    const nav = page.getByRole("navigation", {
+      name: "Sekcje demonstratora",
+    });
+    const studio = nav.getByRole("link", { name: "Studio projektowe" });
+    const tests = nav.getByRole("link", { name: "Testy Electrotile" });
+    const production = nav.getByRole("link", {
+      name: "Kalkulator produkcji",
+    });
+
+    await expect(studio).toHaveAttribute("aria-current", "page");
+    await expect(production).toBeVisible();
+    await production.click();
+    await expect(page).toHaveURL(/\/produkcja$/);
+    await expect(production).toHaveAttribute("aria-current", "page");
+    await expect(page.getByRole("button", { name: "Oblicz plan" })).toBeVisible();
+
+    await tests.click();
+    await expect(page).toHaveURL(/\/testy$/);
+    await expect(tests).toHaveAttribute("aria-current", "page");
+    await studio.click();
+    await expect(page).toHaveURL(/\/$/);
+    await expect(studio).toHaveAttribute("aria-current", "page");
+
+    const linksFit = await nav.locator("a").evaluateAll((links) =>
+      links.every((link) => {
+        const item = link.getBoundingClientRect();
+        const parent = link.parentElement!.getBoundingClientRect();
+        return item.left >= parent.left && item.right <= parent.right;
+      }),
+    );
+    expect(linksFit).toBe(true);
+  }
+});
