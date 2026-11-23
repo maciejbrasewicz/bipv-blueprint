@@ -2993,3 +2993,129 @@ p {
   outline: 2px solid #705523;
   outline-offset: 3px;
 }
+
+/* Product-wide readability pass: the previous 7–9 px labels were not
+   appropriate for a professional engineering workspace. */
+.studio .panel-top {
+  font-size: 11px;
+  color: #48614e;
+  letter-spacing: 0.075em;
+}
+.studio .section-label {
+  font-size: 10px;
+  font-weight: 750;
+  color: #536f58;
+}
+.studio .object-row {
+  font-size: 13px;
+  color: #334e3d;
+}
+.studio .object-row small {
+  font-size: 11px;
+  color: #617763;
+}
+.studio .surface-row {
+  font-size: 12px;
+  color: #435d47;
+}
+.studio .surface-row small {
+  font-size: 10px;
+  color: #607764;
+}
+.studio .field > span,
+.studio .select-field,
+.studio .product-spec,
+.studio .product-spec b,
+.studio .info-note {
+  font-size: 11px;
+  color: #48614e;
+}
+.studio .add-buttons button,
+.studio .select-field select,
+.studio .right-footer p,
+.studio .text-button {
+  font-size: 11px;
+}
+.studio .mode-bar nav button {
+  font-size: 12px;
+  color: #506a56;
+}
+.studio .canvas-label h1 {
+  font-size: clamp(22px, 1.85vw, 28px);
+  font-weight: 600;
+  color: #244233;
+}
+.studio .canvas-label p {
+  font-size: 12px;
+  color: #5b735e;
+}
+.studio .live-label {
+  font-size: 10px;
+  color: #4b6c50;
+}
+.studio .power-card .eyebrow {
+  font-size: 10px;
+  color: #506e52;
+}
+.studio .power-bottom,
+.studio .power-bottom b {
+  font-size: 10px;
+  color: #476344;
+}
+.studio .metric-grid > div > span {
+  font-size: 11px;
+  color: #506d55;
+}
+.studio .metric-grid strong {
+  color: #2f533b;
+  font-weight: 650;
+}
+.studio .variant-dock b {
+  font-size: 12px;
+  color: #3c563e;
+  font-weight: 700;
+}
+.studio .variant-dock b small {
+  font-size: 9px;
+}
+.studio .variant-dock em {
+  font-size: 11px;
+  color: #536d53;
+}
+.studio .status-bar,
+.studio .status-bar button {
+  font-size: 10px;
+  color: #4e6751;
+}
+
+@media (max-width: 700px) {
+  .studio .mode-bar nav button {
+    min-width: 39px;
+    min-height: 42px;
+    justify-content: center;
+    padding: 10px;
+  }
+  .studio .mode-bar nav button span {
+    display: none;
+  }
+  .studio .mode-bar nav button svg {
+    width: 18px;
+    height: 18px;
+  }
+  .studio .canvas-label h1 {
+    font-size: 22px;
+  }
+  .studio .canvas-label p {
+    font-size: 11px;
+  }
+  .studio .variant-dock b {
+    font-size: 11px;
+  }
+  .studio .variant-dock em {
+    font-size: 10px;
+    white-space: normal;
+  }
+  .studio .status-bar {
+    font-size: 9px;
+  }
+}
