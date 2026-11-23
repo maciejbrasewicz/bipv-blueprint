@@ -1047,7 +1047,7 @@ function Studio({
         {mobilePanel && (
           <button
             type="button"
-            className="workbench-scrim"
+            className={"workbench-scrim for-" + mobilePanel}
             aria-label="Zamknij panel boczny"
             onClick={() => setMobilePanel("")}
           />
