@@ -586,6 +586,18 @@ test("a wider chosen building renders actual PV and an older saved footprint can
     await readFile((await (await saved).path())!, "utf8"),
   );
   expect(exported.scene.geometry.surfaces).toEqual(["egib-roof-1"]);
+  await page.getByRole("button", { name: "Eksport", exact: true }).click();
+  const glbDownload = page.waitForEvent("download");
+  await page.getByRole("button", { name: "Model 3D GLB" }).click();
+  const glbBytes = await readFile((await (await glbDownload).path())!);
+  const gltf = await new GLTFLoader().parseAsync(
+    new Uint8Array(glbBytes).buffer,
+    "",
+  );
+  const pvMesh = gltf.scene.getObjectByName("pv_egib-roof-1");
+  expect(pvMesh?.userData.role).toBe("pv");
+  expect(pvMesh?.userData.moduleIds).toHaveLength(count);
+
   // A project saved by a previous release had an empty selection for large footprints.
   exported.scene.geometry.surfaces = [];
   await page.locator('input[type="file"]').setInputFiles({
