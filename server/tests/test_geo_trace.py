@@ -113,7 +113,7 @@ def test_trace_corrects_grid_convergence_off_central_meridian(client):
         [[0, 0], [1, 0], [2, 0]],
         [[0, 0], [61, 0], [61, 5], [0, 5]],
         [[0, 0], [81, 0], [0, 2]],
-        [[0, 0], [17, 0], [17, 17], [0, 17]],
+        [[0, 0], [50, 0], [50, 50], [0, 50]],
     ],
     ids=["crossing", "repeated-vertex", "collinear", "out-of-raster", "out-of-raster-large", "area-limit"],
 )
