@@ -39,6 +39,33 @@ test("premium workbench guides roof selection, design and review at desktop widt
   const controls = await page.locator(".view-controls").boundingBox();
   expect(labels && controls).toBeTruthy();
   expect(controls!.y).toBeGreaterThan(labels!.y + labels!.height + 3);
+  const contrastRatios = await page.evaluate(() => {
+    const luminance = (rgb: string) => {
+      const channels = (rgb.match(/[0-9.]+/g) ?? []).slice(0, 3).map(Number);
+      const linear = channels.map((channel) => {
+        const value = channel / 255;
+        return value <= 0.04045
+          ? value / 12.92
+          : ((value + 0.055) / 1.055) ** 2.4;
+      });
+      return 0.2126 * linear[0] + 0.7152 * linear[1] + 0.0722 * linear[2];
+    };
+    const pairs = [
+      [".left-panel .panel-top", ".left-panel"],
+      [".metric-grid > div > span", ".metric-grid > div"],
+      [".status-bar", ".status-bar"],
+    ];
+    return pairs.map(([label, background]) => {
+      const color = getComputedStyle(document.querySelector(label)!).color;
+      const fill = getComputedStyle(document.querySelector(background)!).backgroundColor;
+      const a = luminance(color);
+      const b = luminance(fill);
+      return { label, contrast: (Math.max(a, b) + 0.05) / (Math.min(a, b) + 0.05) };
+    });
+  });
+  for (const item of contrastRatios) {
+    expect(item.contrast, `WCAG AA text contrast: ${item.label}`).toBeGreaterThanOrEqual(4.5);
+  }
   await page.screenshot({
     path: "test-results/workbench-v2-desktop.jpg",
     type: "jpeg",
@@ -80,6 +107,9 @@ test("360px workbench keeps tools reachable, panels dismissible and content insi
     page.getByRole("link", { name: "Kalkulator produkcji" }),
   ).toBeVisible();
   await expect(page.locator("canvas")).toBeVisible();
+  const viewTool = await page.locator(".view-controls .icon-button").first().boundingBox();
+  expect(viewTool?.width).toBeGreaterThanOrEqual(40);
+  expect(viewTool?.height).toBeGreaterThanOrEqual(40);
   await expect
     .poll(() =>
       page.evaluate(
