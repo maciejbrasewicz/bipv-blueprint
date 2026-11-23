@@ -10,3 +10,9 @@ playwright-report/
 test-results/
 *.pyc
 *.tsbuildinfo
+
+# Locally generated evaluator reports; not source material
+wyniki.xml
+benchmark.json
+wynik-model-3d/
+wynik-przedmiar/
