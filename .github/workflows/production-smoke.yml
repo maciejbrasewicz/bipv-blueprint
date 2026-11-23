@@ -58,6 +58,24 @@ jobs:
           GEO_ENABLED: ${{ steps.deployed.outputs.geo }}
         run: npx playwright test --grep "live cloud isolates"
         working-directory: web
+      - name: Install only the headless browser
+        timeout-minutes: 3
+        run: npx playwright install --only-shell chromium
+        working-directory: web
+      - name: Verify the live studio, UI save and Scene v2 editing
+        env:
+          GEO_ENABLED: ${{ steps.deployed.outputs.geo }}
+        run: |
+          filter="studio renders|Scene v2 hole correction"
+          if [ "$GEO_ENABLED" = true ]; then filter="$filter|location waits|location lets"; fi
+          npx playwright test --grep "$filter"
+        working-directory: web
+      - name: Verify current production Electrotile portal and calculator
+        if: steps.deployed.outputs.demo_lab == 'true'
+        env:
+          LIVE_GEO: '0'
+        run: npx playwright test demo-lab.spec.ts production-plan.spec.ts
+        working-directory: web
       - name: Verify live GUGiK address and footprints
         if: steps.deployed.outputs.geo == 'true'
         timeout-minutes: 3
@@ -84,24 +102,6 @@ jobs:
           assert result["candidates"], "No footprint candidates at the documented GUGiK sample"
           print({"addresses":len(points),"footprints":len(result["candidates"]),"partial":result["partial"]})
           PY
-      - name: Install only the headless browser
-        timeout-minutes: 3
-        run: npx playwright install --only-shell chromium
-        working-directory: web
-      - name: Verify the live studio, UI save and Scene v2 editing
-        env:
-          GEO_ENABLED: ${{ steps.deployed.outputs.geo }}
-        run: |
-          filter="studio renders|Scene v2 hole correction"
-          if [ "$GEO_ENABLED" = true ]; then filter="$filter|location waits|location lets"; fi
-          npx playwright test --grep "$filter"
-        working-directory: web
-      - name: Verify current production Electrotile portal and calculator
-        if: steps.deployed.outputs.demo_lab == 'true'
-        env:
-          LIVE_GEO: '1'
-        run: npx playwright test demo-lab.spec.ts production-plan.spec.ts
-        working-directory: web
       - uses: actions/upload-artifact@v7.0.2
         if: always()
         with:
