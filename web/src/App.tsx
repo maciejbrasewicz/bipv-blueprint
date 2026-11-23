@@ -2040,7 +2040,7 @@ function Studio({
               className="button full"
               onClick={() => void exportModel("glb")}
               disabled={stale || !variant}
-              aria-label="Pobierz zweryfikowaną geometrię GLB"
+              aria-label="Pobierz model 3D GLB"
             >
               <ArrowDownToLine size={16} />
               Model 3D · GLB
