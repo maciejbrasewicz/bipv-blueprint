@@ -29,7 +29,7 @@ test("premium workbench guides roof selection, design and review at desktop widt
   );
   await expect(page.locator(".power-number")).toContainText("kWp");
   await expect(
-    page.getByRole("button", { name: "Pobierz model 3D GLB" }),
+    page.getByRole("button", { name: "Eksportuj bryłę w formacie GLB" }),
   ).toBeEnabled();
   await expect(
     page.getByRole("button", { name: "Ustal lokalizację budynku" }),
