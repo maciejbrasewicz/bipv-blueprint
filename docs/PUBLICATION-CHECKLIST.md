@@ -1,57 +1,48 @@
-# Wydanie źródeł jako publicznego repozytorium — procedura bezpieczna
+# ET/2025/7 — kontrola publicznego repozytorium i wydania
 
-**Nie zmieniaj widoczności dotychczasowego `maciejbrasewicz/bipv-blueprint` na Public.** Ten projekt zawiera wielowersyjną prywatną historię, Pull Requesty, zgłoszenia, logi Actions i dokumentację rozwojową. Po zmianie widoczności stałyby się dostępne publicznie. Bezpieczniejsze jest **nowe repozytorium z jedną kontrolowaną wersją plików**.
+Repozytorium `https://github.com/maciejbrasewicz/bipv-blueprint` jest publiczne.
+**Nie publikuj ponownie historii ani nie twórz bez potrzeby kopii repozytorium.**
+Historia tego repo, stare PR, commity i logi GitHub Actions są dostępne publicznie;
+potwierdź, że nie ujawniają danych wrażliwych. GitHub nie gwarantuje, że
+usunięcie pliku z bieżącej gałęzi usunie go z historii.
 
-## Co trzeba opublikować
+## Kanoniczny sposób oceny
 
-- Źródła aktualnej wersji Studio, Laboratorium i Kalkulatora (bez `node_modules`, `.venv` i `.env`).
-- `LICENSE` — własna restrykcyjna licencja **source-available / evaluation-only**, nie MIT, GPL ani Apache.
-- Profesjonalny `README.md` z linkami do działającej aplikacji i uruchomienia testów.
-- `server/tests`, `tests/fixtures`, `scripts`, `contracts`, `docs` — scenariusze, referencje i metodę oceny.
-- `.github/workflows/source-evaluation.yml`, `.github/workflows/evaluation-release.yml` — niezależne wykonanie testów na GitHubie i zautomatyzowany ZIP Release.
-- Pełny kod `web/src` i `server`, lecz **bez starych gałęzi, prywatnych issue/PR i historii repozytorium**.
+1. **Produkt:** https://bipv-studio-production.up.railway.app/
+2. **Interaktywne testy:** https://bipv-studio-production.up.railway.app/testy
+3. **Kalkulator:** https://bipv-studio-production.up.railway.app/produkcja
+4. **Źródła:** https://github.com/maciejbrasewicz/bipv-blueprint
+5. **Testy CI:** zakładka Actions, workflow Quality gates i Public source evaluation.
+6. **Releases:** pakiet `Registry9-ET-2025-7-Source-and-Tests.zip`,
+   publikowany wyłącznie z zatwierdzonego i przetestowanego tagu
+   `et2025-7-review-vN`. Do chwili publikacji tagu i wydania Releases
+   nie wolno sugerować, że link już istnieje.
+7. **BK2021:** załącz ZIP bezpośrednio do oferty — nie zastępuj go URL.
 
-## Krok 1. Pobierz ZIP z zielonego GitHub Actions
+## Co sprawdzić po aktualizacji main
 
-Z ostatniego poprawnego przebiegu Quality gates (na gałęzi publikacyjnej) pobierz artefakt
-`electrotile-source-review-zip` zawierający
-`Registry9-ET-2025-7-Source-and-Tests.zip`.
+- [ ] Z publicznego okna incognito otwiera się README i `LICENSE`.
+- [ ] Main zawiera `web/src/TestLab.tsx`, `server/demo_lab.py`,
+  `web/src/ProductionStudio.tsx` oraz pełną dokumentację.
+- [ ] GitHub Actions pokazuje SUCCESS dla commita będącego podstawą wydania.
+- [ ] ZIP przechodzi `python scripts/verify_public_review.py PATH_TO_ZIP`.
+- [ ] W ZIP występują prawdziwe źródła i instrukcje lokalnych testów
+  (Python 3.12 i uv; pierwszy `uv sync` wymaga internetu).
+- [ ] Katalogi `.git`, `.venv`, `node_modules` i dane produkcyjne
+  nie trafiły do dystrybucji.
+- [ ] To, że repozytorium jest publiczne, nie oznacza licencji open source:
+  `LICENSE` dopuszcza jedynie ograniczoną ewaluację.
+- [ ] Właściciel praw i uprawnienie do udzielenia licencji zostały sprawdzone.
+- [ ] Oferta zawiera zał. 1, 3, 4, lokalnie uruchamialny ZIP i opis techniczny.
+- [ ] Złożenie oferty następuje wyłącznie w module Oferty BK2021 przed terminem.
 
-Dołączony `SOURCE_COMMIT.txt` wskazuje dokładny SHA źródła; `MANIFEST.json` i `SHA256SUMS.txt` zawierają spis i skróty wszystkich plików. Nie publikuj ZIP, jeśli CI albo test clean-room nie ma statusu SUCCESS.
+### Ścieżka użytkownika oceniającego
 
-## Krok 2. Stwórz czyste repozytorium
+README → kliknięcie Laboratorium → wykonanie ET-3D-01 i ET-PROD-01
+→ Studio/Kalkulator → repozytorium z kodem → pobranie ZIP
+→ uruchomienie `uv sync --frozen --dev`, `uv run pytest`
+i skryptów odtwarzających próbki → porównanie aktualnego wyniku
+z dołączonym JUnit i benchmarkiem.
 
-W GitHubie: **+ → New repository → Public**, przykładowa nazwa `registry9-bipv-studio`. Nie inicjalizuj repo README, licencją ani `.gitignore`, ponieważ te pliki pochodzą z naszego ZIP.
-
-Po pobraniu i rozpakowaniu źródeł w katalogu docelowym:
-
-```bash
-git init -b main
-git add .
-git commit -m "Registry9 BIPV Studio | ET/2025/7 source-available evaluation release"
-git remote add origin https://github.com/maciejbrasewicz/registry9-bipv-studio.git
-git push -u origin main
-```
-
-To tworzy publiczne repo **z jednym nowym commitem, bez prywatnej historii**. Potrzebne są lokalny Git i uwierzytelnienie do GitHuba. Adres `registry9-bipv-studio` jest proponowany i będzie działał dopiero po rzeczywistym utworzeniu repo.
-
-## Krok 3. CI i Releases
-
-Nowe repo zawiera własne workflow:
-
-1. `Public source evaluation` — Python, Chrome/Playwright, zbudowanie UI oraz clean-room test ZIP. Poczekaj na SUCCESS.
-2. Utwórz tag `et2025-7-review-v1` wskazujący poprawny commit `main`, a GitHub Actions uruchomi `Publish evaluation ZIP release` i dołączy testowy ZIP do **Releases**. Dopóki ta operacja się nie zakończy, nie podawaj linku do Releases jako działającego.
-
-Na karcie repozytorium README ma prowadzić do https://bipv-studio-production.up.railway.app/testy, a następnie do konkretnych testów i kodu.
-
-## Krok 4. Check before submission
-
-- [ ] Publiczna strona repo otwiera się w oknie incognito.
-- [ ] GitHub Actions pokazuje nowe SUCCESS po publikacji (nie używa prywatnej historii).
-- [ ] ZIP z Releases pobiera się bez logowania i przechodzi `python scripts/verify_public_review.py ...`.
-- [ ] Testy uruchamiają się po rozpakowaniu i `uv sync --frozen --dev`, bez konta Registry9.
-- [ ] Żaden publiczny plik nie zawiera tajnego klucza, danych klientów, pełnych wewnętrznych planów finansowych ani prywatnych rozmów.
-- [ ] Treść `LICENSE` określa prawidłowego **właściciela praw majątkowych**. Jeżeli właścicielem kodu jest formalnie spółka, należy odpowiednio skorygować notice (co może wymagać sprawdzenia umów i autorstwa). Konsekwencje prawne restrykcyjnej licencji warto potwierdzić z prawnikiem.
-- [ ] Publikacja nie jest mylona z open-source: GitHub nadal uprawnia do przeglądania i forkowania publicznych źródeł zgodnie z regulaminem.
-
-**W ofercie:** publiczny link do Laboratorium, publiczny link do nowego repozytorium i GitHub Release, plus obowiązkowy ZIP testów dołączony jako plik w BK2021, nie jedynie URL.
+**Ważne rozgraniczenie:** wyniki dotyczą własnego demonstratora Registry9
+i próbek syntetycznych. Nie są wynikiem odbioru rzeczywistych modułów Electrotile.
