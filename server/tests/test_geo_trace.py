@@ -201,7 +201,10 @@ def test_large_egib_footprint_produces_real_layout_and_export(client):
     selected = layout["variants"][0]
     exported = client.post("/api/model.obj", json={"geometry": geometry, "variant": selected["id"]})
     assert exported.status_code == 200, exported.text
-    assert sum(line.startswith("g module_") for line in exported.text.splitlines()) == selected["module_count"]
+    assert (
+        sum(line.startswith("g module_") for line in exported.text.splitlines())
+        == selected["module_count"]
+    )
 
 
 @pytest.mark.parametrize("width,depth", [(20, 20), (40, 20), (45, 35)])
