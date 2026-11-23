@@ -96,7 +96,7 @@ test("360px workbench keeps tools reachable, panels dismissible and content insi
   await page.getByRole("button", { name: "Wyniki projektu" }).click();
   await expect(page.locator(".right-panel.mobile-open")).toBeVisible();
   await expect(
-    page.getByRole("button", { name: "Pobierz zweryfikowaną geometrię GLB" }),
+    page.getByRole("button", { name: "Eksportuj bryłę w formacie GLB" }),
   ).toBeVisible();
   await page.getByRole("button", { name: "Zamknij panel boczny" }).click();
   await expect(page.locator(".right-panel.mobile-open")).toHaveCount(0);
