@@ -72,7 +72,10 @@ export default function ProjectJourney({
         >
           <span className="journey-number">02</span>
           <span className="journey-text">
-            <strong>Rozmieszczenie</strong>
+            <strong>
+              <span className="journey-title-wide">Rozmieszczenie</span>
+              <span className="journey-title-compact">Układ PV</span>
+            </strong>
             <small>
               {busy
                 ? "Trwa obliczanie"
@@ -98,7 +101,10 @@ export default function ProjectJourney({
         >
           <span className="journey-number">03</span>
           <span className="journey-text">
-            <strong>Kontrola danych</strong>
+            <strong>
+              <span className="journey-title-wide">Kontrola danych</span>
+              <span className="journey-title-compact">Kontrola</span>
+            </strong>
             <small>
               {estimated ? "Geometria szacowana" : "Źródła i ograniczenia"}
             </small>
