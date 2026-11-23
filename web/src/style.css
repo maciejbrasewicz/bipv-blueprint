@@ -2139,6 +2139,34 @@ p {
   background: #355447;
 }
 
+.portal-nav .nav-compact {
+  display: none;
+}
+
+@media (max-width: 700px) {
+  .portal-nav {
+    flex-wrap: nowrap;
+    justify-content: space-between;
+    gap: 4px;
+    padding: 5px 8px;
+  }
+
+  .portal-nav a {
+    min-width: 0;
+    padding: 0 5px;
+    font-size: 12px;
+    gap: 5px;
+  }
+
+  .portal-nav .nav-wide {
+    display: none;
+  }
+
+  .portal-nav .nav-compact {
+    display: inline;
+  }
+}
+
 .lab-page {
   min-height: 100dvh;
   background: #f2f4ef;
