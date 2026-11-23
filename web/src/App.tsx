@@ -315,7 +315,8 @@ function Studio({
     scene.surfaces[0] ??
     surfaceChoices[0].id;
   const footprintPreview = scene.surfaces.length === 0;
-  const noPanels = !calculating && !error && !!variant && variant.module_count === 0;
+  const noPanels =
+    !calculating && !error && !!variant && variant.module_count === 0;
   const egibEstimate =
     document.schema_version === "2.0.0" &&
     document.surface_evidence.some((item) => item.egib_assumed_height_m);
@@ -1120,7 +1121,10 @@ function Studio({
                 Spróbuj ponownie aktywować obrys; zbyt duży zostanie jawnie
                 odrzucony.
               </p>
-              <button type="button" onClick={() => void activateSavedFootprint()}>
+              <button
+                type="button"
+                onClick={() => void activateSavedFootprint()}
+              >
                 Aktywuj obrys do obliczeń
               </button>
             </div>
